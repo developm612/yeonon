@@ -1,0 +1,35 @@
+---
+interface Step { title: string; body?: string; }
+interface Props {
+  steps: Step[];
+  tone?: 'traveler' | 'brand' | 'jigi';
+  /** horizontal: 데스크톱에서 가로 배치 / vertical: 항상 세로 타임라인 */
+  layout?: 'vertical' | 'horizontal';
+}
+const { steps, tone = 'brand', layout = 'vertical' } = Astro.props;
+const badge = { traveler: 'bg-traveler-strong', brand: 'bg-brand', jigi: 'bg-jigi-strong' }[tone];
+const cols = steps.length === 4 ? 'md:grid-cols-4' : steps.length === 5 ? 'md:grid-cols-5' : 'md:grid-cols-3';
+---
+<ol class:list={['relative grid gap-0', layout === 'horizontal' && `md:gap-6 ${cols}`]}>
+  {steps.map((s, i) => (
+    <li class:list={['relative flex gap-4 pb-8 last:pb-0', layout === 'horizontal' && 'md:flex-col md:pb-0']}>
+      {/* 연결선 */}
+      {i < steps.length - 1 && (
+        <span
+          aria-hidden="true"
+          class:list={[
+            'absolute top-11 bottom-0 left-[21px] w-px bg-border',
+            layout === 'horizontal' && 'md:top-[21px] md:right-[-24px] md:bottom-auto md:left-11 md:h-px md:w-auto',
+          ]}
+        />
+      )}
+      <span class:list={['relative z-10 inline-flex size-11 shrink-0 items-center justify-center rounded-full text-base font-bold text-white', badge]}>
+        {i + 1}
+      </span>
+      <div class="pt-2 md:pt-1">
+        <h3 class="text-lg font-bold">{s.title}</h3>
+        {s.body && <p class="mt-1.5 text-[0.9375rem] text-muted">{s.body}</p>}
+      </div>
+    </li>
+  ))}
+</ol>

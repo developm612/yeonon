@@ -1,0 +1,22 @@
+---
+// <details>/<summary> 기반 아코디언 — JS 없이 키보드·스크린리더 지원
+import Icon from './Icon.astro';
+interface Item { q: string; a: string; }
+interface Props { items: Item[]; }
+const { items } = Astro.props;
+---
+<div class="card divide-y divide-border overflow-hidden">
+  {items.map((item) => (
+    <details class="group">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-5 text-left text-base font-semibold hover:bg-text/[0.02] md:px-7 [&::-webkit-details-marker]:hidden">
+        <span>{item.q}</span>
+        <span class="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-bg text-muted transition-transform group-open:rotate-45">
+          <Icon name="plus" class="size-4" />
+        </span>
+      </summary>
+      <div class="px-5 pb-6 text-[0.9375rem] text-muted md:px-7">
+        <p set:html={item.a} />
+      </div>
+    </details>
+  ))}
+</div>

@@ -1,0 +1,22 @@
+---
+interface Props {
+  title: string;
+  sub?: string;
+  tone?: 'brand' | 'jigi';
+}
+const { title, sub, tone = 'brand' } = Astro.props;
+const bg = tone === 'jigi' ? 'bg-gradient-to-br from-[#0B4F78] to-[#0B6E91]' : 'bg-brand';
+---
+<section class="section pt-0!">
+  <div class="container-page">
+    <div class:list={['relative overflow-hidden rounded-[28px] px-6 py-14 text-center text-white md:px-12 md:py-20', bg]}>
+      <div aria-hidden="true" class="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-white/[0.06]"></div>
+      <div aria-hidden="true" class="pointer-events-none absolute -bottom-28 -left-10 size-72 rounded-full bg-white/[0.05]"></div>
+      <h2 class="relative mx-auto max-w-2xl text-[1.75rem] font-extrabold md:text-[2.5rem]">{title}</h2>
+      {sub && <p class="relative mx-auto mt-4 max-w-xl text-white/80">{sub}</p>}
+      <div class="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <slot />
+      </div>
+    </div>
+  </div>
+</section>

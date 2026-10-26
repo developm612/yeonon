@@ -1,0 +1,20 @@
+---
+// 로고 원본: public/images/logo-power-symbol.png → 여백 제거·투명 배경 처리한 logo.png (495×96)
+interface Props { class?: string; size?: 'sm' | 'md' | 'lg'; }
+const { class: className = '', size = 'md' } = Astro.props;
+const widths = {
+  sm: 'max-w-[96px]',
+  md: 'max-w-[96px] md:max-w-[140px]',
+  lg: 'max-w-[160px]',
+};
+---
+<a href="/" class:list={['inline-flex min-w-0 items-center no-underline', className]} aria-label="YEONON 연온 — home">
+  <img
+    src="/images/logo.png"
+    alt="YEONON"
+    width="495"
+    height="96"
+    class:list={['block h-auto w-full', widths[size]]}
+    decoding="async"
+  />
+</a>

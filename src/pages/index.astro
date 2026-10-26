@@ -1,0 +1,139 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import Button from '../components/Button.astro';
+import Card from '../components/Card.astro';
+import Icon from '../components/Icon.astro';
+import SectionHeading from '../components/SectionHeading.astro';
+import CTASection from '../components/CTASection.astro';
+import { travelerForm } from '../config/site';
+---
+<BaseLayout
+  title="YEONON — Meet a local friend in Seoul"
+  description="Tell us what you love. We'll match you with a Jigi — a local friend in Seongsu, Seoul, who shares your taste — for 3–4 hours of hidden cafés, neighborhood eats, and places you'd never find on a map."
+>
+  <!-- 1. Hero -->
+  <Hero
+    eyebrow="Seongsu, Seoul · Pre-launch"
+    title="Don't just visit Seoul. Meet someone who lives it."
+    sub="Tell us what you love. We'll match you with a Jigi — a local friend in Seongsu who shares your taste — for 3–4 hours of hidden cafés, neighborhood eats, and places you'd never find on a map."
+    image={{
+      src: 'hero.jpg', // TODO: hero image (성수동 거리에서 두 사람이 대화하며 걷는 사진)
+      alt: 'Two people talking as they walk down a street in Seongsu, Seoul',
+      tone: 'brand',
+      caption: 'Seongsu-dong, Seoul',
+    }}
+  >
+    <Fragment slot="actions">
+      <Button href={travelerForm('hero_cta')} external size="lg">Join the early list</Button>
+      <Button href="/how-it-works" variant="secondary" size="lg">See how it works</Button>
+    </Fragment>
+    <p slot="after" class="mt-6">
+      <a href="/jigi" lang="ko" class="inline-flex items-center gap-1.5 text-[0.9375rem] font-semibold text-jigi-strong underline-offset-4 hover:underline">
+        한국인이신가요? 지기로 함께하기 <Icon name="arrow" class="size-4" />
+      </a>
+    </p>
+  </Hero>
+
+  <!-- 2. The problem -->
+  <section class="section bg-surface" aria-labelledby="problem">
+    <div class="container-page">
+      <SectionHeading
+        id="problem"
+        eyebrow="The problem"
+        title="Seoul is busy. Your experience shouldn't be the same as everyone else's."
+      />
+      <div class="mt-10 grid gap-4 md:mt-14 md:grid-cols-3 md:gap-6">
+        <Card title="Same lines, same places" icon="queue" tone="traveler">
+          Seongsu is packed, but most visitors queue at the same few famous shops and walk past the small places in the alleys.
+        </Card>
+        <Card title="Hard to get in" icon="lock" tone="traveler">
+          Pop-ups need sign-ups, restaurants need reservations, and some local rules don't translate.
+        </Card>
+        <Card title="Tours don't fit" icon="bus" tone="traveler">
+          Group tours are pricey, fixed, and stick to the famous spots.
+        </Card>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. The idea -->
+  <section class="section" aria-labelledby="idea">
+    <div class="container-page grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+      <div>
+        <SectionHeading id="idea" eyebrow="The idea" title="Pick a person, not a package." />
+        <p class="lead mt-5">
+          With YEONON, you choose the person first. Your Jigi knows the neighborhood the way locals do — where to eat, which pop-up is worth it, how to order like a regular.
+        </p>
+      </div>
+
+      <ol class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center" aria-label="How a match happens">
+        <li class="card flex flex-1 items-center gap-4 p-5 sm:flex-col sm:text-center">
+          <span class="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-traveler-soft text-traveler-strong">
+            <Icon name="user" class="size-7" />
+          </span>
+          <span class="font-bold">You</span>
+        </li>
+        <li aria-hidden="true" class="flex justify-center text-muted">
+          <Icon name="arrow" class="size-6 rotate-90 sm:rotate-0" />
+        </li>
+        <li class="card flex flex-1 items-center gap-4 border-brand! p-5 sm:flex-col sm:text-center">
+          <span class="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-white">
+            <Icon name="spark" class="size-7" />
+          </span>
+          <span class="font-bold">YEONON matches by taste</span>
+        </li>
+        <li aria-hidden="true" class="flex justify-center text-muted">
+          <Icon name="arrow" class="size-6 rotate-90 sm:rotate-0" />
+        </li>
+        <li class="card flex flex-1 items-center gap-4 p-5 sm:flex-col sm:text-center">
+          <span class="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-jigi-soft text-jigi-strong">
+            <Icon name="heart" class="size-7" />
+          </span>
+          <span class="font-bold">Your Jigi</span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 4. Why YEONON -->
+  <section class="section bg-surface" aria-labelledby="why">
+    <div class="container-page">
+      <SectionHeading id="why" eyebrow="Why YEONON" title="Travel that starts with people, not products." />
+      <div class="mt-10 grid gap-4 md:mt-14 md:grid-cols-3 md:gap-6">
+        <Card title="People first" icon="users">Good company makes a good trip.</Card>
+        <Card title="Matched by taste" icon="spark">Interests, language, schedule, and travel style.</Card>
+        <Card title="A real connection" icon="heart">Leave Seoul with a friend, not just photos.</Card>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Two doors -->
+  <section class="section" aria-label="Choose your path">
+    <div class="container-page grid gap-4 md:grid-cols-2 md:gap-6">
+      <a href="/travelers" class="group card relative flex min-h-[260px] flex-col overflow-hidden p-7 transition-shadow hover:shadow-lg md:p-10">
+        <span aria-hidden="true" class="absolute inset-x-0 top-0 h-1.5 bg-traveler"></span>
+        <span class="inline-flex size-12 items-center justify-center rounded-xl bg-traveler-soft text-traveler-strong"><Icon name="map" /></span>
+        <h2 class="mt-6 text-2xl font-extrabold md:text-3xl">Traveling to Seoul?</h2>
+        <p class="mt-2 text-muted">Meet a local friend who shares your taste.</p>
+        <span class="mt-auto inline-flex items-center gap-2 pt-8 font-semibold text-traveler-strong">
+          Find your Jigi <Icon name="arrow" class="size-5 transition-transform group-hover:translate-x-1" />
+        </span>
+      </a>
+      <a href="/jigi" lang="ko" class="group card relative flex min-h-[260px] flex-col overflow-hidden p-7 transition-shadow hover:shadow-lg md:p-10">
+        <span aria-hidden="true" class="absolute inset-x-0 top-0 h-1.5 bg-jigi"></span>
+        <span class="inline-flex size-12 items-center justify-center rounded-xl bg-jigi-soft text-jigi-strong"><Icon name="pin" /></span>
+        <h2 class="mt-6 text-2xl font-extrabold md:text-3xl">성수동을 잘 아는 한국인이신가요?</h2>
+        <p class="mt-2 text-muted">내 동네를 여행자에게 소개하는 현지 친구가 되어 주세요.</p>
+        <span class="mt-auto inline-flex items-center gap-2 pt-8 font-semibold text-jigi-strong">
+          지기로 지원하기 <Icon name="arrow" class="size-5 transition-transform group-hover:translate-x-1" />
+        </span>
+      </a>
+    </div>
+  </section>
+
+  <!-- 6. Final CTA -->
+  <CTASection title="Be one of our first travelers in Seongsu.">
+    <Button href={travelerForm('final_cta')} external size="lg" class="bg-white! text-brand! hover:bg-bg!">Join the early list</Button>
+  </CTASection>
+</BaseLayout>

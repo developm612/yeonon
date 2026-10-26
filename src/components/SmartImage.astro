@@ -1,0 +1,62 @@
+---
+/**
+ * public/images/ 에 파일이 있으면 이미지를, 없으면 브랜드 색 그라디언트 플레이스홀더를 렌더링한다.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+
+interface Props {
+  src: string; // public/images/ 기준 파일명
+  alt: string;
+  tone?: 'traveler' | 'brand' | 'jigi';
+  caption?: string;
+  class?: string;
+  eager?: boolean;
+}
+const { src, alt, tone = 'brand', caption, class: className = '', eager = false } = Astro.props;
+const exists = fs.existsSync(path.join(process.cwd(), 'public', 'images', src));
+
+const gradients = {
+  brand: 'from-[#0B3D91] via-[#1A5FD0] to-[#22C8F5]',
+  traveler: 'from-[#1A5FD0] via-[#3B8BF5] to-[#9FD8FF]',
+  jigi: 'from-[#0B6E91] via-[#19B5E6] to-[#0B3D91]',
+};
+---
+{exists ? (
+  <img
+    src={`/images/${src}`}
+    alt={alt}
+    class:list={['h-full w-full object-cover', className]}
+    loading={eager ? 'eager' : 'lazy'}
+    decoding="async"
+  />
+) : (
+  <div
+    role="img"
+    aria-label={alt}
+    class:list={['relative h-full w-full overflow-hidden bg-gradient-to-br', gradients[tone], className]}
+  >
+    <!-- 장식: 골목 원근선과 두 사람의 실루엣(뒷모습) -->
+    <svg class="absolute inset-0 h-full w-full opacity-90" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <g fill="none" stroke="white" stroke-opacity=".18" stroke-width="1.5">
+        <path d="M0 300 L170 120 M400 300 L230 120 M60 300 L185 120 M340 300 L215 120" />
+        <path d="M0 80 h150 v40 h-150z M250 70 h150 v50 h-150z" />
+      </g>
+      <circle cx="320" cy="60" r="70" fill="white" fill-opacity=".10" />
+      <circle cx="60" cy="250" r="90" fill="white" fill-opacity=".07" />
+      <g fill="white" fill-opacity=".92">
+        <circle cx="182" cy="168" r="11" />
+        <path d="M168 186 q14 -8 28 0 l4 50 h-36z" />
+        <path d="M172 236 h8 v34 h-8z M184 236 h8 v34 h-8z" />
+        <circle cx="222" cy="162" r="12" />
+        <path d="M207 181 q15 -8 30 0 l4 55 h-38z" />
+        <path d="M211 236 h9 v36 h-9z M224 236 h9 v36 h-9z" />
+      </g>
+    </svg>
+    {caption && (
+      <span class="absolute bottom-3 left-3 rounded-full bg-black/25 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+        {caption}
+      </span>
+    )}
+  </div>
+)}

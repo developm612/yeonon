@@ -1,0 +1,129 @@
+---
+import Logo from './Logo.astro';
+import Button from './Button.astro';
+import Icon from './Icon.astro';
+import { travelerForm } from '../config/site';
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const links = [
+  { href: '/how-it-works', label: 'How it works', lang: 'en' },
+  { href: '/travelers', label: 'For Travelers', lang: 'en' },
+  { href: '/jigi', label: '지기 지원하기', lang: 'ko' },
+];
+---
+<header class="sticky top-0 z-40 border-b border-border/70 bg-bg/90 backdrop-blur-md">
+  <!-- 모바일: [로고 | 여행자·지기 전환 | 메뉴] 3열, 가운데 열이 화면 정중앙 / 데스크톱: 로고 + 내비 -->
+  <div class="container-page grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-2 md:flex md:h-[72px] md:justify-between md:gap-4">
+    <Logo class="justify-self-start" />
+
+    <nav aria-label="Choose your path" class="md:hidden">
+      <ul class="flex rounded-full border border-border bg-surface p-1 shadow-card">
+        <li>
+          <a
+            href="/travelers"
+            lang="en"
+            aria-current={path === '/travelers' ? 'page' : undefined}
+            class:list={[
+              'flex h-9 items-center rounded-full px-3.5 text-[0.8125rem] font-semibold transition-colors',
+              path === '/travelers' ? 'bg-traveler-strong text-white' : 'text-traveler-strong hover:bg-traveler-soft',
+            ]}
+          >Traveler</a>
+        </li>
+        <li>
+          <a
+            href="/jigi"
+            lang="ko"
+            aria-current={path === '/jigi' ? 'page' : undefined}
+            class:list={[
+              'flex h-9 items-center rounded-full px-4 text-[0.8125rem] font-semibold transition-colors',
+              path === '/jigi' ? 'bg-jigi-strong text-white' : 'text-jigi-strong hover:bg-jigi-soft',
+            ]}
+          >지기</a>
+        </li>
+      </ul>
+    </nav>
+
+    <nav class="hidden items-center gap-1 md:flex" aria-label="Main">
+      {links.map((l) => (
+        <a
+          href={l.href}
+          lang={l.lang}
+          aria-current={path === l.href ? 'page' : undefined}
+          class:list={[
+            'rounded-full px-3.5 py-2 text-[0.9375rem] font-medium transition-colors hover:bg-text/5',
+            l.href === '/jigi' ? 'text-jigi-strong' : path === l.href ? 'text-text' : 'text-muted',
+            path === l.href && 'bg-text/5',
+          ]}
+        >
+          {l.label}
+        </a>
+      ))}
+      <Button href={travelerForm('header_cta')} external class="ml-2">
+        <span lang="en">Join the early list</span>
+      </Button>
+    </nav>
+
+    <button
+      type="button"
+      class="-mr-2 inline-flex size-11 justify-self-end items-center justify-center rounded-full hover:bg-text/5 md:hidden"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+      data-menu-toggle
+    >
+      <span class="sr-only">Menu</span>
+      <span data-icon-open><Icon name="menu" /></span>
+      <span data-icon-close class="hidden"><Icon name="x" /></span>
+    </button>
+  </div>
+
+  <nav id="mobile-menu" class="hidden border-t border-border bg-bg md:hidden" aria-label="Main mobile" data-menu>
+    <ul class="container-page flex flex-col py-2">
+      {links.map((l) => (
+        <li>
+          <a
+            href={l.href}
+            lang={l.lang}
+            aria-current={path === l.href ? 'page' : undefined}
+            class:list={[
+              'flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold',
+              l.href === '/jigi' && 'text-jigi-strong',
+            ]}
+          >
+            {l.label}
+            <Icon name="arrow" class="size-5 text-muted" />
+          </a>
+        </li>
+      ))}
+      <li>
+        <a lang="en" href="/privacy" class="flex items-center justify-between py-4 text-base text-muted">Privacy</a>
+      </li>
+    </ul>
+  </nav>
+</header>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const menu = document.querySelector<HTMLElement>('[data-menu]');
+  const setOpen = (open: boolean) => {
+    toggle?.setAttribute('aria-expanded', String(open));
+    menu?.classList.toggle('hidden', !open);
+    toggle?.querySelector('[data-icon-open]')?.classList.toggle('hidden', open);
+    toggle?.querySelector('[data-icon-close]')?.classList.toggle('hidden', !open);
+  };
+  toggle?.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && toggle?.getAttribute('aria-expanded') === 'true') {
+      setOpen(false);
+      toggle.focus();
+    }
+  });
+  window.matchMedia('(min-width: 768px)').addEventListener('change', (e) => e.matches && setOpen(false));
+
+  // 설문 링크가 아직 TODO인 경우 이동을 막는다
+  document.querySelectorAll('[data-pending-link]').forEach((a) =>
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.warn('[YEONON] Form link is not set yet — see src/config/site.ts');
+    }),
+  );
+</script>

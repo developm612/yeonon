@@ -1,0 +1,17 @@
+---
+import Button from './Button.astro';
+import { travelerForm, jigiForm } from '../config/site';
+interface Props { variant: 'traveler' | 'jigi'; }
+const { variant } = Astro.props;
+---
+<div class="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg/95 px-5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-md md:hidden">
+  {variant === 'jigi' ? (
+    <Button href={jigiForm('sticky_cta')} variant="jigi" external class="w-full">
+      <span lang="ko">지기 지원하기</span>
+    </Button>
+  ) : (
+    <Button href={travelerForm('sticky_cta')} external class="w-full">
+      <span lang="en">Join the early list</span>
+    </Button>
+  )}
+</div>

@@ -1,0 +1,47 @@
+---
+import SmartImage from './SmartImage.astro';
+
+interface Props {
+  eyebrow?: string;
+  title: string;
+  sub: string;
+  image?: { src: string; alt: string; tone?: 'traveler' | 'brand' | 'jigi'; caption?: string };
+  accent?: 'traveler' | 'brand' | 'jigi';
+}
+const { eyebrow, title, sub, image, accent = 'brand' } = Astro.props;
+const dot = { traveler: 'bg-traveler', brand: 'bg-brand', jigi: 'bg-jigi' }[accent];
+const eyebrowColor = { traveler: 'text-traveler-strong', brand: 'text-brand', jigi: 'text-jigi-strong' }[accent];
+---
+<section class="relative overflow-hidden">
+  <div
+    class:list={[
+      'container-page grid items-center gap-10 pt-10 pb-16 md:pt-16 lg:gap-14 lg:pt-20 lg:pb-24',
+      image ? 'lg:grid-cols-[1.1fr_1fr]' : 'max-w-3xl text-center',
+    ]}
+  >
+    <div class:list={[!image && 'mx-auto']}>
+      {eyebrow && (
+        <p class:list={['eyebrow', eyebrowColor]}>
+          <span class:list={['size-2 rounded-full', dot]} aria-hidden="true"></span>
+          {eyebrow}
+        </p>
+      )}
+      <h1 class="mt-4 text-[2.125rem] leading-[1.12] font-extrabold sm:text-5xl lg:text-[3.5rem]">
+        {title}
+      </h1>
+      <p class:list={['lead mt-5 max-w-xl', !image && 'mx-auto']}>{sub}</p>
+      <div class:list={['mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center', !image && 'sm:justify-center']}>
+        <slot name="actions" />
+      </div>
+      <slot name="after" />
+    </div>
+
+    {image && (
+      <div class="relative">
+        <div class="aspect-[4/3] overflow-hidden rounded-[24px] shadow-card lg:aspect-[5/6]">
+          <SmartImage {...image} eager />
+        </div>
+      </div>
+    )}
+  </div>
+</section>

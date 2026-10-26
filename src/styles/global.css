@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme {
+  /* 브랜드 색상 토큰 — 로고(YEON ON) 기반 블루톤 */
+  --color-bg: #F5F8FD;              /* 아주 옅은 블루 화이트 배경 */
+  --color-surface: #FFFFFF;
+  --color-text: #0F1E3A;            /* 딥 네이비 */
+  --color-muted: #55617A;
+  --color-border: #DCE4F0;
+
+  /* 연온·매칭·신뢰: 로고의 'YEON' 네이비 */
+  --color-brand: #0B3D91;
+  --color-brand-soft: #E6EDF9;
+  /* 여행자: 로고의 'ON' 블루 */
+  --color-traveler: #2A7BF4;        /* 장식·아이콘용 */
+  --color-traveler-strong: #1A5FD0; /* 버튼 배경·텍스트 (흰 글자 AA 대비) */
+  --color-traveler-soft: #E7F0FE;
+  /* 지기: 로고 전원 심볼의 시안 */
+  --color-jigi: #19B5E6;            /* 장식·아이콘용 */
+  --color-jigi-strong: #0B6E91;     /* 버튼 배경·텍스트 (AA 대비) */
+  --color-jigi-soft: #E3F5FC;
+
+  --font-sans: "Inter", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-ko: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+
+  --shadow-card: 0 1px 2px rgb(31 42 46 / 0.04), 0 4px 16px rgb(31 42 46 / 0.04);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  html[lang="ko"] body {
+    font-family: var(--font-ko);
+    word-break: keep-all;
+  }
+  /* 영문 페이지 안의 한글 블록 */
+  [lang="ko"] {
+    word-break: keep-all;
+  }
+  h1, h2, h3 {
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-brand);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 1120px;
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+  @media (min-width: 768px) {
+    .container-page { padding-inline: 32px; }
+  }
+  .section {
+    padding-block: 64px;
+  }
+  @media (min-width: 1024px) {
+    .section { padding-block: 112px; }
+  }
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 18px;
+    box-shadow: var(--shadow-card);
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--color-brand);
+  }
+  .h-section {
+    font-size: clamp(1.625rem, 4vw, 2.5rem);
+    font-weight: 800;
+  }
+  .lead {
+    font-size: 1.0625rem;
+    color: var(--color-muted);
+  }
+  @media (min-width: 768px) {
+    .lead { font-size: 1.1875rem; }
+  }
+}

@@ -1,0 +1,53 @@
+---
+// 매칭 기준 시각화 — 장식용 정적 그래픽 (실제 계산 없음)
+import Icon from './Icon.astro';
+
+const must = [
+  { label: 'Language', icon: 'globe' as const },
+  { label: 'Date & time', icon: 'calendar' as const },
+];
+const taste = [
+  { label: 'Interests', w: 90 },
+  { label: 'Travel style', w: 70 },
+  { label: 'Area', w: 55 },
+];
+---
+<figure class="card p-5 md:p-8">
+  <div class="grid items-center gap-6 md:grid-cols-[1fr_auto_1.3fr] md:gap-8">
+    <div>
+      <p class="text-xs font-bold tracking-[0.12em] text-muted uppercase">Step 1 · Must match</p>
+      <ul class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-1">
+        {must.map((m) => (
+          <li class="flex items-center gap-3 rounded-xl border-2 border-brand bg-brand-soft px-4 py-3.5 font-semibold text-brand">
+            <Icon name={m.icon} class="size-5 shrink-0" />
+            <span>{m.label}</span>
+            <Icon name="check" class="ml-auto hidden size-5 sm:block" />
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <div class="flex justify-center text-muted" aria-hidden="true">
+      <Icon name="arrow" class="size-7 rotate-90 md:rotate-0" />
+    </div>
+
+    <div>
+      <p class="text-xs font-bold tracking-[0.12em] text-muted uppercase">Step 2 · Taste score</p>
+      <ul class="mt-3 space-y-4">
+        {taste.map((t) => (
+          <li>
+            <div class="flex justify-between text-[0.9375rem] font-semibold">
+              <span>{t.label}</span>
+            </div>
+            <div class="mt-1.5 h-3 overflow-hidden rounded-full bg-bg">
+              <div class="h-full rounded-full bg-gradient-to-r from-jigi to-traveler" style={`width:${t.w}%`}></div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+  <figcaption class="mt-7 border-t border-border pt-5 text-[0.9375rem] text-muted italic">
+    Right now, our team matches by hand. As more meetups happen, feedback helps us build smarter matching.
+  </figcaption>
+</figure>

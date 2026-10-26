@@ -1,0 +1,27 @@
+---
+import Icon, { type IconName } from './Icon.astro';
+
+interface Props {
+  title: string;
+  icon?: IconName;
+  tone?: 'traveler' | 'brand' | 'jigi';
+  class?: string;
+}
+const { title, icon, tone = 'brand', class: className = '' } = Astro.props;
+const toneClass = {
+  traveler: 'bg-traveler-soft text-traveler-strong',
+  brand: 'bg-brand-soft text-brand',
+  jigi: 'bg-jigi-soft text-jigi-strong',
+}[tone];
+---
+<article class:list={['card p-6 md:p-7', className]}>
+  {icon && (
+    <span class:list={['inline-flex size-11 items-center justify-center rounded-xl', toneClass]}>
+      <Icon name={icon} />
+    </span>
+  )}
+  <h3 class:list={['text-lg font-bold', icon && 'mt-5']}>{title}</h3>
+  <div class="mt-2 text-[0.9375rem] text-muted">
+    <slot />
+  </div>
+</article>
