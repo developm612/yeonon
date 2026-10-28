@@ -1,0 +1,176 @@
+---
+/**
+ * /app-preview-jigi 하단 지기 사전 신청 폼.
+ * 제출 데이터는 SITE.waitlistEndpoint(대기자 폼과 같은 Apps Script)로 form=jigi와 함께 POST 되고 'Jigi' 시트에 저장된다.
+ * 사이트 자체에는 저장하지 않음. 동작은 scripts/jigiApply.ts.
+ */
+import Icon from '../Icon.astro';
+import { SITE, isTodo } from '../../config/site';
+
+const ages = ['20대', '30대', '40대', '50대 이상'];
+const relations = ['성수동에 살아요', '성수동에서 일해요', '성수동 근처 학교에 다녀요', '성수동에 자주 놀러 가요', '기타'];
+const languages = ['영어', '일본어', '중국어', '기타 외국어'];
+const availability = ['평일 낮', '평일 저녁', '주말'];
+const sources = ['인스타그램', '지인 소개', '대학·학교 커뮤니티', '지역 커뮤니티(당근 등)', '검색', '기타'];
+
+const email = SITE.contactEmail;
+const retention = isTodo(SITE.retentionPeriod)
+  ? '사전 모집 기간 동안만 보관하며, 언제든 삭제를 요청할 수 있어요.'
+  : SITE.retentionPeriod;
+
+const field = 'mt-2 block h-[52px] w-full rounded-[14px] border border-border bg-surface px-4 text-[0.9375rem] text-text transition-colors placeholder:text-muted/80 hover:border-muted/60 focus:border-jigi-strong focus:outline-none focus:ring-3 focus:ring-jigi/20';
+const select = `${field} appearance-none pr-11`;
+const label = 'block text-[0.9375rem] font-semibold';
+const optional = 'font-normal text-muted';
+const check = 'mt-0.5 size-[18px] shrink-0 cursor-pointer accent-jigi-strong';
+const pill = 'flex min-h-11 cursor-pointer items-center gap-2 rounded-[12px] border border-border px-3.5 text-[0.9375rem] has-checked:border-jigi-strong has-checked:bg-jigi-soft';
+const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top-1/2 right-4 mt-1 size-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+---
+<section id="jigi-apply" lang="ko" class="scroll-mt-20 bg-gradient-to-b from-white via-white to-jigi-soft pb-20 md:pb-28" aria-labelledby="ja-title">
+  <div class="container-page pt-16 text-center md:pt-20">
+    <p class="text-[0.8125rem] font-bold tracking-[0.14em] text-jigi-strong">성수동 지기 1기 사전 모집</p>
+    <h2 id="ja-title" class="mt-2 text-[2rem] leading-tight font-extrabold md:text-[2.75rem]">지기 사전 신청</h2>
+    <p class="mx-auto mt-3 max-w-md text-[0.9375rem] text-muted md:text-base">
+      신청해 주시면 짧은 인터뷰 일정을 먼저 연락드려요. 가이드 자격증은 필요 없어요.
+    </p>
+    <p class="mt-5 inline-flex items-center gap-2 rounded-full border border-jigi/30 bg-surface px-4 py-1.5 text-[0.8125rem] font-semibold text-jigi-strong">
+      <span class="size-1.5 rounded-full bg-jigi" aria-hidden="true"></span>
+      신청 무료 · 정해진 활동 횟수 없음
+    </p>
+  </div>
+
+  <div class="container-page mt-8 md:mt-10">
+    <div class="mx-auto max-w-[560px] rounded-[24px] border border-border bg-surface p-6 text-left shadow-card md:p-8">
+      <form class="space-y-6" novalidate data-jigi-form>
+        <input type="hidden" name="taste" data-ja-taste />
+        <input type="hidden" name="course" data-ja-course />
+        <!-- 스팸 봇 차단용: 사람에게는 보이지 않는 칸 (채워지면 전송하지 않음) -->
+        <div class="absolute -left-[9999px] size-px overflow-hidden" aria-hidden="true">
+          <label for="ja-company">Company</label>
+          <input id="ja-company" name="company" type="text" tabindex="-1" autocomplete="off" data-ja-hp />
+        </div>
+
+        <div>
+          <label for="ja-name" class={label}>이름</label>
+          <input id="ja-name" name="name" type="text" maxlength="30" autocomplete="name" class={field} placeholder="홍길동" />
+        </div>
+
+        <div class="grid gap-6 sm:grid-cols-2">
+          <div>
+            <label for="ja-phone" class={label}>휴대폰 번호</label>
+            <input id="ja-phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" class={field} placeholder="010-1234-5678" />
+          </div>
+          <div>
+            <label for="ja-email" class={label}>이메일</label>
+            <input id="ja-email" name="email" type="email" inputmode="email" maxlength="254" autocomplete="email" autocapitalize="off" spellcheck="false" class={field} placeholder="you@example.com" />
+          </div>
+        </div>
+
+        <div class="grid gap-6 sm:grid-cols-2">
+          <div>
+            <label for="ja-age" class={label}>나이대</label>
+            <div class="relative">
+              <select id="ja-age" name="age_group" class={select}>
+                <option value="" selected disabled>선택해 주세요</option>
+                {ages.map((a) => <option>{a}</option>)}
+              </select>
+              <Fragment set:html={chevron} />
+            </div>
+          </div>
+          <div>
+            <label for="ja-relation" class={label}>성수동과의 관계</label>
+            <div class="relative">
+              <select id="ja-relation" name="seongsu_relation" class={select}>
+                <option value="" selected disabled>선택해 주세요</option>
+                {relations.map((r) => <option>{r}</option>)}
+              </select>
+              <Fragment set:html={chevron} />
+            </div>
+          </div>
+        </div>
+
+        <fieldset>
+          <legend class={label}>대화 가능한 외국어 <span class={optional}>(여러 개 선택 가능)</span></legend>
+          <p class="mt-1 text-[0.8125rem] text-muted">일상 대화가 가능하면 충분해요.</p>
+          <div class="mt-2 grid grid-cols-2 gap-2" data-ja-languages>
+            {languages.map((l) => (
+              <label class={pill}><input type="checkbox" name="languages" value={l} class={check} />{l}</label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend class={label}>활동 가능한 시간 <span class={optional}>(여러 개 선택 가능)</span></legend>
+          <div class="mt-2 grid grid-cols-3 gap-2" data-ja-availability>
+            {availability.map((a) => (
+              <label class={pill}><input type="checkbox" name="availability" value={a} class={check} />{a}</label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div>
+          <label for="ja-intro" class={label}>자기소개</label>
+          <p class="mt-1 text-[0.8125rem] text-muted" id="ja-intro-help">여행자에게 보여 주고 싶은 성수, 나의 단골 장소 등을 자유롭게 적어 주세요. (20~300자)</p>
+          <textarea id="ja-intro" name="intro" rows="4" maxlength="300" aria-describedby="ja-intro-help" class={`${field} h-auto! py-3 leading-relaxed`} placeholder="예) 성수에서 5년째 일하는 디자이너예요. 주말마다 새로 생긴 팝업과 숨은 카페를 찾아다녀요."></textarea>
+          <p class="mt-1 text-right text-[0.8125rem] text-muted tabular-nums" aria-live="polite" data-ja-intro-count>0 / 300</p>
+        </div>
+
+        <div>
+          <label for="ja-insta" class={label}>인스타그램 <span class={optional}>(선택)</span></label>
+          <input id="ja-insta" name="instagram" type="text" maxlength="100" autocomplete="off" autocapitalize="off" spellcheck="false" class={field} placeholder="@yourhandle" />
+        </div>
+
+        <div>
+          <label for="ja-source" class={label}>연온을 어떻게 알게 되셨나요?</label>
+          <div class="relative">
+            <select id="ja-source" name="heard_from" class={select}>
+              <option value="" selected disabled>선택해 주세요</option>
+              {sources.map((s) => <option>{s}</option>)}
+            </select>
+            <Fragment set:html={chevron} />
+          </div>
+        </div>
+
+        <div>
+          <label for="ja-ref" class={label}>추천인 <span class={optional}>(선택)</span></label>
+          <input id="ja-ref" name="referred_by" type="text" maxlength="60" autocomplete="off" class={field} placeholder="추천해 준 분의 이름" />
+        </div>
+
+        <div class="ja-notice max-h-[188px] overflow-y-auto rounded-[14px] bg-bg p-4 text-[0.8125rem] leading-relaxed text-muted" tabindex="0" role="region" aria-label="개인정보 수집·이용 안내">
+          <p class="font-semibold text-text">개인정보 수집·이용 안내</p>
+          <p class="mt-3 font-semibold text-text">1. 이용 목적</p>
+          <p>· 지기 선발 인터뷰 일정 연락, 활동 안내 및 오리엔테이션 안내</p>
+          <p class="mt-3 font-semibold text-text">2. 수집 항목</p>
+          <p>· 이름, 휴대폰 번호, 이메일, 나이대, 성수동과의 관계, 외국어, 활동 가능 시간, 자기소개, 알게 된 경로<br />· 선택: 인스타그램, 추천인<br />· 이 페이지 앱 미리보기에서 고른 취향과 만든 코스 (있는 경우)</p>
+          <p class="mt-3 font-semibold text-text">3. 보관 기간</p>
+          <p>· {retention}</p>
+          <p class="mt-3 font-semibold text-text">4. 동의 거부</p>
+          <p>· 동의하지 않으실 수 있지만, 이 경우 신청이 접수되지 않아요. 삭제를 원하시면 언제든 요청해 주세요{isTodo(email) ? '.' : <> (<a class="font-semibold text-jigi-strong underline" href={`mailto:${email}`}>{email}</a>).</>} 자세한 내용은 <a class="font-semibold text-jigi-strong underline" href="/privacy">개인정보 안내</a>를 확인해 주세요.</p>
+        </div>
+
+        <label class="flex cursor-pointer items-start gap-3 text-[0.9375rem]">
+          <input type="checkbox" name="consent" value="yes" class={check} data-ja-consent />
+          <span>위 안내를 읽었고, 개인정보 수집·이용에 동의합니다. (필수)</span>
+        </label>
+
+        <p class="hidden rounded-[12px] bg-jigi-soft px-4 py-3 text-[0.875rem] font-medium text-[#0B4F68]" role="alert" data-ja-error></p>
+
+        <button type="submit" class="flex h-[56px] w-full items-center justify-center gap-2 rounded-full bg-jigi-strong text-base font-semibold text-white transition-colors hover:bg-[#095a77] disabled:cursor-wait disabled:opacity-70" data-ja-submit>
+          지기 사전 신청하기
+        </button>
+      </form>
+
+      <div class="hidden py-6 text-center" data-ja-success tabindex="-1">
+        <span class="mx-auto flex size-16 items-center justify-center rounded-full bg-jigi-strong text-white" aria-hidden="true">
+          <Icon name="check" class="size-8" />
+        </span>
+        <h3 class="mt-5 text-2xl font-extrabold">신청이 접수됐어요!</h3>
+        <p class="mt-2 text-[0.9375rem] text-muted">인터뷰 일정은 입력하신 휴대폰 번호나 이메일로 먼저 연락드릴게요.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .ja-notice { scrollbar-width: thin; }
+</style>

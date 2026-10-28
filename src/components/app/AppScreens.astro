@@ -1,11 +1,12 @@
 ---
 /**
  * 앱 미리보기의 7개 상태 화면 (393×852 기준).
- * 루트 [data-app]의 data-state 값에 해당하는 [data-screen]만 보인다. 동작은 scripts/appPreview.ts.
+ * 보이는 화면에 .is-active가 붙는다 (scripts/phoneApp.ts). 화면 흐름은 scripts/appPreview.ts, 스타일은 styles/app-preview.css.
  */
 import Icon from '../Icon.astro';
 import SmartImage from '../SmartImage.astro';
 import { INTERESTS, PICK_MAX, PICK_MIN } from '../../data/appPreview';
+import '../../styles/app-preview.css';
 ---
 <div class="absolute inset-0 text-left" data-app data-state="drop">
   <p class="sr-only" aria-live="polite" data-live></p>
@@ -92,7 +93,7 @@ import { INTERESTS, PICK_MAX, PICK_MIN } from '../../data/appPreview';
         <span data-count>0 / {PICK_MAX} selected · pick at least {PICK_MIN}</span>
         <span class="mt-0.5 block h-[18px] text-[13px] font-semibold text-traveler-strong" data-limit-msg aria-live="polite"></span>
       </p>
-      <button type="button" class="find-btn mt-2 flex h-[56px] w-full items-center justify-center gap-2 rounded-full text-[17px] font-semibold" aria-disabled="true" data-find>
+      <button type="button" class="next-btn mt-2 flex h-[56px] w-full items-center justify-center gap-2 rounded-full text-[17px] font-semibold" aria-disabled="true" data-pick-next>
         Find My Jigi <Icon name="arrow" class="size-[20px]" />
       </button>
     </div>
@@ -182,108 +183,3 @@ import { INTERESTS, PICK_MAX, PICK_MIN } from '../../data/appPreview';
     </article>
   </li>
 </template>
-
-<style is:global>
-  [data-app] .app-screen {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    background: #fff;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(24px);
-    transition: opacity 0.4s ease-out, transform 0.4s ease-out, visibility 0s linear 0.4s;
-  }
-  /* 스플래시는 위로 사라진다 */
-  [data-app] [data-screen='splash'] { transform: translateY(-24px); }
-
-  [data-app][data-state='drop'] [data-screen='drop'],
-  [data-app][data-state='splash'] [data-screen='splash'],
-  [data-app][data-state='home'] [data-screen='home'],
-  [data-app][data-state='select'] [data-screen='select'],
-  [data-app][data-state='matching'] [data-screen='matching'],
-  [data-app][data-state='found'] [data-screen='found'],
-  [data-app][data-state='results'] [data-screen='results'] {
-    opacity: 1;
-    visibility: visible;
-    transform: none;
-    transition: opacity 0.4s ease-out, transform 0.4s ease-out, visibility 0s;
-  }
-
-  [data-app] [data-screen='splash'] .splash-inner { opacity: 0; transform: scale(0.95); transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
-  [data-app][data-state='splash'] .splash-inner { opacity: 1; transform: scale(1); }
-
-  [data-app] .app-scroll { scrollbar-width: none; overscroll-behavior: contain; }
-  [data-app] .app-scroll::-webkit-scrollbar { display: none; }
-
-  /* 취향 칩 */
-  [data-app] .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    height: 44px;
-    padding: 0 15px;
-    border-radius: 999px;
-    border: 1px solid var(--color-border);
-    background: #fff;
-    font-size: 14.5px;
-    font-weight: 600;
-    color: var(--color-text);
-    transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out, opacity 0.2s ease-out;
-  }
-  [data-app] .chip:hover { border-color: var(--color-muted); }
-  [data-app] .chip .chip-check { display: none; }
-  [data-app] .chip[aria-pressed='true'] { background: var(--color-traveler-strong); border-color: var(--color-traveler-strong); color: #fff; }
-  [data-app] .chip[aria-pressed='true'] .chip-check { display: block; }
-  [data-app] [data-chips].is-maxed .chip[aria-pressed='false'] { opacity: 0.45; }
-  [data-app] .chip.is-shake { animation: chip-shake 0.35s ease-out; }
-  @keyframes chip-shake {
-    20%, 60% { transform: translateX(-5px); }
-    40%, 80% { transform: translateX(5px); }
-  }
-
-  [data-app] .find-btn { background: var(--color-border); color: var(--color-muted); cursor: not-allowed; transition: background-color 0.3s ease-out, color 0.3s ease-out; }
-  [data-app] .find-btn[aria-disabled='false'] { background: var(--color-traveler-strong); color: #fff; cursor: pointer; }
-  [data-app] .find-btn[aria-disabled='false']:hover { background: #134fb0; }
-
-  /* 매칭 로딩: 선택한 칩이 원을 그리며 돈다 */
-  [data-app] .orbit { animation: orbit-spin 9s linear infinite; }
-  [data-app] .orbit-chip {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(var(--a)) translateX(118px) rotate(calc(-1 * var(--a)));
-  }
-  [data-app] .orbit-chip > span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 52px;
-    height: 52px;
-    border-radius: 999px;
-    background: var(--color-traveler-soft);
-    border: 2px solid #fff;
-    box-shadow: var(--shadow-card);
-    font-size: 24px;
-    animation: orbit-spin 9s linear infinite reverse;
-  }
-  @keyframes orbit-spin { to { transform: rotate(360deg); } }
-  [data-app] .pulse-ring { animation: pulse 1.6s ease-out infinite; }
-  @keyframes pulse {
-    0% { transform: scale(1); opacity: 0.8; }
-    100% { transform: scale(1.9); opacity: 0; }
-  }
-  [data-app] .dots span { width: 8px; height: 8px; border-radius: 999px; background: var(--color-traveler-strong); animation: dot 1s ease-in-out infinite; }
-  [data-app] .dots span:nth-child(2) { animation-delay: 0.15s; }
-  [data-app] .dots span:nth-child(3) { animation-delay: 0.3s; }
-  @keyframes dot { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-4px); } }
-
-  /* 찾았어요 */
-  [data-app][data-state='found'] .found-check { animation: pop 0.5s cubic-bezier(0.22, 1.4, 0.36, 1) both; }
-  @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
-
-  /* 결과 카드: 0.1초 간격으로 올라오며 등장 */
-  [data-app] .jigi-card { animation: card-in 0.45s ease-out both; animation-delay: var(--delay, 0ms); }
-  @keyframes card-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-</style>

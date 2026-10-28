@@ -1,0 +1,285 @@
+---
+/**
+ * 지기용 앱 미리보기 화면 (393×852 기준).
+ * drop → splash → home → taste → course → preview → publishing → done
+ * 보이는 화면에 .is-active가 붙는다 (scripts/phoneApp.ts). 화면 흐름은 scripts/jigiPreview.ts.
+ */
+import Icon from '../Icon.astro';
+import { COURSE_MAX, COURSE_MIN, START_TIMES, TASTES, TASTE_MAX, TASTE_MIN } from '../../data/jigiPreview';
+import '../../styles/app-preview.css';
+
+const back = '-ml-2 inline-flex size-[44px] items-center justify-center rounded-full hover:bg-text/5';
+const h2 = 'text-[26px] leading-[1.2] font-extrabold tracking-tight outline-none';
+---
+<div class="absolute inset-0 text-left" data-app="jigi" data-state="drop" lang="ko">
+  <p class="sr-only" aria-live="polite" data-live></p>
+
+  <!-- 1. drop: 빈 흰 화면 -->
+  <section data-screen="drop" class="app-screen" aria-hidden="true"></section>
+
+  <!-- 2. splash -->
+  <section data-screen="splash" class="app-screen items-center justify-center">
+    <div class="splash-inner flex flex-col items-center">
+      <img src="/images/logo.png" alt="YEONON" width="220" height="43" class="w-[220px]" />
+      <span class="mt-4 rounded-full bg-jigi-soft px-3 py-1 text-[13px] font-bold text-jigi-strong">지기 파트너</span>
+      <div class="mt-8 h-[4px] w-[160px] overflow-hidden rounded-full bg-border" aria-hidden="true">
+        <div class="h-full w-0 rounded-full bg-jigi-strong" data-splash-bar></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. home -->
+  <section data-screen="home" class="app-screen px-6 pt-[62px] pb-[96px]">
+    <div class="flex items-center justify-between">
+      <span class="flex items-center gap-2">
+        <img src="/images/logo.png" alt="YEONON" width="108" height="21" class="w-[108px]" />
+        <span class="rounded-full bg-jigi-soft px-2 py-0.5 text-[11px] font-bold text-jigi-strong">지기</span>
+      </span>
+      <span aria-hidden="true" class="inline-flex size-[38px] items-center justify-center rounded-full bg-jigi-soft text-jigi-strong">
+        <Icon name="user" class="size-[20px]" />
+      </span>
+    </div>
+    <p class="mt-7 text-[15px] font-medium text-muted">안녕하세요, 지기님 👋</p>
+    <h2 class="mt-1.5 text-[28px] leading-[1.22] font-extrabold tracking-tight outline-none" tabindex="-1" data-focus>
+      내가 아끼는 성수를<br />여행자와 나눠 보세요
+    </h2>
+    <p class="mt-3 text-[15px] leading-[1.55] text-muted">
+      취향을 고르고 나만의 코스를 만들면, 취향이 맞는 여행자와 연결돼요.
+    </p>
+
+    <ol class="mt-6 space-y-2.5">
+      {[
+        { icon: 'heart', title: '내 취향 고르기', sub: '여행자와 나누고 싶은 것' },
+        { icon: 'map', title: '나만의 코스 만들기', sub: '단골 장소를 골라 순서대로' },
+        { icon: 'globe', title: '여행자에게 보이는 모습 확인', sub: '코스 카드 미리보기' },
+      ].map((s, i) => (
+        <li class="flex items-center gap-3.5 rounded-[16px] bg-bg px-4 py-3.5">
+          <span class="flex size-[40px] shrink-0 items-center justify-center rounded-full bg-white text-jigi-strong shadow-card" aria-hidden="true">
+            <Icon name={s.icon as 'heart'} class="size-[20px]" />
+          </span>
+          <span>
+            <span class="block text-[15px] font-bold"><span class="text-jigi-strong">{i + 1}.</span> {s.title}</span>
+            <span class="block text-[13px] text-muted">{s.sub}</span>
+          </span>
+        </li>
+      ))}
+    </ol>
+
+    <button type="button" class="app-btn mt-auto flex h-[56px] w-full items-center justify-center gap-2 rounded-full text-[17px] font-semibold" data-go="taste">
+      지기 시작하기 <Icon name="arrow" class="size-[20px]" />
+    </button>
+
+    <!-- 탭바 (장식) -->
+    <nav aria-hidden="true" class="absolute inset-x-0 bottom-0 grid h-[84px] grid-cols-4 border-t border-border bg-white px-3 pt-2 pb-[26px] text-[10.5px] font-medium text-muted">
+      <span class="flex flex-col items-center gap-1 text-jigi-strong">
+        <svg class="size-[24px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20h-5.5v-6h-5v6H4z"/></svg>홈
+      </span>
+      <span class="flex flex-col items-center gap-1"><Icon name="map" class="size-[24px]" />내 코스</span>
+      <span class="flex flex-col items-center gap-1"><Icon name="chat" class="size-[24px]" />채팅</span>
+      <span class="flex flex-col items-center gap-1"><Icon name="user" class="size-[24px]" />프로필</span>
+    </nav>
+  </section>
+
+  <!-- 4. taste: 취향 고르기 -->
+  <section data-screen="taste" class="app-screen pt-[58px]">
+    <div class="px-5">
+      <button type="button" class={back} data-go="home"><Icon name="arrow" class="size-[22px] rotate-180" /><span class="sr-only">뒤로</span></button>
+      <p class="mt-1 text-[13px] font-bold text-jigi-strong">1 / 3</p>
+      <h2 class={`mt-0.5 ${h2}`} tabindex="-1" data-focus>나는 어떤 지기인가요?</h2>
+      <p class="mt-1.5 text-[15px] text-muted">여행자와 나누고 싶은 취향을 {TASTE_MIN}~{TASTE_MAX}개 골라 주세요.</p>
+    </div>
+
+    <div class="app-scroll mt-4 flex-1 overflow-y-auto px-5 pb-4">
+      <ul class="flex flex-wrap gap-2" data-chips aria-label="취향">
+        {TASTES.map((t) => (
+          <li>
+            <button type="button" class="chip" aria-pressed="false" data-chip={t.id}>
+              <span aria-hidden="true">{t.emoji}</span>
+              <span>{t.label}</span>
+              <Icon name="check" class="chip-check size-[16px]" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <div class="border-t border-border bg-white px-5 pt-3 pb-[34px]">
+      <p class="text-center text-[13.5px] font-medium text-muted">
+        <span data-count></span>
+        <span class="mt-0.5 block h-[18px] text-[13px] font-semibold text-jigi-strong" data-limit-msg aria-live="polite"></span>
+      </p>
+      <button type="button" class="next-btn mt-2 flex h-[56px] w-full items-center justify-center gap-2 rounded-full text-[17px] font-semibold" aria-disabled="true" data-pick-next>
+        코스 만들러 가기 <Icon name="arrow" class="size-[20px]" />
+      </button>
+    </div>
+  </section>
+
+  <!-- 5. course: 나만의 코스 만들기 -->
+  <section data-screen="course" class="app-screen pt-[58px]">
+    <div class="px-5">
+      <button type="button" class={back} data-go="taste"><Icon name="arrow" class="size-[22px] rotate-180" /><span class="sr-only">뒤로</span></button>
+      <p class="mt-1 text-[13px] font-bold text-jigi-strong">2 / 3</p>
+      <h2 class={`mt-0.5 ${h2}`} tabindex="-1" data-focus>나만의 코스 만들기</h2>
+      <p class="mt-1.5 text-[15px] text-muted">장소를 {COURSE_MIN}~{COURSE_MAX}곳 담고 순서를 정해 보세요.</p>
+    </div>
+
+    <div class="app-scroll mt-3 flex-1 overflow-y-auto px-5 pb-5">
+      <h3 class="text-[14px] font-bold">내 코스 <span class="font-semibold text-jigi-strong" data-course-count>0곳</span></h3>
+      <p class="mt-2 rounded-[16px] border-2 border-dashed border-border px-4 py-5 text-center text-[13.5px] text-muted" data-course-empty>
+        아직 담은 장소가 없어요.<br />아래 장소의 <b class="text-jigi-strong">+ 담기</b>를 눌러 보세요.
+      </p>
+      <ol class="mt-2 space-y-2" data-course-list aria-label="내 코스 순서"></ol>
+
+      <h3 class="mt-6 text-[14px] font-bold">내 취향에 맞는 장소</h3>
+      <ul class="mt-2 space-y-2" data-spots-match></ul>
+      <h3 class="mt-6 text-[14px] font-bold">다른 장소</h3>
+      <ul class="mt-2 space-y-2" data-spots-other></ul>
+    </div>
+
+    <div class="border-t border-border bg-white px-5 pt-3 pb-[34px]">
+      <p class="text-center text-[13.5px] font-medium text-muted">
+        <span data-course-summary></span>
+        <span class="mt-0.5 block h-[18px] text-[13px] font-semibold text-jigi-strong" data-course-msg aria-live="polite"></span>
+      </p>
+      <button type="button" class="next-btn mt-2 flex h-[56px] w-full items-center justify-center gap-2 rounded-full text-[17px] font-semibold" aria-disabled="true" data-course-next>
+        코스 미리보기 <Icon name="arrow" class="size-[20px]" />
+      </button>
+    </div>
+  </section>
+
+  <!-- 6. preview: 여행자에게 보이는 모습 -->
+  <section data-screen="preview" class="app-screen pt-[58px]">
+    <div class="px-5">
+      <button type="button" class={back} data-go="course"><Icon name="arrow" class="size-[22px] rotate-180" /><span class="sr-only">뒤로</span></button>
+      <p class="mt-1 text-[13px] font-bold text-jigi-strong">3 / 3</p>
+      <h2 class={`mt-0.5 ${h2}`} tabindex="-1" data-focus>여행자에게 이렇게 보여요</h2>
+    </div>
+
+    <div class="app-scroll mt-3 flex-1 overflow-y-auto px-5 pb-5">
+      <label for="jp-title" class="block text-[13px] font-bold">코스 이름</label>
+      <input id="jp-title" type="text" maxlength="30" autocomplete="off" class="mt-1.5 h-[46px] w-full rounded-[12px] border border-border px-3.5 text-[15px] focus:border-jigi-strong focus:outline-none" data-course-title />
+
+      <p class="mt-4 text-[13px] font-bold" id="jp-start-label">시작 시간</p>
+      <div class="mt-1.5 grid grid-cols-3 gap-1.5 rounded-[12px] bg-bg p-1" role="radiogroup" aria-labelledby="jp-start-label" data-start-times>
+        {START_TIMES.map((t, i) => (
+          <button type="button" role="radio" aria-checked={i === 0 ? 'true' : 'false'} class="start-btn h-[38px] rounded-[9px] text-[14px] font-semibold" data-start={t.value}>{t.label}</button>
+        ))}
+      </div>
+
+      <!-- 여행자 앱에 보이는 코스 카드 -->
+      <article class="mt-5 overflow-hidden rounded-[20px] border border-border bg-white shadow-card">
+        <div class="relative flex h-[112px] items-end bg-gradient-to-br from-jigi to-jigi-strong p-4 text-white">
+          <span class="absolute top-3 right-3 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold">Preview</span>
+          <p class="text-[30px] tracking-[6px]" aria-hidden="true" data-card-emojis></p>
+        </div>
+        <div class="p-4">
+          <h3 class="text-[18px] leading-snug font-extrabold" data-card-title></h3>
+          <p class="mt-1 text-[13px] text-muted">
+            <span class="inline-flex items-center gap-1"><Icon name="user" class="size-[14px]" /> 지기 · 나</span>
+            <span aria-hidden="true"> · </span><span data-card-duration></span>
+          </p>
+          <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="취향" data-card-tags></ul>
+          <ol class="mt-4 border-l-2 border-jigi-soft pl-4" aria-label="코스 일정" data-card-timeline></ol>
+        </div>
+      </article>
+    </div>
+
+    <div class="border-t border-border bg-white px-5 pt-3 pb-[34px]">
+      <button type="button" class="app-btn flex h-[56px] w-full items-center justify-center gap-2 rounded-full text-[17px] font-semibold" data-publish>
+        코스 등록하기 <Icon name="check" class="size-[20px]" />
+      </button>
+    </div>
+  </section>
+
+  <!-- 7. publishing -->
+  <section data-screen="publishing" class="app-screen items-center justify-center px-6">
+    <div class="relative size-[280px]" aria-hidden="true">
+      <div class="orbit absolute inset-0" data-orbit></div>
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+        <span class="pulse-ring absolute inset-0 rounded-full bg-jigi/25"></span>
+        <span class="relative flex size-[88px] items-center justify-center rounded-full bg-white shadow-card">
+          <img src="/favicon.png" alt="" width="56" height="56" class="size-[56px]" />
+        </span>
+      </div>
+    </div>
+    <h2 class="mt-10 h-[28px] text-center text-[19px] font-bold outline-none" tabindex="-1" data-focus data-publish-text>
+      코스를 정리하고 있어요…
+    </h2>
+    <div class="dots mt-4 flex gap-1.5" aria-hidden="true"><span></span><span></span><span></span></div>
+  </section>
+
+  <!-- 8. done -->
+  <section data-screen="done" class="app-screen pt-[70px]">
+    <div class="app-scroll flex-1 overflow-y-auto px-6 pb-[40px] text-center">
+      <span class="found-check mx-auto flex size-[88px] items-center justify-center rounded-full bg-jigi-strong text-white shadow-card" aria-hidden="true">
+        <Icon name="check" class="size-[44px]" />
+      </span>
+      <h2 class="mt-6 text-[28px] leading-[1.2] font-extrabold tracking-tight outline-none" tabindex="-1" data-focus>
+        코스가 준비됐어요!
+      </h2>
+      <p class="mt-2.5 text-[15px] leading-[1.55] text-muted">
+        정식 오픈 후에는 이 코스를 보고<br />취향이 맞는 여행자가 지기님을 찾아와요.
+      </p>
+
+      <div class="mt-6 rounded-[18px] bg-bg p-4 text-left">
+        <p class="text-[12px] font-bold tracking-wide text-jigi-strong">내 코스</p>
+        <p class="mt-1 text-[17px] font-extrabold" data-done-title></p>
+        <p class="mt-1 text-[13px] text-muted" data-done-meta></p>
+      </div>
+
+      <div class="mt-5 rounded-[20px] bg-gradient-to-br from-jigi-strong to-brand p-5 text-white">
+        <p class="text-[18px] leading-snug font-bold">진짜 지기가 되어 볼까요?</p>
+        <p class="mt-1 text-[13px] text-white/85">성수동 지기 1기를 사전 모집하고 있어요.</p>
+        <!-- 페이지 하단 지기 신청 폼으로 이동 (scripts/jigiPreview.ts) -->
+        <a
+          href="#jigi-apply"
+          class="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-white text-[0.9375rem] font-semibold text-jigi-strong transition-colors hover:bg-bg"
+          data-to-apply
+        >
+          지기 사전 신청하기 <Icon name="arrow" class="size-[18px] rotate-90" />
+        </a>
+      </div>
+      <button type="button" class="mx-auto mt-4 block rounded-full px-4 py-2 text-[14px] font-semibold text-jigi-strong underline-offset-4 hover:underline" data-start-over>
+        처음부터 다시
+      </button>
+    </div>
+  </section>
+</div>
+
+<!-- 장소 카드 템플릿 (scripts/jigiPreview.ts에서 복제해 textContent로 채움) -->
+<template data-spot-template>
+  <li class="flex items-center gap-3 rounded-[16px] border border-border bg-white p-3">
+    <span class="flex size-[44px] shrink-0 items-center justify-center rounded-[12px] bg-bg text-[22px]" aria-hidden="true" data-emoji></span>
+    <span class="min-w-0 flex-1">
+      <span class="block truncate text-[14.5px] font-bold" data-name></span>
+      <span class="block truncate text-[12.5px] text-muted" data-desc></span>
+    </span>
+    <button type="button" class="add-btn shrink-0 rounded-full px-3 py-2 text-[13px] font-bold" aria-pressed="false" data-add></button>
+  </li>
+</template>
+
+<!-- 내 코스 항목 템플릿 -->
+<template data-stop-template>
+  <li class="stop-item flex items-center gap-2.5 rounded-[16px] bg-jigi-soft p-2.5 pl-3">
+    <span class="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-jigi-strong text-[13px] font-bold text-white" data-no></span>
+    <span class="text-[20px]" aria-hidden="true" data-emoji></span>
+    <span class="min-w-0 flex-1">
+      <span class="block truncate text-[14px] font-bold" data-name></span>
+      <span class="block text-[12px] text-muted" data-min></span>
+    </span>
+    <button type="button" class="inline-flex size-[34px] items-center justify-center rounded-full bg-white text-jigi-strong disabled:opacity-30" data-up>
+      <Icon name="arrow" class="size-[16px] -rotate-90" />
+    </button>
+    <button type="button" class="inline-flex size-[34px] items-center justify-center rounded-full bg-white text-muted hover:text-text" data-remove>
+      <Icon name="x" class="size-[16px]" />
+    </button>
+  </li>
+</template>
+
+<style is:global>
+  [data-app='jigi'] .add-btn { background: var(--color-jigi-soft); color: var(--color-jigi-strong); }
+  [data-app='jigi'] .add-btn[aria-pressed='true'] { background: var(--color-jigi-strong); color: #fff; }
+  [data-app='jigi'] .start-btn { color: var(--color-muted); }
+  [data-app='jigi'] .start-btn[aria-checked='true'] { background: #fff; color: var(--color-jigi-strong); box-shadow: var(--shadow-card); }
+  [data-app='jigi'] .stop-item.is-new { animation: card-in 0.3s ease-out both; }
+</style>

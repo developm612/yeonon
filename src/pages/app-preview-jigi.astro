@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PhoneStage from '../components/app/PhoneStage.astro';
+import JigiScreens from '../components/app/JigiScreens.astro';
+import JigiApplyForm from '../components/app/JigiApplyForm.astro';
+---
+<BaseLayout
+  title="지기 앱 미리보기 — 나만의 성수 코스 만들기 | 연온"
+  description="연온 지기 앱을 미리 체험해 보세요. 내 취향을 고르고, 단골 장소로 나만의 성수 코스를 만들고, 지기 1기에 사전 신청할 수 있어요."
+  lang="ko"
+  sticky="none"
+>
+  <PhoneStage
+    headline="내 동네가 누군가의 여행이 돼요"
+    sub="연온 지기 앱 미리보기. 직접 눌러 보며 나만의 코스를 만들어 보세요."
+    replayLabel="처음부터 다시 보기"
+    skipLabel="인트로 건너뛰기"
+    note="데모 버전이에요. 실제 앱의 디자인과 기능은 달라질 수 있어요."
+    accent="jigi"
+  >
+    <JigiScreens />
+  </PhoneStage>
+
+  <JigiApplyForm />
+</BaseLayout>
+
+<script>
+  import '../scripts/jigiPreview.ts';
+  import '../scripts/jigiApply.ts';
+</script>

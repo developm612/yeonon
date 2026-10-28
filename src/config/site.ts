@@ -14,7 +14,8 @@ export const SITE = {
   formTool: 'TODO: Google Forms / Tally',
   retentionPeriod: 'TODO: 예) 사전 등록 종료 후 6개월 또는 삭제 요청 시',
   /**
-   * /app-preview 하단 대기자 등록 폼이 데이터를 보낼 주소 (POST, form-urlencoded).
+   * 신청 폼이 데이터를 보낼 주소 (POST, form-urlencoded). 두 폼이 같이 쓴다:
+   * /app-preview 대기자 폼 → Waitlist 시트, /app-preview-jigi 지기 신청 폼(form=jigi) → Jigi 시트.
    * Google Apps Script 웹앱 URL (https://script.google.com/macros/s/…/exec) → 스프레드시트 저장 + 알림 메일.
    * 수신 코드: apps-script/Code.gs, 설치 순서: README '대기자 등록 폼'.
    * TODO 상태이면 제출 시 "아직 연결되지 않음" 안내만 표시하고 아무 데이터도 보내지 않는다.
