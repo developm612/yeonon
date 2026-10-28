@@ -1,7 +1,11 @@
 # 연온(YEONON) 랜딩사이트
 
 외국인 여행자와 성수동 현지 친구 '지기'를 연결하는 연온의 사전 등록(Pre-launch) 랜딩사이트입니다.
-Astro + Tailwind CSS v4 정적 사이트이며, 신청은 모두 외부 설문 링크로 연결됩니다. (사이트 내 폼·DB·로그인 없음)
+Astro + Tailwind CSS v4 정적 사이트입니다. 신청은 앱 미리보기 페이지 하단 폼(여행자 `/app-preview`, 지기 `/app-preview-jigi`)으로 받아 Google Apps Script로 스프레드시트에 저장합니다. (사이트 자체에는 DB·로그인 없음)
+
+**신청 버튼 연결**
+- 여행자 `Join the early list` / `Join as a traveler` → `/app-preview`: 헤더, 홈(히어로·하단), `/travelers`(히어로·하단), `/how-it-works` 하단, 모바일 하단 고정 버튼
+- 지기 `지기 지원하기` / `지기로 지원하기` → `/app-preview-jigi`: `/jigi`(히어로·하단), `/how-it-works` 하단, `/jigi` 모바일 하단 고정 버튼
 
 ## 페이지
 
@@ -41,7 +45,7 @@ CLI로 배포하려면: `npx vercel` (미리보기) → `npx vercel --prod` (프
 
 | 상수 | 설명 |
 |---|---|
-| `travelerFormUrl` / `jigiFormUrl` | 여행자·지기 외부 설문 링크. UTM(`utm_source=landing&utm_medium=<버튼 위치>&utm_campaign=prelaunch`)이 자동으로 붙음 |
+| `travelerFormUrl` / `jigiFormUrl` | 여행자·지기 외부 설문 링크. **현재 사이트 버튼에서는 쓰지 않음** (버튼은 앱 미리보기 페이지로 연결). 다시 쓰려면 `travelerForm()` / `jigiForm()`으로 UTM을 붙여 사용 |
 | `contactEmail`, `operator`, `url` | 문의 이메일, 운영 주체명, 도메인 |
 | `showPrice` | `false`면 `/travelers` 가격 섹션과 FAQ 가격 문항이 사라짐 |
 | `priceLabel` | 가격 문구 (1인/팀 기준 확정 후 수정) |
@@ -141,12 +145,12 @@ JS는 모바일 메뉴(Header), 탭 토글(how-it-works)에만 사용합니다. 
 - 동작: `src/scripts/appPreview.ts` (화면 흐름) / 화면: `src/components/app/AppScreens.astro`
 - 지기 미리보기와 공통: `src/scripts/phoneApp.ts`(낙하·스플래시·화면 전환·타이머·칩 선택), `src/components/app/PhoneStage.astro`(헤드라인·낙하 무대·Replay/Skip), `src/components/app/PhoneFrame.astro`(폰 프레임), `src/styles/app-preview.css`(화면 공통 스타일, 강조색은 `[data-app]` 변수)
 - 앱 UI는 393×852 기준으로 그리고 폰 크기에 맞춰 scale 합니다. 폰은 최대 590px 폭(1.5배)이며 브라우저 높이에 맞춰 줄어듭니다.
-- 이 페이지는 모바일 하단 고정 CTA를 숨깁니다 (`BaseLayout`의 `sticky="none"`). 헤더 메뉴에는 없고, `/how-it-works`의 `Join as a traveler`와 `/travelers`의 `Try the app preview` 버튼으로 들어옵니다.
+- 이 페이지는 모바일 하단 고정 CTA를 숨깁니다 (`BaseLayout`의 `sticky="none"`). 사이트의 모든 여행자 신청 버튼(`Join the early list`, `Join as a traveler`)이 이 페이지로 연결됩니다.
 - 앱 결과 화면의 `Join the early list`는 같은 페이지 하단 대기자 등록 폼(`#waitlist`)으로 스크롤합니다.
 
 ## 지기 앱 미리보기 페이지 (`/app-preview-jigi`)
 
-한국인 지기 지원자가 지기 앱을 직접 눌러 보는 데모입니다 (한국어, 청록 강조색). 헤더 메뉴에는 링크가 없습니다.
+한국인 지기 지원자가 지기 앱을 직접 눌러 보는 데모입니다 (한국어, 청록 강조색). 사이트의 모든 지기 신청 버튼(`지기 지원하기`, `지기로 지원하기`)이 이 페이지로 연결됩니다.
 폰 낙하 → 로고 → 홈 → ① 취향 3~5개 고르기 → ② 나만의 코스 만들기(장소 2~5곳 담기·순서 바꾸기·빼기, 이동 포함 총 시간 계산) → ③ 여행자에게 보이는 코스 카드 미리보기(코스 이름 수정, 시작 시간 선택 → 장소별 도착 시각 계산) → 코스 등록 로딩 → 완료 → `지기 사전 신청하기`로 하단 폼 이동.
 - 데이터: `src/data/jigiPreview.ts` — 취향 한국어 이름(`TASTE_KO`, id는 여행자 취향과 같음), 장소 후보 `SPOTS`(18곳, 특정 가게가 아닌 예시 묘사), 코스 규칙(`COURSE_MIN/MAX`, 이동 시간 `WALK_MIN`, `START_TIMES`)
 - 동작: `src/scripts/jigiPreview.ts` / 화면: `src/components/app/JigiScreens.astro`

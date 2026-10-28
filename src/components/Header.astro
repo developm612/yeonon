@@ -2,7 +2,6 @@
 import Logo from './Logo.astro';
 import Button from './Button.astro';
 import Icon from './Icon.astro';
-import { travelerForm } from '../config/site';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const links = [
@@ -58,7 +57,8 @@ const links = [
           {l.label}
         </a>
       ))}
-      <Button href={travelerForm('header_cta')} external class="ml-2 whitespace-nowrap">
+      <!-- 앱 미리보기 페이지 안에서는 다시 불러오지 않고 하단 대기자 폼으로 이동 -->
+      <Button href={path === '/app-preview' ? '#waitlist' : '/app-preview'} class="ml-2 whitespace-nowrap">
         <span lang="en">Join the early list</span>
       </Button>
     </nav>

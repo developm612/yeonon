@@ -6,7 +6,6 @@ import Card from '../components/Card.astro';
 import Icon from '../components/Icon.astro';
 import SectionHeading from '../components/SectionHeading.astro';
 import CTASection from '../components/CTASection.astro';
-import { travelerForm } from '../config/site';
 ---
 <BaseLayout
   title="YEONON — Meet a local friend in Seoul"
@@ -25,7 +24,7 @@ import { travelerForm } from '../config/site';
     }}
   >
     <Fragment slot="actions">
-      <Button href={travelerForm('hero_cta')} external size="lg">Join the early list</Button>
+      <Button href="/app-preview" size="lg">Join the early list</Button>
       <Button href="/how-it-works" variant="secondary" size="lg">See how it works</Button>
     </Fragment>
     <p slot="after" class="mt-6">
@@ -134,6 +133,6 @@ import { travelerForm } from '../config/site';
 
   <!-- 6. Final CTA -->
   <CTASection title="Be one of our first travelers in Seongsu.">
-    <Button href={travelerForm('final_cta')} external size="lg" class="bg-white! text-brand! hover:bg-bg!">Join the early list</Button>
+    <Button href="/app-preview" size="lg" class="bg-white! text-brand! hover:bg-bg!">Join the early list</Button>
   </CTASection>
 </BaseLayout>

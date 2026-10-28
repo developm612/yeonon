@@ -8,7 +8,7 @@ import SectionHeading from '../components/SectionHeading.astro';
 import StepTimeline from '../components/StepTimeline.astro';
 import FAQ from '../components/FAQ.astro';
 import CTASection from '../components/CTASection.astro';
-import { SITE, travelerForm } from '../config/site';
+import { SITE } from '../config/site';
 
 const activities = [
   { title: 'Hidden cafés & bakeries', icon: 'coffee' },
@@ -48,8 +48,7 @@ const faq = [
     }}
   >
     <Fragment slot="actions">
-      <Button href={travelerForm('travelers_hero_cta')} external size="lg">Join the early list</Button>
-      <Button href="/app-preview" variant="secondary" size="lg">Try the app preview</Button>
+      <Button href="/app-preview" size="lg">Join the early list</Button>
     </Fragment>
   </Hero>
 
@@ -154,6 +153,6 @@ const faq = [
 
   <!-- 8. Final CTA -->
   <CTASection title="Coming to Seoul soon? Tell us when.">
-    <Button href={travelerForm('travelers_final_cta')} external size="lg" class="bg-white! text-brand! hover:bg-bg!">Join the early list</Button>
+    <Button href="/app-preview" size="lg" class="bg-white! text-brand! hover:bg-bg!">Join the early list</Button>
   </CTASection>
 </BaseLayout>

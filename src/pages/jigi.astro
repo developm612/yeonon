@@ -9,7 +9,7 @@ import StepTimeline from '../components/StepTimeline.astro';
 import StatCard from '../components/StatCard.astro';
 import FAQ from '../components/FAQ.astro';
 import CTASection from '../components/CTASection.astro';
-import { STAT_SOURCES, isTodo, jigiForm } from '../config/site';
+import { STAT_SOURCES, isTodo } from '../config/site';
 
 const faq = [
   { q: '가이드 자격증이 필요한가요?', a: '아니요. 지기는 여행 가이드가 아니라 동네를 함께 걷는 현지 친구예요. 활동 범위와 기준은 오픈 전 안내서로 자세히 알려 드려요.' },
@@ -39,7 +39,7 @@ const faq = [
     }}
   >
     <Fragment slot="actions">
-      <Button href={jigiForm('jigi_hero_cta')} external variant="jigi" size="lg">지기 지원하기</Button>
+      <Button href="/app-preview-jigi" variant="jigi" size="lg">지기 지원하기</Button>
       <Button href="#process" variant="secondary" size="lg">선발 과정 보기</Button>
     </Fragment>
   </Hero>
@@ -150,6 +150,6 @@ const faq = [
 
   <!-- 8. 마지막 CTA -->
   <CTASection title="당신의 성수동을 소개해 주세요." tone="jigi">
-    <Button href={jigiForm('jigi_final_cta')} external size="lg" class="bg-white! text-[#0B4F78]! hover:bg-bg!">지기 지원하기</Button>
+    <Button href="/app-preview-jigi" size="lg" class="bg-white! text-[#0B4F78]! hover:bg-bg!">지기 지원하기</Button>
   </CTASection>
 </BaseLayout>

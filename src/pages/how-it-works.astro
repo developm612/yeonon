@@ -7,7 +7,6 @@ import SectionHeading from '../components/SectionHeading.astro';
 import StepTimeline from '../components/StepTimeline.astro';
 import MatchDiagram from '../components/MatchDiagram.astro';
 import CTASection from '../components/CTASection.astro';
-import { jigiForm } from '../config/site';
 
 const travelerSteps = [
   { title: 'Tell us your taste', body: 'Interests, dates, language, and travel style. Takes about 3 minutes.' },
@@ -168,7 +167,7 @@ const compare = [
   <!-- 7. Final CTA -->
   <CTASection title="Ready when you are.">
     <Button href="/app-preview" size="lg" class="bg-white! text-brand! hover:bg-bg!">Join as a traveler</Button>
-    <Button href={jigiForm('hiw_final_cta')} external size="lg" class="border border-white/40 bg-transparent! hover:bg-white/10!"><span lang="ko">지기로 지원하기</span></Button>
+    <Button href="/app-preview-jigi" size="lg" class="border border-white/40 bg-transparent! hover:bg-white/10!"><span lang="ko">지기로 지원하기</span></Button>
   </CTASection>
 </BaseLayout>
 
