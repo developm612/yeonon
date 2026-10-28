@@ -1,0 +1,289 @@
+---
+/**
+ * 앱 미리보기의 7개 상태 화면 (393×852 기준).
+ * 루트 [data-app]의 data-state 값에 해당하는 [data-screen]만 보인다. 동작은 scripts/appPreview.ts.
+ */
+import Icon from '../Icon.astro';
+import SmartImage from '../SmartImage.astro';
+import { INTERESTS, PICK_MAX, PICK_MIN } from '../../data/appPreview';
+---
+<div class="absolute inset-0 text-left" data-app data-state="drop">
+  <p class="sr-only" aria-live="polite" data-live></p>
+
+  <!-- 1. drop: 빈 흰 화면 -->
+  <section data-screen="drop" class="app-screen" aria-hidden="true"></section>
+
+  <!-- 2. splash -->
+  <section data-screen="splash" class="app-screen items-center justify-center">
+    <div class="splash-inner flex flex-col items-center">
+      <img src="/images/logo.png" alt="YEONON" width="220" height="43" class="w-[220px]" />
+      <div class="mt-9 h-[4px] w-[160px] overflow-hidden rounded-full bg-border" aria-hidden="true">
+        <div class="h-full w-0 rounded-full bg-traveler-strong" data-splash-bar></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. home -->
+  <section data-screen="home" class="app-screen px-6 pt-[62px] pb-[96px]">
+    <div class="flex items-center justify-between">
+      <img src="/images/logo.png" alt="YEONON" width="108" height="21" class="w-[108px]" />
+      <span aria-hidden="true" class="inline-flex size-[38px] items-center justify-center rounded-full bg-traveler-soft text-traveler-strong">
+        <Icon name="user" class="size-[20px]" />
+      </span>
+    </div>
+    <p class="mt-7 text-[15px] font-medium text-muted">Hi, traveler 👋</p>
+    <h2 class="mt-1.5 text-[30px] leading-[1.15] font-extrabold tracking-tight outline-none" tabindex="-1" data-focus>
+      Who do you want to meet in Seoul?
+    </h2>
+    <p class="mt-3 text-[15px] leading-[1.5] text-muted">
+      Tell us what you love. We'll find a local friend who shares your taste.
+    </p>
+    <div class="mt-6 h-[230px] overflow-hidden rounded-[20px]">
+      <SmartImage src="app-home.jpg" alt="Illustration of two friends walking down an alley in Seongsu" tone="traveler" caption="Seongsu-dong, Seoul" />
+    </div>
+    <button
+      type="button"
+      class="mt-auto flex h-[56px] w-full items-center justify-center gap-2 rounded-full bg-traveler-strong text-[17px] font-semibold text-white transition-colors hover:bg-[#134FB0]"
+      data-go="select"
+    >
+      Find My Travel Story <Icon name="arrow" class="size-[20px]" />
+    </button>
+
+    <!-- 탭바 (장식) -->
+    <nav aria-hidden="true" class="absolute inset-x-0 bottom-0 grid h-[84px] grid-cols-4 border-t border-border bg-white px-3 pt-2 pb-[26px] text-[10.5px] font-medium text-muted">
+      <span class="flex flex-col items-center gap-1 text-traveler-strong">
+        <svg class="size-[24px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20h-5.5v-6h-5v6H4z"/></svg>Home
+      </span>
+      <span class="flex flex-col items-center gap-1"><Icon name="compass" class="size-[24px]" />Explore</span>
+      <span class="flex flex-col items-center gap-1"><Icon name="chat" class="size-[24px]" />Chats</span>
+      <span class="flex flex-col items-center gap-1"><Icon name="user" class="size-[24px]" />Profile</span>
+    </nav>
+  </section>
+
+  <!-- 4. select -->
+  <section data-screen="select" class="app-screen pt-[58px]">
+    <div class="px-5">
+      <button type="button" class="-ml-2 inline-flex size-[44px] items-center justify-center rounded-full hover:bg-text/5" data-go="home">
+        <Icon name="arrow" class="size-[22px] rotate-180" />
+        <span class="sr-only">Back</span>
+      </button>
+      <h2 class="mt-1 text-[26px] leading-[1.2] font-extrabold tracking-tight outline-none" tabindex="-1" data-focus>
+        What's your travel story?
+      </h2>
+      <p class="mt-1.5 text-[15px] text-muted">Pick {PICK_MIN} to {PICK_MAX} that sound like you.</p>
+    </div>
+
+    <div class="app-scroll mt-4 flex-1 overflow-y-auto px-5 pb-4">
+      <ul class="flex flex-wrap gap-2" data-chips aria-label="Travel interests">
+        {INTERESTS.map((it) => (
+          <li>
+            <button type="button" class="chip" aria-pressed="false" data-chip={it.id}>
+              <span aria-hidden="true">{it.emoji}</span>
+              <span>{it.label}</span>
+              <Icon name="check" class="chip-check size-[16px]" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <div class="border-t border-border bg-white px-5 pt-3 pb-[34px]">
+      <p class="text-center text-[13.5px] font-medium text-muted">
+        <span data-count>0 / {PICK_MAX} selected · pick at least {PICK_MIN}</span>
+        <span class="mt-0.5 block h-[18px] text-[13px] font-semibold text-traveler-strong" data-limit-msg aria-live="polite"></span>
+      </p>
+      <button type="button" class="find-btn mt-2 flex h-[56px] w-full items-center justify-center gap-2 rounded-full text-[17px] font-semibold" aria-disabled="true" data-find>
+        Find My Jigi <Icon name="arrow" class="size-[20px]" />
+      </button>
+    </div>
+  </section>
+
+  <!-- 5. matching -->
+  <section data-screen="matching" class="app-screen items-center justify-center px-6">
+    <div class="relative size-[280px]" aria-hidden="true">
+      <div class="orbit absolute inset-0" data-orbit></div>
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+        <span class="pulse-ring absolute inset-0 rounded-full bg-traveler/25"></span>
+        <span class="relative flex size-[88px] items-center justify-center rounded-full bg-white shadow-card">
+          <img src="/favicon.png" alt="" width="56" height="56" class="size-[56px]" />
+        </span>
+      </div>
+    </div>
+    <h2 class="mt-10 h-[28px] text-center text-[19px] font-bold outline-none" tabindex="-1" data-focus data-matching-text>
+      Reading your travel story…
+    </h2>
+    <div class="dots mt-4 flex gap-1.5" aria-hidden="true"><span></span><span></span><span></span></div>
+  </section>
+
+  <!-- 6. found -->
+  <section data-screen="found" class="app-screen items-center justify-center px-8 text-center">
+    <span class="found-check flex size-[96px] items-center justify-center rounded-full bg-traveler-strong text-white shadow-card" aria-hidden="true">
+      <Icon name="check" class="size-[48px]" />
+    </span>
+    <h2 class="mt-8 text-[30px] leading-[1.15] font-extrabold tracking-tight outline-none" tabindex="-1" data-focus>
+      We found your Jigis!
+    </h2>
+    <p class="mt-3 text-[16px] text-muted" data-found-sub>3 locals who share your taste</p>
+  </section>
+
+  <!-- 7. results -->
+  <section data-screen="results" class="app-screen pt-[60px]">
+    <div class="px-5 pb-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[26px] font-extrabold tracking-tight outline-none" tabindex="-1" data-focus>Your Jigis</h2>
+        <span class="rounded-full bg-text px-2.5 py-1 text-[11px] font-bold tracking-wide text-white uppercase">Demo</span>
+      </div>
+      <p class="mt-1 text-[13px] text-muted">Sample profiles for preview only.</p>
+    </div>
+
+    <div class="app-scroll flex-1 overflow-y-auto px-5 pb-[40px]">
+      <ol class="space-y-3" data-results aria-label="Recommended Jigis"></ol>
+
+      <div class="mt-5 rounded-[20px] bg-gradient-to-br from-brand to-traveler-strong p-5 text-center text-white">
+        <p class="text-[18px] leading-snug font-bold">Want to meet your Jigi for real?</p>
+        <!-- 페이지 하단 대기자 등록 폼으로 이동 (scripts/appPreview.ts) -->
+        <a
+          href="#waitlist"
+          class="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-white text-[0.9375rem] font-semibold text-brand transition-colors hover:bg-bg"
+          data-to-waitlist
+        >
+          Join the early list <Icon name="arrow" class="size-[18px] rotate-90" />
+        </a>
+      </div>
+      <button type="button" class="mx-auto mt-4 block rounded-full px-4 py-2 text-[14px] font-semibold text-traveler-strong underline-offset-4 hover:underline" data-start-over>
+        Start over
+      </button>
+    </div>
+  </section>
+</div>
+
+<!-- 결과 카드 템플릿 (scripts/appPreview.ts에서 복제해 textContent로 채움) -->
+<template data-jigi-template>
+  <li class="jigi-card rounded-[20px] border border-border bg-white p-4 shadow-card">
+    <article>
+      <div class="flex items-start gap-3">
+        <span class="flex size-[52px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-jigi to-jigi-strong text-[21px] font-bold text-white" aria-hidden="true" data-avatar></span>
+        <div class="min-w-0 flex-1 pt-0.5">
+          <h3 class="text-[17px] leading-tight font-bold" data-name></h3>
+          <p class="mt-0.5 text-[13px] text-muted" data-meta></p>
+        </div>
+        <span class="shrink-0 rounded-full bg-jigi-soft px-2.5 py-1 text-[12px] font-bold text-jigi-strong" data-match></span>
+      </div>
+      <p class="mt-3 text-[14px] leading-[1.45]" data-bio></p>
+      <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="Interests" data-tags></ul>
+      <p class="mt-3 text-[13px] text-muted" data-langs></p>
+      <button type="button" class="mt-3 flex h-[40px] w-full items-center justify-center rounded-full border border-border text-[14px] font-semibold hover:border-text" aria-expanded="false" data-toggle>
+        View profile
+      </button>
+      <div class="mt-3 rounded-[14px] bg-bg p-3.5" hidden data-panel>
+        <p class="text-[13px] font-bold">Favorite spots</p>
+        <ul class="mt-2 space-y-1.5 text-[13px] text-muted" data-spots></ul>
+      </div>
+    </article>
+  </li>
+</template>
+
+<style is:global>
+  [data-app] .app-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(24px);
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out, visibility 0s linear 0.4s;
+  }
+  /* 스플래시는 위로 사라진다 */
+  [data-app] [data-screen='splash'] { transform: translateY(-24px); }
+
+  [data-app][data-state='drop'] [data-screen='drop'],
+  [data-app][data-state='splash'] [data-screen='splash'],
+  [data-app][data-state='home'] [data-screen='home'],
+  [data-app][data-state='select'] [data-screen='select'],
+  [data-app][data-state='matching'] [data-screen='matching'],
+  [data-app][data-state='found'] [data-screen='found'],
+  [data-app][data-state='results'] [data-screen='results'] {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out, visibility 0s;
+  }
+
+  [data-app] [data-screen='splash'] .splash-inner { opacity: 0; transform: scale(0.95); transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
+  [data-app][data-state='splash'] .splash-inner { opacity: 1; transform: scale(1); }
+
+  [data-app] .app-scroll { scrollbar-width: none; overscroll-behavior: contain; }
+  [data-app] .app-scroll::-webkit-scrollbar { display: none; }
+
+  /* 취향 칩 */
+  [data-app] .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 44px;
+    padding: 0 15px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: #fff;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--color-text);
+    transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out, opacity 0.2s ease-out;
+  }
+  [data-app] .chip:hover { border-color: var(--color-muted); }
+  [data-app] .chip .chip-check { display: none; }
+  [data-app] .chip[aria-pressed='true'] { background: var(--color-traveler-strong); border-color: var(--color-traveler-strong); color: #fff; }
+  [data-app] .chip[aria-pressed='true'] .chip-check { display: block; }
+  [data-app] [data-chips].is-maxed .chip[aria-pressed='false'] { opacity: 0.45; }
+  [data-app] .chip.is-shake { animation: chip-shake 0.35s ease-out; }
+  @keyframes chip-shake {
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+  }
+
+  [data-app] .find-btn { background: var(--color-border); color: var(--color-muted); cursor: not-allowed; transition: background-color 0.3s ease-out, color 0.3s ease-out; }
+  [data-app] .find-btn[aria-disabled='false'] { background: var(--color-traveler-strong); color: #fff; cursor: pointer; }
+  [data-app] .find-btn[aria-disabled='false']:hover { background: #134fb0; }
+
+  /* 매칭 로딩: 선택한 칩이 원을 그리며 돈다 */
+  [data-app] .orbit { animation: orbit-spin 9s linear infinite; }
+  [data-app] .orbit-chip {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateX(118px) rotate(calc(-1 * var(--a)));
+  }
+  [data-app] .orbit-chip > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 999px;
+    background: var(--color-traveler-soft);
+    border: 2px solid #fff;
+    box-shadow: var(--shadow-card);
+    font-size: 24px;
+    animation: orbit-spin 9s linear infinite reverse;
+  }
+  @keyframes orbit-spin { to { transform: rotate(360deg); } }
+  [data-app] .pulse-ring { animation: pulse 1.6s ease-out infinite; }
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(1.9); opacity: 0; }
+  }
+  [data-app] .dots span { width: 8px; height: 8px; border-radius: 999px; background: var(--color-traveler-strong); animation: dot 1s ease-in-out infinite; }
+  [data-app] .dots span:nth-child(2) { animation-delay: 0.15s; }
+  [data-app] .dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes dot { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-4px); } }
+
+  /* 찾았어요 */
+  [data-app][data-state='found'] .found-check { animation: pop 0.5s cubic-bezier(0.22, 1.4, 0.36, 1) both; }
+  @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+
+  /* 결과 카드: 0.1초 간격으로 올라오며 등장 */
+  [data-app] .jigi-card { animation: card-in 0.45s ease-out both; animation-delay: var(--delay, 0ms); }
+  @keyframes card-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+</style>

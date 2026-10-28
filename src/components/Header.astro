@@ -50,7 +50,7 @@ const links = [
           lang={l.lang}
           aria-current={path === l.href ? 'page' : undefined}
           class:list={[
-            'rounded-full px-3.5 py-2 text-[0.9375rem] font-medium transition-colors hover:bg-text/5',
+            'rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]',
             l.href === '/jigi' ? 'text-jigi-strong' : path === l.href ? 'text-text' : 'text-muted',
             path === l.href && 'bg-text/5',
           ]}
@@ -58,7 +58,7 @@ const links = [
           {l.label}
         </a>
       ))}
-      <Button href={travelerForm('header_cta')} external class="ml-2">
+      <Button href={travelerForm('header_cta')} external class="ml-2 whitespace-nowrap">
         <span lang="en">Join the early list</span>
       </Button>
     </nav>

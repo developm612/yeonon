@@ -1,0 +1,123 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PhoneFrame from '../components/app/PhoneFrame.astro';
+import AppScreens from '../components/app/AppScreens.astro';
+import WaitlistForm from '../components/app/WaitlistForm.astro';
+import { TIMING } from '../data/appPreview';
+---
+<BaseLayout
+  title="YEONON App Preview — Find your Jigi"
+  description="Tap through a preview of the YEONON app: pick your travel story and meet Jigis who share your taste."
+  lang="en"
+  sticky="none"
+>
+  <section class="overflow-hidden">
+    <div class="container-page flex flex-col items-center pt-6 pb-16 text-center md:pt-8 md:pb-20">
+      <h1 class="ap-headline font-extrabold">Good People. Better Trips.</h1>
+      <p class="ap-headline mt-2 text-[0.9375rem] text-muted md:text-base">
+        A preview of the YEONON app. Tap through it yourself.
+      </p>
+
+      <div class="ap-wrap relative mt-6 md:mt-8">
+        <div
+          class="ap-stage"
+          data-phone-stage
+          style={`--drop-ms:${TIMING.dropMs}ms;--headline-ms:${TIMING.headlineMs}ms`}
+        >
+          <PhoneFrame>
+            <AppScreens />
+          </PhoneFrame>
+        </div>
+        <span aria-hidden="true" class="ap-shadow"></span>
+      </div>
+
+      <p class="mt-8 flex items-center gap-2 text-[0.9375rem] font-semibold">
+        <button type="button" class="rounded-full px-3 py-2 text-traveler-strong underline-offset-4 hover:underline" data-replay>
+          Replay intro
+        </button>
+        <span aria-hidden="true" class="text-border">·</span>
+        <button type="button" class="rounded-full px-3 py-2 text-traveler-strong underline-offset-4 hover:underline" data-skip>
+          Skip intro
+        </button>
+      </p>
+      <p class="mt-3 max-w-md text-[0.8125rem] leading-relaxed text-muted">
+        This is a demo version. The final app's design and features may change.
+      </p>
+    </div>
+  </section>
+
+  <WaitlistForm />
+
+  <noscript>
+    <style>.ap-stage { transform: none !important; }</style>
+  </noscript>
+</BaseLayout>
+
+<script>
+  import '../scripts/appPreview.ts';
+  import '../scripts/waitlist.ts';
+</script>
+
+<style is:global>
+  /* 이 페이지만 흰 배경 */
+  body { background: #fff; }
+</style>
+
+<style>
+  .ap-headline { animation: headline-in 0.4s ease-out both; }
+  h1.ap-headline {
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    line-height: 1.1;
+    color: var(--color-text);
+  }
+  @keyframes headline-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* 폰 크기: 목표 590×1278(아이폰 393×852의 1.5배), 화면 높이에 맞춰 자동 축소 (비율 393:852 유지) */
+  .ap-wrap {
+    width: clamp(220px, calc((100dvh - 250px) * 393 / 852), 590px);
+  }
+  /* 모바일: 화면 폭의 88%(최대 393px), 단 화면 높이 안에 들어오도록 */
+  @media (max-width: 767px) {
+    .ap-wrap { width: min(88vw, 393px, max(260px, calc((100dvh - 225px) * 393 / 852))); }
+  }
+
+  /* 낙하 */
+  .ap-stage { transform: translateY(-120vh) rotate(-6deg); }
+  .ap-stage:global(.is-dropping) {
+    animation: phone-drop var(--drop-ms) cubic-bezier(0.22, 1.2, 0.36, 1) var(--headline-ms) both;
+  }
+  .ap-stage:global(.is-landed) { transform: none; }
+  @keyframes phone-drop {
+    from { transform: translateY(-120vh) rotate(-6deg); }
+    to { transform: none; }
+  }
+
+  /* 착지 그림자 */
+  .ap-shadow {
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    bottom: -18px;
+    height: 24px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(15 30 58 / 0.22), transparent);
+    z-index: -1;
+    opacity: 0;
+  }
+  .ap-stage:global(.is-dropping) + .ap-shadow {
+    animation: shadow-land var(--drop-ms) cubic-bezier(0.22, 1.2, 0.36, 1) var(--headline-ms) both;
+  }
+  .ap-stage:global(.is-landed) + .ap-shadow { opacity: 1; }
+  @keyframes shadow-land {
+    from { opacity: 0; transform: scaleX(0.3); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ap-stage { transform: none; }
+    .ap-shadow { opacity: 1; }
+  }
+</style>

@@ -13,6 +13,15 @@ export const SITE = {
   jigiFormUrl: 'TODO: 지기 지원 설문 링크',
   formTool: 'TODO: Google Forms / Tally',
   retentionPeriod: 'TODO: 예) 사전 등록 종료 후 6개월 또는 삭제 요청 시',
+  /**
+   * /app-preview 하단 대기자 등록 폼이 데이터를 보낼 주소 (POST, form-urlencoded).
+   * Google Apps Script 웹앱 URL (https://script.google.com/macros/s/…/exec) → 스프레드시트 저장 + 알림 메일.
+   * 수신 코드: apps-script/Code.gs, 설치 순서: README '대기자 등록 폼'.
+   * TODO 상태이면 제출 시 "아직 연결되지 않음" 안내만 표시하고 아무 데이터도 보내지 않는다.
+   */
+  waitlistEndpoint: 'https://script.google.com/macros/s/AKfycbxSdca8EKjujmcDP21F10FwLf7Eed5Mun_XKjuu2K2l94DA0f_Z0voyyI_Oc-hqO5c/exec',
+  /** 대기자 폼 데이터가 저장되는 곳 — /privacy에 표시. 다른 저장 방식을 쓰면 수정 */
+  waitlistStorage: 'Google Sheets',
 
   /** false면 /travelers의 가격 섹션 전체와 FAQ의 가격 문항이 숨겨진다. */
   showPrice: true,

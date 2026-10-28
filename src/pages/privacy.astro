@@ -6,7 +6,7 @@ const email = SITE.contactEmail;
 ---
 <BaseLayout
   title="Privacy | YEONON"
-  description="How YEONON collects and uses the information you share in our pre-launch sign-up forms. 연온 개인정보 안내."
+  description="How YEONON collects and uses the information you share in our waitlist and Jigi application forms. 연온 개인정보 안내."
 >
   <section class="section pt-12! md:pt-16!">
     <div class="container-page max-w-3xl!">
@@ -20,11 +20,14 @@ const email = SITE.contactEmail;
           <dl class="mt-6 space-y-5 text-[0.9375rem]">
             <div>
               <dt class="font-semibold">What we collect</dt>
-              <dd class="mt-1 text-muted">Only what you enter in our sign-up forms: your name, contact details, and your answers.</dd>
+              <dd class="mt-1 space-y-1 text-muted">
+                <p><span class="font-medium text-text">Travelers (waitlist):</span> how you'd like us to reach you and your contact (email, WhatsApp number, or Instagram handle), your nationality, how you heard about us, the name of the person who referred you (optional), and the interests you picked in the app preview.</p>
+                <p><span class="font-medium text-text">Jigi applicants:</span> your name, contact details, and your answers to the application form.</p>
+              </dd>
             </div>
             <div>
               <dt class="font-semibold">Why we collect it</dt>
-              <dd class="mt-1 text-muted">To send you pre-launch updates, to invite you to a short interview, and to improve the service.</dd>
+              <dd class="mt-1 text-muted">To let you know when YEONON launches, to send early-access invitations, to invite you to a short interview, and to improve the service.</dd>
             </div>
             <div>
               <dt class="font-semibold">How long we keep it</dt>
@@ -32,7 +35,10 @@ const email = SITE.contactEmail;
             </div>
             <div>
               <dt class="font-semibold">How we collect it</dt>
-              <dd class="mt-1 text-muted">Through an external form tool ({SITE.formTool}).</dd>
+              <dd class="mt-1 space-y-1 text-muted">
+                <p><span class="font-medium text-text">Waitlist:</span> you enter it in the waitlist form on our <a class="font-semibold text-brand underline" href="/app-preview#waitlist">App preview page</a>. When you submit, it is sent directly to a spreadsheet that only the YEONON team can access ({SITE.waitlistStorage}), and a copy is sent to the team's email inbox as a new-signup notification. This website itself does not store it. Along with your answers, we record when you submitted and which link brought you here (UTM tags in the web address).</p>
+                <p><span class="font-medium text-text">Jigi applications:</span> through an external form tool ({SITE.formTool}).</p>
+              </dd>
             </div>
             <div>
               <dt class="font-semibold">Deletion requests</dt>
@@ -52,11 +58,14 @@ const email = SITE.contactEmail;
           <dl class="mt-6 space-y-5 text-[0.9375rem]">
             <div>
               <dt class="font-semibold">수집 항목</dt>
-              <dd class="mt-1 text-muted">설문에서 입력하신 정보(이름, 연락처, 응답 내용)만 수집합니다.</dd>
+              <dd class="mt-1 space-y-1 text-muted">
+                <p><span class="font-medium text-text">여행자(대기자 등록):</span> 연락 방법과 연락처(이메일, WhatsApp 번호 또는 Instagram 계정), 국적, 연온을 알게 된 경로, 추천인 이름(선택), 앱 미리보기에서 고른 관심사</p>
+                <p><span class="font-medium text-text">지기 지원자:</span> 이름, 연락처, 지원서 응답 내용</p>
+              </dd>
             </div>
             <div>
               <dt class="font-semibold">이용 목적</dt>
-              <dd class="mt-1 text-muted">사전 등록 안내, 인터뷰 요청, 서비스 개선</dd>
+              <dd class="mt-1 text-muted">출시 안내, 사전 이용 초대, 인터뷰 요청, 서비스 개선</dd>
             </div>
             <div>
               <dt class="font-semibold">보관 기간</dt>
@@ -64,7 +73,10 @@ const email = SITE.contactEmail;
             </div>
             <div>
               <dt class="font-semibold">수집 방법</dt>
-              <dd class="mt-1 text-muted">외부 설문 도구({SITE.formTool})를 통해 수집합니다.</dd>
+              <dd class="mt-1 space-y-1 text-muted">
+                <p><span class="font-medium text-text">대기자 등록:</span> <a class="font-semibold text-brand underline" href="/app-preview#waitlist">앱 미리보기 페이지</a>의 대기자 등록 폼에 직접 입력하시면, 제출 즉시 연온 운영팀만 접근할 수 있는 스프레드시트({SITE.waitlistStorage})로 전송되고, 새 신청 알림으로 운영팀 메일함에도 사본이 전송됩니다. 웹사이트 자체에는 저장되지 않습니다. 응답과 함께 제출 시각과 유입 경로(주소의 UTM 태그)를 기록합니다.</p>
+                <p><span class="font-medium text-text">지기 지원:</span> 외부 설문 도구({SITE.formTool})를 통해 수집합니다.</p>
+              </dd>
             </div>
             <div>
               <dt class="font-semibold">삭제 요청</dt>
