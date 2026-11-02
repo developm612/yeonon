@@ -83,14 +83,17 @@ function doPost(e) {
   const row = {};
   form.keys.forEach((k) => { row[k] = text(p[k], k === 'intro' ? 300 : k === 'interests' || k === 'course' ? 400 : 120); });
   if (row.consent !== 'yes' || !form.valid(row)) return reply('invalid');
+  // A열로 빈 행을 찾으므로 A열(제출 시각)은 항상 채운다
+  if (!row.submitted_at) row.submitted_at = new Date().toISOString();
 
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const lock = LockService.getScriptLock();
   lock.waitLock(10000); // 동시에 여러 명이 제출해도 행이 겹치지 않게
   try {
     const sheet = ss.getSheetByName(form.sheet) || ss.insertSheet(form.sheet);
-    if (sheet.getLastRow() === 0) sheet.appendRow(form.keys);
-    sheet.appendRow(form.keys.map((k) => cell(row[k])));
+    if (!sheet.getRange(1, 1).getValue()) writeRow(sheet, 1, form.keys);
+    writeRow(sheet, firstEmptyRow(sheet), form.keys.map((k) => cell(row[k])));
+    SpreadsheetApp.flush(); // 잠금을 풀기 전에 저장을 끝내야 다음 신청이 같은 행을 고르지 않는다
   } finally {
     lock.releaseLock();
   }
@@ -102,6 +105,26 @@ function doPost(e) {
     console.error('notify failed: ' + err);
   }
   return reply('ok');
+}
+
+/**
+ * 2행부터 A열(제출 시각)이 비어 있는 첫 행.
+ * appendRow는 탭의 어느 열이든 값이 있는 마지막 행 다음에 쓰므로, 관리용 열이 아래까지 채워져 있으면
+ * 데이터가 1001행처럼 멀리 떨어진다. 그래서 A열만 보고 직접 위치를 정한다.
+ */
+function firstEmptyRow(sheet) {
+  const last = sheet.getLastRow();
+  const column = sheet.getRange(1, 1, last, 1).getValues();
+  for (let i = 1; i < last; i++) {
+    if (!column[i][0]) return i + 1;
+  }
+  return last + 1;
+}
+
+/** 지정한 행의 A열부터 값을 쓴다 (오른쪽 관리용 열은 건드리지 않음). 탭의 행이 모자라면 늘린다 */
+function writeRow(sheet, rowNumber, values) {
+  if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), rowNumber - sheet.getMaxRows());
+  sheet.getRange(rowNumber, 1, 1, values.length).setValues([values]);
 }
 
 /** 새 신청 알림 메일 (일반 텍스트) */
