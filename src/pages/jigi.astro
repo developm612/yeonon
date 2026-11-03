@@ -71,7 +71,7 @@ const faq = [
         {STAT_SOURCES.map((s) => (
           <li id={`source-${s.id}`} class="scroll-mt-24">
             [{s.id}] {s.label} —{' '}
-            {isTodo(s.url) ? <span>{s.url}</span> : <a href={s.url} target="_blank" rel="noopener" class="underline underline-offset-2">{s.url}</a>}
+            {isTodo(s.url) ? <span>{s.url}</span> : <a href={s.url} target="_blank" rel="noopener" class="underline underline-offset-2">링크</a>}
           </li>
         ))}
       </ol>

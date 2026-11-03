@@ -37,9 +37,9 @@ export const SITE = {
 
 /** 지기 페이지 통계의 출처. TODO: 각 수치 출처 링크 확인 후 기입 */
 export const STAT_SOURCES = [
-  { id: 1, label: '한국관광공사 한국관광통계 (2025 방한 외래관광객)', url: 'TODO: 출처 링크' },
-  { id: 2, label: '서울교통공사 성수역 외국인 승차 통계 (2026 상반기)', url: 'TODO: 출처 링크' },
-  { id: 3, label: '성동구 외국인 카드 소비 데이터 (2026년 1~5월)', url: 'TODO: 출처 링크' },
+  { id: 1, label: '한국관광공사, 「2025년 12월 한국관광통계 공표」 (2026.01.30, 연간 결산 포함)', url: 'https://touraz.kr/statistics?bbsSeq=310195_1127&boardMode=V&pageCD=index' },
+  { id: 2, label: '서울교통공사, 「2026년 상반기 성수역 외국어 선택 1회권 승차 통계」 (2026.08.11 뉴시스 보도 인용)', url: 'https://www.newsis.com/view/NISX20260811_0003744276' },
+  { id: 3, label: '한국관광공사, 「한국관광 데이터랩 — 지역별 외국인 관광소비」 (2026년 1~5월, 서울 성동구 선택 조회 필요)', url: 'https://datalab.visitkorea.or.kr/datalab/portal/main/getMainForm.do' },
 ];
 
 export const isTodo = (value: string) => value.trim().startsWith('TODO');
