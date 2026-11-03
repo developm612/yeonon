@@ -72,11 +72,11 @@ function runMatching() {
 function renderResults(matches: ReturnType<typeof matchJigis>) {
   const labelOf = (id: string) => INTERESTS.find((it) => it.id === id)?.label ?? id;
   resultsList.replaceChildren(
-    ...matches.map(({ jigi, percent }, i) => {
+    ...matches.map(({ jigi, percent, photo }, i) => {
       const node = template.content.firstElementChild!.cloneNode(true) as HTMLElement;
       const q = <T extends HTMLElement>(k: string) => node.querySelector<T>(`[data-${k}]`)!;
       node.style.setProperty('--delay', `${i * 100}ms`);
-      q('avatar').textContent = jigi.name[0];
+      q<HTMLImageElement>('avatar').src = photo;
       q('name').textContent = jigi.name;
       q('meta').textContent = `${jigi.age} · ${jigi.role}`;
       q('match').textContent = `${percent}% match`;
