@@ -36,6 +36,26 @@ const button = 'absolute top-1/2 inline-flex size-11 -translate-y-1/2 cursor-poi
     <Icon name="chevron-right" class="size-5" />
   </button>
 </div>
+<!-- 페이지를 열 때마다 사진 순서를 섞는다. 첫 화면에 다른 사진이 잠깐 보이지 않도록 그리기 전에 바로 실행 -->
+<script is:inline>
+  (() => {
+    const root = document.currentScript.previousElementSibling;
+    const slides = [...root.querySelectorAll('[data-slide]')];
+    for (let i = slides.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [slides[i], slides[j]] = [slides[j], slides[i]];
+    }
+    const buttons = root.querySelector('[data-slide-prev]');
+    slides.forEach((img, i) => {
+      root.insertBefore(img, buttons);
+      img.style.transform = `translateX(${i ? '100%' : '0'})`;
+      if (i > 0) img.setAttribute('aria-hidden', 'true');
+      else img.removeAttribute('aria-hidden');
+      img.fetchPriority = i ? 'auto' : 'high';
+      img.loading = i ? 'lazy' : 'eager';
+    });
+  })();
+</script>
 
 <script>
   const INTERVAL = 3000;
