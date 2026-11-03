@@ -1,5 +1,6 @@
 ---
 import SmartImage from './SmartImage.astro';
+import HeroSlider from './HeroSlider.astro';
 
 interface Props {
   eyebrow?: string;
@@ -7,8 +8,11 @@ interface Props {
   sub: string;
   image?: { src: string; alt: string; tone?: 'traveler' | 'brand' | 'jigi'; caption?: string };
   accent?: 'traveler' | 'brand' | 'jigi';
+  /** 지정하면 image 대신 사진 슬라이더를 보여 준다 (대체 텍스트 언어) */
+  slider?: 'en' | 'ko';
 }
-const { eyebrow, title, sub, image, accent = 'brand' } = Astro.props;
+const { eyebrow, title, sub, image, accent = 'brand', slider } = Astro.props;
+const hasMedia = !!image || !!slider;
 const dot = { traveler: 'bg-traveler', brand: 'bg-brand', jigi: 'bg-jigi' }[accent];
 const eyebrowColor = { traveler: 'text-traveler-strong', brand: 'text-brand', jigi: 'text-jigi-strong' }[accent];
 ---
@@ -16,10 +20,10 @@ const eyebrowColor = { traveler: 'text-traveler-strong', brand: 'text-brand', ji
   <div
     class:list={[
       'container-page grid items-center gap-10 pt-10 pb-16 md:pt-16 lg:gap-14 lg:pt-20 lg:pb-24',
-      image ? 'lg:grid-cols-[1.1fr_1fr]' : 'max-w-3xl text-center',
+      hasMedia ? 'lg:grid-cols-[1.1fr_1fr]' : 'max-w-3xl text-center',
     ]}
   >
-    <div class:list={[!image && 'mx-auto']}>
+    <div class:list={[!hasMedia && 'mx-auto']}>
       {eyebrow && (
         <p class:list={['eyebrow', eyebrowColor]}>
           <span class:list={['size-2 rounded-full', dot]} aria-hidden="true"></span>
@@ -29,17 +33,17 @@ const eyebrowColor = { traveler: 'text-traveler-strong', brand: 'text-brand', ji
       <h1 class="mt-4 text-[2.125rem] leading-[1.12] font-extrabold sm:text-5xl lg:text-[3.5rem]">
         {title}
       </h1>
-      <p class:list={['lead mt-5 max-w-xl', !image && 'mx-auto']}>{sub}</p>
-      <div class:list={['mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center', !image && 'sm:justify-center']}>
+      <p class:list={['lead mt-5 max-w-xl', !hasMedia && 'mx-auto']}>{sub}</p>
+      <div class:list={['mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center', !hasMedia && 'sm:justify-center']}>
         <slot name="actions" />
       </div>
       <slot name="after" />
     </div>
 
-    {image && (
+    {hasMedia && (
       <div class="relative">
         <div class="aspect-[4/3] overflow-hidden rounded-[24px] shadow-card lg:aspect-[5/6]">
-          <SmartImage {...image} eager />
+          {slider ? <HeroSlider lang={slider} /> : image && <SmartImage {...image} eager />}
         </div>
       </div>
     )}

@@ -1,0 +1,92 @@
+---
+// 히어로 이미지 슬라이더: 3초마다 자동으로 넘어가고 좌우 버튼으로 이동한다
+import Icon from './Icon.astro';
+import { HERO_SLIDES } from '../data/heroSlides';
+
+interface Props { lang: 'en' | 'ko'; }
+const { lang } = Astro.props;
+const label = {
+  en: { group: 'Photos of Seongsu shops', prev: 'Previous photo', next: 'Next photo' },
+  ko: { group: '성수동 매장 사진', prev: '이전 사진', next: '다음 사진' },
+}[lang];
+const button = 'absolute top-1/2 inline-flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/90 text-text shadow-card transition-colors hover:bg-white';
+---
+<div class="relative h-full w-full overflow-hidden" role="group" aria-roledescription="carousel" aria-label={label.group} data-hero-slider>
+  {HERO_SLIDES.map((slide, i) => (
+    <img
+      src={`/images/hero/${slide.id}.webp`}
+      srcset={`/images/hero/${slide.id}-800.webp 800w, /images/hero/${slide.id}.webp 1254w`}
+      sizes="(min-width: 1024px) 571px, calc(100vw - 40px)"
+      width="1254"
+      height="1254"
+      alt={slide[lang]}
+      class="absolute inset-0 h-full w-full object-cover"
+      style={`transition: transform 500ms ease; transform: translateX(${i > 0 ? '100%' : '0'})`}
+      loading={i === 0 ? 'eager' : 'lazy'}
+      fetchpriority={i === 0 ? 'high' : 'auto'}
+      decoding="async"
+      aria-hidden={i > 0 ? 'true' : undefined}
+      data-slide
+    />
+  ))}
+  <button type="button" class:list={[button, 'left-3']} aria-label={label.prev} data-slide-prev>
+    <Icon name="chevron-left" class="size-5" />
+  </button>
+  <button type="button" class:list={[button, 'right-3']} aria-label={label.next} data-slide-next>
+    <Icon name="chevron-right" class="size-5" />
+  </button>
+</div>
+
+<script>
+  const INTERVAL = 3000;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll<HTMLElement>('[data-hero-slider]').forEach((root) => {
+    const slides = [...root.querySelectorAll<HTMLImageElement>('[data-slide]')];
+    let current = 0;
+    let timer: number | undefined;
+    let hovered = false;
+    let focused = false;
+
+    const go = (next: number, direction: 1 | -1) => {
+      const target = (next + slides.length) % slides.length;
+      if (target === current) return;
+      const incoming = slides[target];
+      const outgoing = slides[current];
+      // 들어올 사진을 이동 방향 쪽 바깥에 먼저 놓는다 (7번 → 1번도 같은 방향으로 이어지게)
+      incoming.style.transition = 'none';
+      incoming.style.transform = `translateX(${direction * 100}%)`;
+      incoming.getBoundingClientRect();
+      incoming.style.transition = 'transform 500ms ease';
+      incoming.style.transform = 'translateX(0)';
+      outgoing.style.transform = `translateX(${-direction * 100}%)`;
+      incoming.removeAttribute('aria-hidden');
+      outgoing.setAttribute('aria-hidden', 'true');
+      current = target;
+    };
+
+    const stop = () => window.clearInterval(timer);
+    const start = () => {
+      stop();
+      if (reduceMotion || hovered || focused || document.hidden) return;
+      timer = window.setInterval(() => go(current + 1, 1), INTERVAL);
+    };
+
+    root.querySelector('[data-slide-prev]')?.addEventListener('click', () => { go(current - 1, -1); start(); });
+    root.querySelector('[data-slide-next]')?.addEventListener('click', () => { go(current + 1, 1); start(); });
+
+    // 마우스를 올리거나 키보드로 버튼에 들어오면 멈춘다 (터치·마우스 클릭으로는 멈추지 않음)
+    root.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { hovered = true; start(); } });
+    root.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { hovered = false; start(); } });
+    root.addEventListener('focusin', (e) => { focused = (e.target as HTMLElement).matches(':focus-visible'); start(); });
+    root.addEventListener('focusout', () => { focused = false; start(); });
+    document.addEventListener('visibilitychange', start);
+
+    // 화면 밖이라 지연 로딩이 안 된 사진이 넘어올 때 비어 보이지 않도록, 페이지 로드 후 미리 받아 둔다
+    const preload = () => slides.forEach((img) => { img.loading = 'eager'; });
+    if (document.readyState === 'complete') preload();
+    else window.addEventListener('load', preload, { once: true });
+
+    start();
+  });
+</script>

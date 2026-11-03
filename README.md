@@ -61,9 +61,9 @@ UTM `utm_medium` 값: `header_cta`, `sticky_cta`, `hero_cta`, `final_cta`, `trav
 | 파일 | 위치 |
 |---|---|
 | `hero.jpg` | 홈 히어로 (성수동 거리에서 두 사람이 걷는 사진) |
-| `travelers-hero.jpg` | 여행자 페이지 히어로 |
-| `jigi-hero.jpg` | 지기 페이지 히어로 (실제 지기 사진은 동의 후에만, 뒷모습·풍경 권장) |
 | `og-image.png` | 공유 미리보기 이미지 1200×630 |
+
+`/travelers`와 `/jigi` 히어로는 사진 슬라이더입니다 (`src/components/HeroSlider.astro`, 목록과 대체 텍스트는 `src/data/heroSlides.ts`). 파일은 `public/images/hero/`의 `<번호>.webp`(1254px), `<번호>-800.webp`(모바일용)이며, 원본은 1:1 정사각형으로 준비합니다.
 
 로고: 원본 `public/images/logo-power-symbol.png`에서 여백을 자르고 흰 배경을 투명 처리한 `public/images/logo.png`(495×96)를 씁니다 (`src/components/Logo.astro`). 파비콘 `public/favicon.png`·`apple-touch-icon.png`는 로고의 전원 심볼 부분입니다. 로고를 바꾸면 이 파일들을 교체하세요.
 
