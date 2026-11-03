@@ -25,7 +25,7 @@ export const SITE = {
   waitlistStorage: 'Google Sheets',
 
   /** false면 /travelers의 가격 섹션 전체와 FAQ의 가격 문항이 숨겨진다. */
-  showPrice: true,
+  showPrice: false,
   // TODO: 1인 기준인지 팀 기준인지 확정 후 문구 수정
   priceLabel: 'Around ₩120,000 for 4 hours',
 
