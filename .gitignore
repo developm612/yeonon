@@ -3,3 +3,6 @@ dist/
 .astro/
 .vercel/
 .DS_Store
+
+# Apps Script: 직접 복사해 붙여넣어 배포하므로 저장소에 올리지 않는다
+*.gs

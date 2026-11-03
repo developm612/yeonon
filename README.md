@@ -172,6 +172,8 @@ JS는 모바일 메뉴(Header), 탭 토글(how-it-works)에만 사용합니다. 
 
 수신 코드는 `apps-script/Code.gs`에 있습니다. 대기자 응답은 `Waitlist` 시트, 지기 신청은 `Jigi` 시트에 한 줄씩 쌓이고(시트는 첫 신청 때 자동 생성), 새 신청이 들어올 때마다 `NOTIFY_EMAIL`(현재 `yeonon.official2026@gmail.com`)로 알림 메일이 갑니다.
 
+> `apps-script/*.gs`는 로컬에만 두고 GitHub에는 올리지 않습니다(`.gitignore`). 새로 clone하면 이 파일이 없으니, 현재 Apps Script 프로젝트의 코드를 가져오세요.
+
 1. **yeonon.official2026@gmail.com 계정으로** Google 스프레드시트를 새로 만듭니다 (이름 예: `YEONON Waitlist`). 주소 `docs.google.com/spreadsheets/d/<ID>/edit`의 `<ID>`를 복사해 둡니다.
 2. [script.google.com](https://script.google.com) → 새 프로젝트 → 기본 코드를 지우고 `apps-script/Code.gs` 내용 전체를 붙여넣기 → 맨 위 `SHEET_ID`가 1번의 ID와 같은지 확인 → 저장.
    이 스크립트는 시트에 연결되지 않은 **독립 프로젝트**이고, 시트는 `SpreadsheetApp.openById(SHEET_ID)`로 엽니다. (`getActiveSpreadsheet()`는 독립 프로젝트에서 동작하지 않으니 쓰지 마세요.)
