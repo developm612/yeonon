@@ -8,7 +8,7 @@ export const SITE = {
   nameKo: '연온',
   url: 'TODO: https://yeonon.xyz',
   contactEmail: 'yeonon.official2026@gmail.com',
-  operator: 'TODO: 운영 주체명 (예: 제이어스케어)',
+  operator: '주식회사 제이어스케어',
   travelerFormUrl: 'TODO: 여행자 사전등록 설문 링크',
   jigiFormUrl: 'TODO: 지기 지원 설문 링크',
   formTool: 'TODO: Google Forms / Tally',
