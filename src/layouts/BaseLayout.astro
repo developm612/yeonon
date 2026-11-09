@@ -10,9 +10,11 @@ interface Props {
   lang?: 'en' | 'ko';
   /** 모바일 하단 고정 CTA 종류 ('none'이면 표시하지 않음) */
   sticky?: 'traveler' | 'jigi' | 'none';
+  /** 로그인·회원 전용 페이지: 검색 노출 제외 */
+  noindex?: boolean;
 }
 
-const { title, description, lang = 'en', sticky = 'traveler' } = Astro.props;
+const { title, description, lang = 'en', sticky = 'traveler', noindex = false } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 // TODO: og-image.png (1200×630)을 public/images/에 추가
 const ogImage = new URL('/images/og-image.png', Astro.site);
@@ -26,6 +28,7 @@ const ogImage = new URL('/images/og-image.png', Astro.site);
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#F5F8FD" />

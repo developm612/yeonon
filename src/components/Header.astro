@@ -2,6 +2,7 @@
 import Logo from './Logo.astro';
 import Button from './Button.astro';
 import Icon from './Icon.astro';
+import { isAuthConfigured } from '../lib/supabase';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const links = [
@@ -9,6 +10,9 @@ const links = [
   { href: '/travelers', label: 'For Travelers', lang: 'en' },
   { href: '/jigi', label: '지기 지원하기', lang: 'ko' },
 ];
+// 로그인 상태: 서버 렌더링 페이지는 세션으로, 정적 페이지는 브라우저의 세션 쿠키 유무로 표시만 바꾼다 (아래 스크립트)
+// Supabase 키가 없으면 로그인 링크를 아예 그리지 않아 기존 화면과 같다
+const signedIn = Boolean(Astro.locals.user);
 ---
 <header class="sticky top-0 z-40 border-b border-border/70 bg-bg/90 backdrop-blur-md">
   <!-- 모바일: [로고 | 여행자·지기 전환 | 메뉴] 3열, 가운데 열이 화면 정중앙 / 데스크톱: 로고 + 내비 -->
@@ -57,6 +61,12 @@ const links = [
           {l.label}
         </a>
       ))}
+      {isAuthConfigured && (
+        <>
+          <a href="/login" data-auth="out" hidden={signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">Sign in</a>
+          <a href="/app" data-auth="in" hidden={!signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-text transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">My page</a>
+        </>
+      )}
       <!-- 앱 미리보기 페이지 안에서는 다시 불러오지 않고 하단 대기자 폼으로 이동 -->
       <Button href={path === '/app-preview' ? '#waitlist' : '/app-preview'} class="ml-2 whitespace-nowrap">
         <span lang="en">Join the early list</span>
@@ -94,6 +104,18 @@ const links = [
           </a>
         </li>
       ))}
+      {isAuthConfigured && (
+        <li>
+          <a href="/login" data-auth="out" hidden={signedIn} lang="en" class="flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold">
+            Sign in
+            <Icon name="arrow" class="size-5 text-muted" />
+          </a>
+          <a href="/app" data-auth="in" hidden={!signedIn} lang="en" class="flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold">
+            My page
+            <Icon name="arrow" class="size-5 text-muted" />
+          </a>
+        </li>
+      )}
       <li>
         <a lang="en" href="/privacy" class="flex items-center justify-between py-4 text-base text-muted">Privacy</a>
       </li>
@@ -118,6 +140,12 @@ const links = [
     }
   });
   window.matchMedia('(min-width: 768px)').addEventListener('change', (e) => e.matches && setOpen(false));
+
+  // 정적 페이지: Supabase 세션 쿠키(sb-<프로젝트>-auth-token)가 있으면 'My page'로 바꿔 보여 준다.
+  // 표시만 바꾸는 것이고, 실제 접근 권한은 서버(src/middleware.ts)가 확인한다.
+  if (/(?:^|;\s*)sb-[^=]+-auth-token(?:\.0)?=/.test(document.cookie)) {
+    document.querySelectorAll<HTMLElement>('[data-auth]').forEach((el) => (el.hidden = el.dataset.auth !== 'in'));
+  }
 
   // 설문 링크가 아직 TODO인 경우 이동을 막는다
   document.querySelectorAll('[data-pending-link]').forEach((a) =>
