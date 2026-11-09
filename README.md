@@ -1,7 +1,7 @@
 # 연온(YEONON) 랜딩사이트
 
 외국인 여행자와 성수동 현지 친구 '지기'를 연결하는 연온의 사전 등록(Pre-launch) 랜딩사이트입니다.
-Astro + Tailwind CSS v4 정적 사이트입니다. 신청은 앱 미리보기 페이지 하단 폼(여행자 `/app-preview`, 지기 `/app-preview-jigi`)으로 받아 Google Apps Script로 스프레드시트에 저장합니다. (사이트 자체에는 DB·로그인 없음)
+Astro + Tailwind CSS v4 사이트입니다 (공개 페이지는 정적, 로그인 영역은 Vercel 서버 렌더링). 신청은 앱 미리보기 페이지 하단 폼(여행자 `/app-preview`, 지기 `/app-preview-jigi`)으로 받아 Google Apps Script로 스프레드시트에 저장합니다. (로그인·DB는 실서비스 전환 작업 중 — 아래 '로그인 · 회원 영역')
 
 **신청 버튼 연결**
 - 여행자 `Join the early list` / `Join as a traveler` → `/app-preview`: 헤더, 홈(히어로·하단), `/travelers`(히어로·하단), `/how-it-works` 하단, 모바일 하단 고정 버튼
@@ -24,15 +24,31 @@ Node.js 18.20 이상 (20+ 권장)
 ```bash
 npm install        # 의존성 설치
 npm run dev        # 개발 서버 → http://localhost:4321
-npm run build      # 정적 빌드 → dist/
-npm run preview    # 빌드 결과 미리보기
+npm run build      # 빌드 → .vercel/output/ (공개 페이지는 정적 HTML, 로그인 영역은 서버 함수)
 ```
+
+Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확인은 `npm run dev` 또는 Vercel 미리보기 배포로 한다.
+
+## 로그인 · 회원 영역 (실서비스 전환, 진행 중)
+
+계획: `../yeonon-service-plan-v2.md`. Phase 1(로그인 기반)까지 구현됨.
+
+| 경로 | 내용 |
+|---|---|
+| `/login` | Google 로그인 (`?next=`로 돌아갈 곳 지정, 사이트 안 경로만 허용) |
+| `/auth/google` → `/auth/callback` | Supabase OAuth 시작 / 세션 쿠키 발급 |
+| `/auth/signout` | 로그아웃 (같은 사이트에서 보낸 POST만) |
+| `/app` · `/partner` · `/admin` | 로그인 필요 (`src/middleware.ts`). 지금은 임시 화면 |
+
+- **키 설정**: `.env.example`을 `.env`로 복사해 Supabase 값을 채운다. 값이 비어 있으면 로그인 기능이 꺼지고 헤더의 Sign in도 보이지 않는다 (기존 사이트와 같은 화면).
+- **렌더링**: 공개 페이지는 지금처럼 빌드 때 정적 HTML로 만들고, `export const prerender = false`인 페이지만 요청마다 서버에서 렌더링한다.
+- **헤더 로그인 표시**: 정적 페이지는 브라우저의 Supabase 세션 쿠키 유무로 `Sign in` ↔ `My page`를 바꿔 보여 줄 뿐이고, 실제 접근 확인은 서버가 한다.
 
 ## 배포 (Vercel)
 
 1. 이 폴더를 GitHub 저장소에 올린다.
 2. vercel.com → **Add New Project** → 저장소 선택. Framework Preset은 **Astro**로 자동 인식된다.
-   (Build Command `npm run build`, Output Directory `dist`)
+   (Build Command `npm run build`. Vercel 어댑터가 `.vercel/output`을 만들므로 Output Directory는 따로 지정하지 않는다)
 3. 배포 후 **Settings → Domains**에서 도메인 연결.
 4. 도메인이 정해지면 `astro.config.mjs`의 `site`와 `src/config/site.ts`의 `url`을 바꾸고 다시 배포한다. (canonical·OG URL에 쓰임)
 

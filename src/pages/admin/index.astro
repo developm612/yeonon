@@ -1,0 +1,10 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaPlaceholder from '../../components/AreaPlaceholder.astro';
+
+export const prerender = false;
+// TODO(Phase 2): profiles.role = 'admin' 확인 — 지금은 로그인만 확인하므로 실제 관리 기능을 넣지 않는다
+---
+<BaseLayout title="관리자 | YEONON" description="연온 관리자" lang="ko" sticky="none" noindex>
+  <AreaPlaceholder lang="ko" title="관리자" note="로그인 확인용 임시 화면입니다. 관리자 권한 확인과 관리 기능은 Phase 2에서 추가됩니다." />
+</BaseLayout>
