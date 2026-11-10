@@ -25,6 +25,13 @@ const ogImage = new URL('/images/og-image.png', Astro.site);
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- 안전장치: Supabase가 로그인 code를 /auth/callback이 아닌 페이지(주로 정적 홈)로 보냈을 때 콜백으로 넘긴다 -->
+    <script is:inline>
+      (function () {
+        var code = new URLSearchParams(location.search).get('code');
+        if (code && location.pathname !== '/auth/callback') location.replace('/auth/callback?code=' + encodeURIComponent(code));
+      })();
+    </script>
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
