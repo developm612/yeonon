@@ -9,6 +9,7 @@ import Notice from '../../components/account/Notice.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
 import { interestNames } from '../../data/interests';
 import { ROUTE_STATUS, ROUTE_STATUSES, areaName, languageName, vibeName, type RouteStatus } from '../../data/routeOptions';
+import { embedRoute } from '../../lib/ai/routeEmbedding';
 import { fmtDuration } from '../../lib/course';
 import { dbError, field, notice } from '../../lib/forms';
 import { ROUTE_COLUMNS, STOP_COLUMNS, UUID, won, type RouteRow, type StopRow } from '../../lib/routes';
@@ -40,6 +41,8 @@ if (Astro.request.method === 'POST') {
   else {
     const { error: rpcError } = await supabase.rpc('admin_review_route', { p_id: id, p_action: action, p_memo: memo });
     if (!dbError(rpcError, 'review route')) {
+      // 공개되는 루트의 AI 추천용 임베딩을 지금 내용으로 맞춘다 (키가 없거나 실패해도 승인은 끝난 것)
+      if (action === 'publish') await embedRoute(supabase, id);
       const back = new URL(Astro.url);
       back.searchParams.set('notice', action);
       return Astro.redirect(back.pathname + back.search);

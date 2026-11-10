@@ -1,6 +1,7 @@
 /** 회원 영역 탭 메뉴 */
 export const TRAVELER_NAV = [
   { href: '/app', label: 'Home' },
+  { href: '/app/discover', label: 'Discover' },
   { href: '/routes', label: 'Routes' },
   { href: '/app/profile', label: 'Profile' },
 ];
@@ -17,6 +18,7 @@ export const ADMIN_NAV = [
   { href: '/admin/users', label: '회원' },
   { href: '/admin/jigi-applications', label: '지기 신청' },
   { href: '/admin/routes', label: '루트 검수' },
+  { href: '/admin/recommendations', label: '추천 로그' },
 ];
 
 /** 여행자가 고를 수 있는 사용 언어 */

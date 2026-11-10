@@ -1,15 +1,13 @@
 ---
 /**
- * 루트 상세 (누구나). 코스 타임라인, 지기(이름 일부만), 앞으로 4주 예약 가능한 시간.
+ * 루트 상세 (누구나). 코스 타임라인, 지기(이름 일부만), 앞으로 4주 예약 가능한 시간 — 본문은 components/routes/RouteDetail.astro.
  * 공개 루트가 아니면 루트 주인(지기)과 관리자에게만 '미리보기'로 보인다 — 읽기 권한은 DB RLS가 정한다.
  * 매칭 요청(Request this route)은 Phase 5에서 연결한다. 비회원은 로그인 후 같은 루트로 돌아온다.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import Icon from '../../components/Icon.astro';
-import { interestNames } from '../../data/interests';
-import { ROUTE_STATUS, WALK_MIN, areaName, languageName, vibeName } from '../../data/routeOptions';
-import { courseMinutes, courseTimeline, fmtDuration, stopEmoji } from '../../lib/course';
-import { kstDate, kstDay, kstTime, loadRoute, won, type PublicJigi, type SlotRow } from '../../lib/routes';
+import RouteDetail from '../../components/routes/RouteDetail.astro';
+import { ROUTE_STATUS } from '../../data/routeOptions';
+import { loadRoute, type PublicJigi, type SlotRow } from '../../lib/routes';
 import { isOnboarded } from '../../lib/profile';
 import { createSupabaseServerClient, isAuthConfigured, isMemberUiPublic } from '../../lib/supabase';
 
@@ -33,12 +31,7 @@ if (loaded && supabase) {
 }
 
 const route = loaded?.route;
-const stops = loaded?.stops ?? [];
 const isPreview = route && route.status !== 'published';
-const course = stops.map((s) => ({ emoji: stopEmoji(s.tags), name: s.place_name, min: s.stay_minutes }));
-const timeline = courseTimeline(course, 0, WALK_MIN);
-const byDay = new Map<string, SlotRow[]>();
-for (const s of slots) byDay.set(kstDay(s.starts_at), [...(byDay.get(kstDay(s.starts_at)) ?? []), s]);
 const here = Astro.url.pathname;
 const canRequest = profile?.role === 'traveler' && isOnboarded(profile) && profile.status === 'active';
 const cta = 'mt-5 flex h-[52px] items-center justify-center rounded-full bg-traveler-strong font-semibold text-white hover:bg-[#134FB0]';
@@ -67,103 +60,20 @@ const cta = 'mt-5 flex h-[52px] items-center justify-center rounded-full bg-trav
           {profile?.role === 'admin' && <a href={`/admin/routes?status=${route.status}#route-${route.id}`} class="ml-2 underline underline-offset-4">검수 화면으로</a>}
         </p>
       )}
-      <div class="bg-gradient-to-br from-jigi to-jigi-strong text-white">
-        <div class="container-page py-10 md:py-14">
-          <a href="/routes" class="text-sm font-semibold text-white/80 hover:text-white">← All routes</a>
-          <p class="mt-4 text-[34px] tracking-[8px]" aria-hidden="true">{course.map((c) => c.emoji).join('')}</p>
-          <h1 class="mt-2 text-3xl font-extrabold md:text-4xl">{route.title}</h1>
-          <p class="mt-2 max-w-2xl text-white/90">{route.summary}</p>
-          <ul class="mt-4 flex flex-wrap gap-1.5" aria-label="Interests">
-            {interestNames(route.tags, 'en').map((name) => <li class="rounded-full bg-white/20 px-3 py-1 text-sm font-semibold">{name}</li>)}
-          </ul>
-        </div>
-      </div>
-
-      <section class="section pt-10! md:pt-12!">
-        <div class="container-page grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-          <div class="min-w-0 space-y-10">
-            <dl class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {[
-                ['Duration', fmtDuration(route.duration_minutes, 'en')],
-                ['Group size', `Up to ${route.max_party_size}`],
-                ['Vibe', vibeName(route.vibe, 'en')],
-                ['Languages', route.languages.map((l) => languageName(l, 'en')).join(', ')],
-                ['Area', areaName(route.area, 'en')],
-                ['Price', won(route.list_price)],
-              ].map(([k, v]) => (
-                <div class="rounded-xl bg-surface p-4 shadow-card"><dt class="text-xs font-semibold text-muted">{k}</dt><dd class="mt-1 font-bold">{v}</dd></div>
-              ))}
-            </dl>
-
-            <div>
-              <h2 class="text-xl font-extrabold">The route</h2>
-              <p class="mt-1 text-sm text-muted">About {fmtDuration(courseMinutes(course.map((c) => c.min), WALK_MIN), 'en')} including short walks between stops.</p>
-              <ol class="mt-5 border-l-2 border-jigi-soft pl-5" aria-label="Stops">
-                {timeline.map((item) =>
-                  item.kind === 'walk' ? (
-                    <li class="pb-5 text-sm text-muted">🚶 About {item.minutes} min walk</li>
-                  ) : (
-                    <li class="relative pb-5 last:pb-0">
-                      <span class="absolute top-[6px] -left-[28px] size-[14px] rounded-full border-2 border-white bg-jigi-strong" aria-hidden="true"></span>
-                      <p class="text-xs font-bold text-jigi-strong">Stop {item.index + 1} · {item.stop.min} min · {areaName(stops[item.index].area, 'en')}</p>
-                      <h3 class="mt-0.5 text-lg font-bold"><span aria-hidden="true">{item.stop.emoji}</span> {item.stop.name}</h3>
-                      <p class="mt-1">{stops[item.index].activity}</p>
-                      {stops[item.index].tip && <p class="mt-2 rounded-xl bg-jigi-soft px-3 py-2 text-sm"><b>Jigi's tip</b> · {stops[item.index].tip}</p>}
-                    </li>
-                  ),
-                )}
-              </ol>
-            </div>
-
-            <div>
-              <h2 class="text-xl font-extrabold">Where you'll meet</h2>
-              <p class="mt-2">{areaName(route.area, 'en')} · {route.meeting_point_note}</p>
-              <p class="mt-1 text-sm text-muted">Always a public place. Your jigi will share the exact spot once you're matched.</p>
-            </div>
-          </div>
-
-          <aside class="space-y-5 lg:sticky lg:top-24">
-            <div class="card p-5">
-              <p class="text-xs font-semibold text-muted">Your local friend</p>
-              <p class="mt-1 flex items-center gap-2 text-lg font-bold">
-                <span class="inline-flex size-[36px] items-center justify-center rounded-full bg-jigi-soft text-jigi-strong" aria-hidden="true"><Icon name="user" class="size-[18px]" /></span>
-                {host?.display_name ?? 'Jigi'}
-              </p>
-              {host?.headline && <p class="mt-2 font-semibold">{host.headline}</p>}
-              {host?.bio && <p class="mt-1 text-sm text-muted">{host.bio}</p>}
-              <p class="mt-3 text-xs text-muted">Contact details stay private. You'll chat in YEONON once matched.</p>
-            </div>
-
-            <div class="card p-5">
-              <h2 class="font-bold">Available times <span class="font-normal text-muted">(KST)</span></h2>
-              {byDay.size === 0 ? (
-                <p class="mt-2 text-sm text-muted">No open times in the next 4 weeks yet.</p>
-              ) : (
-                <ul class="mt-3 max-h-[320px] space-y-3 overflow-y-auto pr-1">
-                  {[...byDay].map(([, list]) => (
-                    <li>
-                      <p class="text-sm font-semibold">{kstDate(list[0].starts_at, 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-                      <ul class="mt-1.5 flex flex-wrap gap-1.5">
-                        {list.map((s) => <li class="rounded-full border border-border px-3 py-1 text-sm font-semibold tabular-nums">{kstTime(s.starts_at)}</li>)}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {!isPreview && (
-                !user ? (
-                  <a href={`/login?next=${encodeURIComponent(here)}`} class={cta}>Sign in to request</a>
-                ) : !profile || !isOnboarded(profile) ? (
-                  <a href={`/onboarding?next=${encodeURIComponent(here)}`} class={cta}>Finish signing up</a>
-                ) : canRequest ? (
-                  <button type="button" disabled class={`${cta} w-full opacity-60`}>Request this route</button>
-                ) : null
-              )}
-              {!isPreview && (!profile || canRequest) && <p class="mt-2 text-center text-xs text-muted">Requests open soon — we're testing with our first local friends.</p>}
-            </div>
-          </aside>
-        </div>
-      </section>
+      <RouteDetail route={route} stops={loaded!.stops} host={host} slots={slots} backHref="/routes" backLabel="All routes">
+        <Fragment slot="cta">
+          {!isPreview && (
+            !user ? (
+              <a href={`/login?next=${encodeURIComponent(here)}`} class={cta}>Sign in to request</a>
+            ) : !profile || !isOnboarded(profile) ? (
+              <a href={`/onboarding?next=${encodeURIComponent(here)}`} class={cta}>Finish signing up</a>
+            ) : canRequest ? (
+              <button type="button" disabled class={`${cta} w-full opacity-60`}>Request this route</button>
+            ) : null
+          )}
+          {!isPreview && (!profile || canRequest) && <p class="mt-2 text-center text-xs text-muted">Requests open soon — we're testing with our first local friends.</p>}
+        </Fragment>
+      </RouteDetail>
     </>
   )}
 </BaseLayout>

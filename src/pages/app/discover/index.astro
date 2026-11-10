@@ -1,0 +1,227 @@
+---
+/**
+ * AI 추천 입력 (여행자). 관심사 3~5개, 날짜·시간대, 인원, 언어, 분위기, 자유 문장.
+ * 관심사 칩은 앱 미리보기(/app-preview)와 같은 컴포넌트·선택 동작(createPicker)을 쓴다.
+ * 제출하면 /app/discover/results?… 로 가서 /api/recommend를 부른다. 입력 규칙: lib/recommend/input.ts
+ */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import Notice from '../../../components/account/Notice.astro';
+import InterestChips from '../../../components/app/InterestChips.astro';
+import { DISCOVER, DISCOVER_VIBES, TIMES_OF_DAY } from '../../../config/recommend';
+import { TRAVELER_NAV } from '../../../data/accountNav';
+import { INTEREST_MAX, INTEREST_MIN } from '../../../data/interests';
+import { ROUTE_LANGUAGES } from '../../../data/routeOptions';
+import { kstToday } from '../../../lib/availability';
+import { defaultInput, readInput, validateInput } from '../../../lib/recommend/input';
+
+export const prerender = false;
+
+const { profile } = Astro.locals;
+const q = Astro.url.searchParams;
+// 결과 화면에서 "조건 바꾸기"로 돌아오면 주소의 조건을 그대로 채운다
+const fromQuery = q.has('interests') || q.has('from');
+const values = fromQuery ? { ...defaultInput(profile), ...stripEmpty(readInput((k) => q.get(k))) } : defaultInput(profile);
+const errors = q.get('invalid') ? validateInput(values).errors : {};
+const errorList = Object.values(errors);
+
+function stripEmpty<T extends object>(o: T): Partial<T> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => (Array.isArray(v) ? v.length : v !== '' && v !== 0))) as Partial<T>;
+}
+
+const today = kstToday();
+const last = kstToday(DISCOVER.maxDaysAhead);
+const input = 'mt-2 block h-[52px] w-full rounded-[14px] border border-border bg-surface px-4 focus:border-traveler-strong focus:outline-none focus:ring-3 focus:ring-traveler/20 aria-invalid:border-[#B42318]';
+const pill = 'flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-border bg-surface px-4 text-[0.9375rem] font-semibold has-checked:border-traveler-strong has-checked:bg-traveler-soft has-checked:text-traveler-strong has-disabled:cursor-not-allowed has-disabled:opacity-45';
+const hidden = 'sr-only';
+const legend = 'text-lg font-bold';
+---
+<BaseLayout title="Find my route | YEONON" description="Tell us what you love and we'll recommend routes in Seongsu." sticky="none" noindex>
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-3xl!">
+      <p class="eyebrow">Discover</p>
+      <h1 class="mt-3 text-3xl font-extrabold md:text-4xl">Find my route</h1>
+      <p class="mt-2 text-muted">Tell us what you love. We'll match you with routes made by local friends (jigi) in Seongsu.</p>
+
+      <form method="get" action="/app/discover/results" class="mt-8 space-y-10" novalidate data-discover>
+        {errorList.length > 0 && (
+          <Notice tone="error">{errorList.join(' ')}</Notice>
+        )}
+        <p class="hidden" role="alert" data-form-error></p>
+
+        <fieldset data-app data-min={INTEREST_MIN} data-max={INTEREST_MAX}>
+          <legend class={legend}>What sounds like you?</legend>
+          <p class="mt-1 text-sm text-muted">Pick {INTEREST_MIN} to {INTEREST_MAX}.</p>
+          <InterestChips class="mt-4" />
+          <p class="mt-3 text-sm font-medium text-muted">
+            <span data-count>0 / {INTEREST_MAX} selected</span>
+            <span class="ml-2 font-semibold text-traveler-strong" data-limit-msg aria-live="polite"></span>
+          </p>
+          <input type="hidden" name="interests" value={values.interests.join(',')} data-interests />
+        </fieldset>
+
+        <fieldset>
+          <legend class={legend}>When are you in Seoul?</legend>
+          <p class="mt-1 text-sm text-muted">Korea time (KST). You can search up to 4 weeks ahead.</p>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="dc-from" class="font-semibold">From</label>
+              <input id="dc-from" name="from" type="date" min={today} max={last} value={values.date_from} required aria-invalid={errors.date_from ? 'true' : undefined} class={input} />
+            </div>
+            <div>
+              <label for="dc-to" class="font-semibold">To</label>
+              <input id="dc-to" name="to" type="date" min={today} max={last} value={values.date_to} required aria-invalid={errors.date_to ? 'true' : undefined} class={input} />
+            </div>
+          </div>
+          <p class="mt-5 font-semibold" id="dc-time-label">Time of day</p>
+          <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-labelledby="dc-time-label">
+            {TIMES_OF_DAY.map((t) => (
+              <label class={pill}>
+                <input type="radio" name="time" value={t.id} checked={values.time_of_day === t.id || undefined} class={hidden} />
+                {t.label}{'hint' in t && <span class="text-sm font-normal text-muted">{t.hint}</span>}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset class="grid gap-8 sm:grid-cols-[180px_minmax(0,1fr)]">
+          <legend class={`${legend} sr-only`}>Group and language</legend>
+          <div>
+            <label for="dc-party" class="text-lg font-bold">Group size</label>
+            <select id="dc-party" name="party" class={input}>
+              {Array.from({ length: DISCOVER.partyMax }, (_, i) => i + 1).map((n) => (
+                <option value={n} selected={values.party_size === n || undefined}>{n === 1 ? 'Just me' : `${n} people`}</option>
+              ))}
+            </select>
+          </div>
+          <div data-max-langs={DISCOVER.languagesMax}>
+            <p class="text-lg font-bold" id="dc-lang-label">Languages <span class="text-sm font-normal text-muted">(up to {DISCOVER.languagesMax})</span></p>
+            <div class="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby="dc-lang-label">
+              {ROUTE_LANGUAGES.map((l) => (
+                <label class={pill}>
+                  <input type="checkbox" name="lang" value={l.id} checked={values.languages.includes(l.id) || undefined} class={hidden} />
+                  {l.id}
+                </label>
+              ))}
+            </div>
+            <input type="hidden" name="lang" value="" data-lang-joined disabled />
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend class={legend}>What vibe do you want?</legend>
+          <div class="mt-3 flex flex-wrap gap-2">
+            {DISCOVER_VIBES.map((v) => (
+              <label class={pill}>
+                <input type="radio" name="vibe" value={v.id} checked={values.vibe === v.id || undefined} class={hidden} />
+                {v.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div>
+          <label for="dc-note" class="text-lg font-bold">Anything else? <span class="text-sm font-normal text-muted">(optional)</span></label>
+          <textarea id="dc-note" name="note" rows="3" maxlength={DISCOVER.noteMax} placeholder="e.g. Quiet cafés and vintage shops, not too much walking"
+            class="mt-2 block w-full rounded-[14px] border border-border bg-surface p-4 focus:border-traveler-strong focus:outline-none focus:ring-3 focus:ring-traveler/20" data-note>{values.note}</textarea>
+          <p class="mt-1 flex justify-between gap-3 text-sm text-muted">
+            <span>Please don't include names or contact details.</span>
+            <span data-note-count>{values.note.length} / {DISCOVER.noteMax}</span>
+          </p>
+        </div>
+
+        <div class="border-t border-border pt-6">
+          <button type="submit" data-pick-next class="flex h-[56px] w-full items-center justify-center rounded-full bg-traveler-strong text-[17px] font-semibold text-white hover:bg-[#134FB0] aria-disabled:opacity-60 sm:w-auto sm:px-10">
+            Find my route
+          </button>
+          <p class="mt-3 text-sm text-muted">We use AI to rank routes and explain why they fit. We only send your preferences — never your name or contact details.</p>
+        </div>
+      </form>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import { createPicker } from '../../../scripts/phoneApp';
+
+  const form = document.querySelector<HTMLFormElement>('[data-discover]')!;
+  const chipsBox = form.querySelector<HTMLElement>('fieldset[data-app]')!;
+  const min = Number(chipsBox.dataset.min);
+  const max = Number(chipsBox.dataset.max);
+  const hiddenInterests = form.querySelector<HTMLInputElement>('[data-interests]')!;
+  const errorBox = form.querySelector<HTMLElement>('[data-form-error]')!;
+
+  // 앱 미리보기와 같은 칩 선택 (최대 개수 넘기면 흔들림 + 안내)
+  const picker = createPicker(form, {
+    min,
+    max,
+    countText: (n) => (n < min ? `${n} / ${max} selected · pick at least ${min}` : `${n} / ${max} selected`),
+    limitText: `You can pick up to ${max}.`,
+  });
+  // 이전 선택(프로필 관심사나 주소의 조건)을 눌러 둔다
+  for (const id of hiddenInterests.value.split(',').filter(Boolean)) {
+    form.querySelector<HTMLButtonElement>(`[data-chip="${id}"]`)?.click();
+  }
+
+  // 언어: 최대 개수가 차면 나머지를 잠근다
+  const langMax = Number(form.querySelector<HTMLElement>('[data-max-langs]')!.dataset.maxLangs);
+  const langs = [...form.querySelectorAll<HTMLInputElement>('input[type="checkbox"][name="lang"]')];
+  const syncLangs = () => {
+    const full = langs.filter((b) => b.checked).length >= langMax;
+    langs.forEach((b) => (b.disabled = full && !b.checked));
+  };
+  langs.forEach((b) => b.addEventListener('change', syncLangs));
+  syncLangs();
+
+  // 날짜: 끝 날짜는 시작 날짜보다 앞설 수 없다
+  const from = form.querySelector<HTMLInputElement>('#dc-from')!;
+  const to = form.querySelector<HTMLInputElement>('#dc-to')!;
+  const syncDates = () => {
+    to.min = from.value || from.min;
+    if (to.value && from.value && to.value < from.value) to.value = from.value;
+  };
+  from.addEventListener('change', syncDates);
+  syncDates();
+
+  const note = form.querySelector<HTMLTextAreaElement>('[data-note]')!;
+  const noteCount = form.querySelector<HTMLElement>('[data-note-count]')!;
+  note.addEventListener('input', () => (noteCount.textContent = `${note.value.length} / ${note.maxLength}`));
+
+  const fail = (message: string, focus: HTMLElement) => {
+    errorBox.textContent = message;
+    errorBox.className = 'rounded-[14px] border border-[#F4C7C3] bg-[#FDECEC] px-4 py-3 font-semibold text-[#B42318]';
+    focus.focus();
+  };
+
+  form.addEventListener('submit', (e) => {
+    errorBox.className = 'hidden';
+    if (picker.selected.length < min) {
+      e.preventDefault();
+      return fail(`Pick at least ${min} interests.`, form.querySelector<HTMLElement>('[data-chip]')!);
+    }
+    if (!from.value || !to.value) {
+      e.preventDefault();
+      return fail('Choose your dates.', from);
+    }
+    const checked = langs.filter((b) => b.checked);
+    if (!checked.length) {
+      e.preventDefault();
+      return fail('Pick at least one language.', langs[0]);
+    }
+    hiddenInterests.value = picker.selected.join(',');
+    // 언어는 주소를 짧게 lang=English,Korean 한 칸으로 보낸다
+    const joined = form.querySelector<HTMLInputElement>('[data-lang-joined]')!;
+    joined.value = checked.map((b) => b.value).join(',');
+    joined.disabled = false;
+    langs.forEach((b) => (b.disabled = true));
+    if (!note.value.trim()) note.disabled = true;
+    // 뒤로 가기로 돌아왔을 때 다시 쓸 수 있게
+    window.addEventListener('pageshow', () => {
+      langs.forEach((b) => (b.disabled = false));
+      syncLangs();
+      joined.disabled = true;
+      note.disabled = false;
+    }, { once: true });
+  });
+</script>

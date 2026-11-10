@@ -1,0 +1,247 @@
+---
+/**
+ * AI 추천 로그 (관리자). 입력 조건·결과·모델·지연 시간·대체 여부·클릭·요청 — 개인정보(누가 했는지)는 보여 주지 않는다.
+ * 대체 비율·클릭률로 가중치(src/config/recommend.ts)를 조정한다.
+ * 임베딩 백필: 임베딩이 없거나 모델·내용이 바뀐 루트를 한 번에 만든다 (lib/ai/routeEmbedding.ts).
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import Notice from '../../components/account/Notice.astro';
+import { DISCOVER_VIBES, RECOMMEND, TIMES_OF_DAY } from '../../config/recommend';
+import { ADMIN_NAV } from '../../data/accountNav';
+import { interestNames } from '../../data/interests';
+import { backfillRouteEmbeddings, embeddingStatus } from '../../lib/ai/routeEmbedding';
+import { llmModel } from '../../lib/ai/llm';
+import { dbError, field } from '../../lib/forms';
+import type { RecommendationCard } from '../../lib/recommend/engine';
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+if (!supabase) return Astro.redirect('/login');
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  if (field(fd, 'action') === 'backfill') {
+    const r = await backfillRouteEmbeddings(supabase);
+    const back = new URL(Astro.url);
+    back.searchParams.set('notice', r.ok ? 'backfill' : `backfill_${r.reason}`);
+    if (r.ok) {
+      back.searchParams.set('saved', String(r.saved));
+      back.searchParams.set('remaining', String(r.remaining));
+    }
+    return Astro.redirect(back.pathname + back.search);
+  }
+}
+
+const q = Astro.url.searchParams;
+const n = (k: string) => Math.max(0, Number.parseInt(q.get(k) ?? '0', 10) || 0);
+const notices: Record<string, string> = {
+  backfill: `임베딩 ${n('saved')}개를 만들었어요.${n('remaining') ? ` 아직 ${n('remaining')}개 남았어요 — 한 번 더 눌러 주세요.` : ' 모두 최신이에요.'}`,
+  backfill_no_key: 'EMBEDDING_API_KEY·EMBEDDING_MODEL이 없어서 만들 수 없어요. Vercel 환경 변수를 확인해 주세요.',
+  backfill_db: '루트를 불러오지 못했어요. 다시 시도해 주세요.',
+  backfill_api: '임베딩 API 호출에 실패했어요. 키·모델 이름을 확인하고 다시 시도해 주세요.',
+};
+const noticeText = notices[q.get('notice') ?? ''] ?? null;
+const noticeTone = (q.get('notice') ?? '').startsWith('backfill_') ? 'error' : 'info';
+
+const PERIODS = [
+  { id: '7', label: '최근 7일', days: 7 },
+  { id: '30', label: '최근 30일', days: 30 },
+  { id: 'all', label: '전체', days: null },
+] as const;
+const period = PERIODS.find((p) => p.id === q.get('days')) ?? PERIODS[0];
+const since = period.days ? new Date(Date.now() - period.days * 86_400_000).toISOString() : null;
+const PAGE = 30;
+const page = Math.max(1, n('page') || 1);
+
+const FALLBACK_LABEL: Record<string, string> = {
+  no_llm_key: 'LLM 키 없음',
+  llm_timeout: `시간 초과(${RECOMMEND.llmTimeoutMs / 1000}초)`,
+  llm_invalid: 'JSON 형식 오류',
+  llm_refused: 'LLM 거절',
+  llm_error: 'LLM 오류',
+};
+
+interface LogRow {
+  id: string;
+  created_at: string;
+  input: { interests?: string[]; date_from?: string; date_to?: string; time_of_day?: string; party_size?: number; languages?: string[]; vibe?: string; note?: string };
+  candidates: unknown[];
+  results: RecommendationCard[];
+  model: string | null;
+  embedding_model: string | null;
+  used_fallback: boolean;
+  fallback_reason: string | null;
+  latency_ms: number | null;
+  clicked_route_id: string | null;
+  booked: boolean;
+}
+
+/** 기간 안의 건수 (조건을 더해서) */
+const count = async (extra?: (q: ReturnType<typeof base>) => ReturnType<typeof base>) => {
+  const q = extra ? extra(base()) : base();
+  const { count: c, error } = await q;
+  dbError(error, 'recommendation count');
+  return c ?? 0;
+};
+function base() {
+  const q = supabase!.from('recommendation_requests').select('id', { count: 'exact', head: true });
+  return since ? q.gte('created_at', since) : q;
+}
+
+let listQuery = supabase
+  .from('recommendation_requests')
+  .select('id, created_at, input, candidates, results, model, embedding_model, used_fallback, fallback_reason, latency_ms, clicked_route_id, booked', { count: 'exact' });
+if (since) listQuery = listQuery.gte('created_at', since);
+let timingQuery = supabase.from('recommendation_requests').select('used_fallback, fallback_reason, latency_ms').order('created_at', { ascending: false }).limit(2000);
+if (since) timingQuery = timingQuery.gte('created_at', since);
+
+const [total, withResults, fallbackCount, clicked, booked, timingRes, listRes, emb] = await Promise.all([
+  count(),
+  count((q) => q.neq('results', '[]')),
+  count((q) => q.eq('used_fallback', true)),
+  count((q) => q.not('clicked_route_id', 'is', null)),
+  count((q) => q.eq('booked', true)),
+  timingQuery,
+  listQuery.order('created_at', { ascending: false }).range((page - 1) * PAGE, page * PAGE - 1),
+  embeddingStatus(supabase),
+]);
+dbError(timingRes.error, 'recommendation timing');
+dbError(listRes.error, 'recommendation logs');
+
+const timing = (timingRes.data ?? []) as Pick<LogRow, 'used_fallback' | 'fallback_reason' | 'latency_ms'>[];
+const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—');
+const reasonCounts = Object.entries(
+  timing.filter((s) => s.used_fallback).reduce<Record<string, number>>((acc, s) => ((acc[s.fallback_reason ?? '?'] = (acc[s.fallback_reason ?? '?'] ?? 0) + 1), acc), {}),
+).sort((a, b) => b[1] - a[1]);
+const latencies = timing.map((s) => s.latency_ms ?? 0).sort((a, b) => a - b);
+const median = latencies.length ? latencies[Math.floor(latencies.length / 2)] : 0;
+
+const cards = [
+  { label: '추천 수', value: String(total), sub: `결과 없음 ${total - withResults}` },
+  { label: '대체 비율', value: pct(fallbackCount, withResults), sub: reasonCounts.map(([r, c]) => `${FALLBACK_LABEL[r] ?? r} ${c}`).join(' · ') || 'AI 재정렬 사용' },
+  { label: '클릭률', value: pct(clicked, withResults), sub: `${clicked}건 클릭` },
+  { label: '요청 전환', value: pct(booked, withResults), sub: 'Phase 5부터 집계' },
+  { label: '지연 시간 (중앙값)', value: `${(median / 1000).toFixed(1)}초`, sub: `최대 ${((latencies.at(-1) ?? 0) / 1000).toFixed(1)}초` },
+];
+
+const logs = (listRes.data ?? []) as LogRow[];
+const totalLogs = listRes.count ?? 0;
+const pages = Math.max(1, Math.ceil(totalLogs / PAGE));
+const kst = (iso: string) => new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+const timeLabel = (id?: string) => TIMES_OF_DAY.find((t) => t.id === id)?.label ?? id ?? '';
+const vibeLabel = (id?: string) => DISCOVER_VIBES.find((v) => v.id === id)?.label ?? id ?? '';
+const pageHref = (p: number) => `?days=${period.id}&page=${p}`;
+const llm = llmModel();
+---
+<BaseLayout title="추천 로그 | YEONON" description="AI 추천 로그" lang="ko" sticky="none" noindex>
+  <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <h1 class="text-3xl font-extrabold">추천 로그</h1>
+      <p class="mt-2 text-muted">여행자가 받은 AI 추천의 조건과 결과예요. 누가 요청했는지는 표시하지 않아요.</p>
+
+      {noticeText && <Notice tone={noticeTone} class="mt-6">{noticeText}</Notice>}
+
+      <div class="mt-8 grid gap-4 lg:grid-cols-2">
+        <div class="card p-5">
+          <h2 class="font-bold">AI 설정</h2>
+          <dl class="mt-3 grid grid-cols-[110px_minmax(0,1fr)] gap-y-1.5 text-sm">
+            <dt class="text-muted">LLM</dt>
+            <dd class="font-semibold break-all">{llm ?? <span class="text-[#B42318]">없음 — 점수 순서 + 템플릿 이유로 동작</span>}</dd>
+            <dt class="text-muted">임베딩</dt>
+            <dd class="font-semibold break-all">{emb.model ?? <span class="text-[#B42318]">없음 — 유사도 없이 태그·품질 점수만</span>}</dd>
+            <dt class="text-muted">가중치</dt>
+            <dd>태그 {RECOMMEND.weights.tag} · 유사도 {RECOMMEND.weights.similarity} · 품질 {RECOMMEND.weights.quality} <span class="text-muted">(src/config/recommend.ts)</span></dd>
+          </dl>
+        </div>
+        <div class="card p-5">
+          <h2 class="font-bold">루트 임베딩</h2>
+          <p class="mt-2 text-sm">
+            공개 루트 {emb.published}개 중 <b>{emb.ready}개 최신</b>{emb.stale > 0 && <>, <b class="text-[#B42318]">{emb.stale}개 필요</b> (없음·모델 다름·내용 바뀜)</>}
+          </p>
+          <form method="post" class="mt-4">
+            <input type="hidden" name="action" value="backfill" />
+            <button type="submit" disabled={!emb.model || undefined}
+              class="inline-flex min-h-11 items-center rounded-full bg-text px-5 font-semibold text-white hover:bg-text/85 disabled:cursor-not-allowed disabled:opacity-40">
+              임베딩 백필
+            </button>
+            <p class="mt-2 text-xs text-muted">한 번에 {RECOMMEND.backfillBatch}개까지 만들어요 (작성 중이 아닌 모든 루트). 이미 최신인 루트는 건너뛰어요.</p>
+          </form>
+        </div>
+      </div>
+
+      <nav class="mt-10 flex flex-wrap gap-2" aria-label="기간">
+        {PERIODS.map((p) => (
+          <a href={`?days=${p.id}`} aria-current={p.id === period.id ? 'page' : undefined}
+            class:list={['inline-flex min-h-10 items-center rounded-full border px-4 text-sm font-semibold', p.id === period.id ? 'border-text bg-text text-white' : 'border-border bg-surface hover:border-text']}>{p.label}</a>
+        ))}
+      </nav>
+      <ul class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        {cards.map((c) => (
+          <li class="card p-5">
+            <p class="text-sm text-muted">{c.label}</p>
+            <p class="mt-1 text-3xl font-extrabold tabular-nums">{c.value}</p>
+            <p class="mt-1 text-xs text-muted">{c.sub}</p>
+          </li>
+        ))}
+      </ul>
+      {total > 2000 && <p class="mt-2 text-xs text-muted">대체 사유·지연 시간은 최근 2,000건 기준이에요.</p>}
+
+      <h2 class="mt-10 font-bold">기록 <span class="font-normal text-muted">· {totalLogs}건</span></h2>
+      {logs.length === 0 ? (
+        <p class="card mt-3 p-6 text-muted">아직 추천 기록이 없어요.</p>
+      ) : (
+        <ul class="mt-3 space-y-3">
+          {logs.map((l) => {
+            const clickedTitle = l.results.find((r) => r.route_id === l.clicked_route_id)?.title;
+            return (
+              <li class="card p-5">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <span class="font-bold tabular-nums">{kst(l.created_at)}</span>
+                  <span class="text-muted">{l.model ?? 'LLM 없음'} · 임베딩 {l.embedding_model ?? '없음'} · {((l.latency_ms ?? 0) / 1000).toFixed(1)}초</span>
+                  {l.results.length === 0 ? (
+                    <span class="rounded-full bg-border px-2.5 py-0.5 text-xs font-semibold">결과 없음</span>
+                  ) : l.used_fallback ? (
+                    <span class="rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-xs font-semibold text-[#8A1C1C]">대체 · {FALLBACK_LABEL[l.fallback_reason ?? ''] ?? l.fallback_reason}</span>
+                  ) : (
+                    <span class="rounded-full bg-jigi-soft px-2.5 py-0.5 text-xs font-semibold text-jigi-strong">AI 재정렬</span>
+                  )}
+                  {clickedTitle && <span class="rounded-full bg-traveler-soft px-2.5 py-0.5 text-xs font-semibold text-traveler-strong">클릭: {clickedTitle}</span>}
+                  {l.booked && <span class="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand">요청함</span>}
+                </div>
+                <p class="mt-2 text-sm">
+                  <b>조건</b> · {interestNames(l.input.interests ?? [], 'ko').join(', ')} · {l.input.date_from}~{l.input.date_to} · {timeLabel(l.input.time_of_day)} ·
+                  {l.input.party_size}명 · {(l.input.languages ?? []).join(', ')} · {vibeLabel(l.input.vibe)}
+                </p>
+                {l.input.note && <p class="mt-1 text-sm text-muted">“{l.input.note}”</p>}
+                {l.results.length > 0 && (
+                  <details class="mt-2">
+                    <summary class="cursor-pointer text-sm font-semibold">결과 {l.results.length}개 · 후보 {l.candidates.length}개</summary>
+                    <ol class="mt-2 list-decimal space-y-1.5 pl-5 text-sm">
+                      {l.results.map((r) => (
+                        <li>
+                          <a href={`/routes/${r.route_id}`} class="font-semibold underline-offset-2 hover:underline">{r.title}</a>
+                          <span class="text-muted"> · {r.percent}% · {r.kind === 'perfect' ? 'Perfect' : 'Close'} · {r.reason_source === 'ai' ? 'AI 이유' : '템플릿'}</span>
+                          <p class="text-muted" lang="en">{r.reason}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {pages > 1 && (
+        <nav class="mt-6 flex items-center gap-3 text-sm" aria-label="페이지">
+          {page > 1 && <a href={pageHref(page - 1)} class="font-semibold underline underline-offset-4">이전</a>}
+          <span class="text-muted">{page} / {pages}</span>
+          {page < pages && <a href={pageHref(page + 1)} class="font-semibold underline underline-offset-4">다음</a>}
+        </nav>
+      )}
+    </div>
+  </section>
+</BaseLayout>

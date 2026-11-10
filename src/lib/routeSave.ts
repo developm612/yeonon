@@ -2,6 +2,7 @@
  * 루트 빌더 POST 처리 (새 루트·수정이 같이 쓴다): 폼 읽기 → 검증 → save_route → (검수 요청이면) submit_route.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { embedRoute } from './ai/routeEmbedding';
 import { dbError, field, fields } from './forms';
 import { readRouteForm, toRpcArgs, validateRoute, type RouteError, type RouteForm } from './routeValidation';
 
@@ -26,6 +27,9 @@ export async function saveRouteFromForm(
 
   const { data: savedId, error } = await supabase.rpc('save_route', toRpcArgs(id, form));
   if (dbError(error, 'save route')) return { form, error: { field: '', message: rpcMessage(error!.message) } };
+
+  // AI 추천용 임베딩 (키가 없거나 실패해도 저장은 끝난 것으로 본다 — 공개 승인 때 관리자가 다시 만든다)
+  await embedRoute(supabase, savedId as string);
 
   if (field(fd, 'intent') === 'review') {
     const { error: submitError } = await supabase.rpc('submit_route', { p_id: savedId });

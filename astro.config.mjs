@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, envField } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import vercel from '@astrojs/vercel';
 
@@ -20,12 +20,22 @@ const allowedDomains = [
 export default defineConfig({
   // 공개 페이지는 정적 그대로, `export const prerender = false`인 페이지(로그인·회원 영역)만 서버에서 렌더링
   output: 'static',
-  adapter: vercel(),
+  // 추천 API는 임베딩(최대 2.5초) + LLM(최대 6초)을 기다리므로 함수 시간 제한을 넉넉히 둔다
+  adapter: vercel({ maxDuration: 30 }),
   // TODO: 도메인 확정 후 교체 (canonical / OG URL에 사용)
   site: 'https://yeonon.xyz',
   trailingSlash: 'ignore',
   // checkOrigin(다른 사이트의 폼 전송 차단)은 기본값 그대로 켜 둔다
   security: { checkOrigin: true, allowedDomains },
+  // AI 키·모델 이름: 서버에서만 읽는 비밀 값 (PUBLIC_ 금지). 비어 있으면 AI 없이 점수 순 추천으로 동작한다 — .env.example 참고
+  env: {
+    schema: {
+      LLM_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      LLM_MODEL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      EMBEDDING_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      EMBEDDING_MODEL: envField.string({ context: 'server', access: 'secret', optional: true }),
+    },
+  },
   vite: {
     plugins: [tailwindcss()],
   },

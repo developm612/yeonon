@@ -5,7 +5,8 @@
  */
 import Icon from '../Icon.astro';
 import SmartImage from '../SmartImage.astro';
-import { INTERESTS, PICK_MAX, PICK_MIN } from '../../data/appPreview';
+import InterestChips from './InterestChips.astro';
+import { PICK_MAX, PICK_MIN } from '../../data/appPreview';
 import '../../styles/app-preview.css';
 ---
 <div class="absolute inset-0 text-left" data-app data-state="drop">
@@ -75,17 +76,7 @@ import '../../styles/app-preview.css';
     </div>
 
     <div class="app-scroll mt-4 flex-1 overflow-y-auto px-5 pb-4">
-      <ul class="flex flex-wrap gap-2" data-chips aria-label="Travel interests">
-        {INTERESTS.map((it) => (
-          <li>
-            <button type="button" class="chip" aria-pressed="false" data-chip={it.id}>
-              <span aria-hidden="true">{it.emoji}</span>
-              <span>{it.label}</span>
-              <Icon name="check" class="chip-check size-[16px]" />
-            </button>
-          </li>
-        ))}
-      </ul>
+      <InterestChips />
     </div>
 
     <div class="border-t border-border bg-white px-5 pt-3 pb-[34px]">

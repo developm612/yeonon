@@ -1,0 +1,237 @@
+---
+/**
+ * AI 추천 결과 (여행자). 주소의 조건을 검증한 뒤, 화면에서 /api/recommend를 불러 카드로 보여 준다.
+ *   로딩 → Perfect match / Closest matches 카드 (일치율, 추천 이유, 지기 표시명·아바타, 루트 요약, 가능 시간 칩)
+ *   결과가 5개 미만이면 "날짜 넓히기 / 관심사 바꾸기"를 제안한다.
+ * 카드를 누르면 /app/routes/[id]?rec=… 로 가고, 그 페이지가 클릭을 기록한다.
+ */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import { DISCOVER, DISCOVER_VIBES, RECOMMEND, TIMES_OF_DAY } from '../../../config/recommend';
+import { TRAVELER_NAV } from '../../../data/accountNav';
+import { interestNames } from '../../../data/interests';
+import { kstToday } from '../../../lib/availability';
+import { readInput, toQuery, validateInput } from '../../../lib/recommend/input';
+
+export const prerender = false;
+
+const raw = readInput((k) => Astro.url.searchParams.get(k));
+const { input, errors } = validateInput(raw);
+if (Object.keys(errors).length) return Astro.redirect(`/app/discover?${toQuery(raw)}&invalid=1`);
+
+const day = (d: string) => new Date(`${d}T12:00:00+09:00`).toLocaleDateString('en-US', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', weekday: 'short' });
+const summary = [
+  ...interestNames(input.interests, 'en'),
+  input.date_from === input.date_to ? day(input.date_from) : `${day(input.date_from)} – ${day(input.date_to)}`,
+  TIMES_OF_DAY.find((t) => t.id === input.time_of_day)!.label,
+  input.party_size === 1 ? 'Just me' : `${input.party_size} people`,
+  input.languages.join(', '),
+  DISCOVER_VIBES.find((v) => v.id === input.vibe)!.label,
+];
+const editHref = `/app/discover?${toQuery(input)}`;
+const widenHref = `/app/discover/results?${toQuery({ ...input, date_from: kstToday(), date_to: kstToday(DISCOVER.maxDaysAhead), time_of_day: 'any' })}`;
+const canWiden = input.date_from !== kstToday() || input.date_to !== kstToday(DISCOVER.maxDaysAhead) || input.time_of_day !== 'any';
+---
+<BaseLayout title="Your route matches | YEONON" description="Routes in Seongsu recommended for you." sticky="none" noindex>
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <p class="eyebrow">Discover</p>
+      <h1 class="mt-3 text-3xl font-extrabold md:text-4xl">Routes for you</h1>
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <ul class="flex flex-wrap gap-1.5" aria-label="Your choices">
+          {summary.map((s) => <li class="rounded-full bg-surface px-3 py-1 text-sm font-semibold shadow-card">{s}</li>)}
+        </ul>
+        <a href={editHref} class="ml-1 text-sm font-semibold text-traveler-strong underline underline-offset-4">Change</a>
+      </div>
+      {input.note && <p class="mt-2 text-sm text-muted">“{input.note}”</p>}
+
+      <div class="mt-8" data-results data-input={JSON.stringify(input)} data-final={RECOMMEND.finalCount} data-chips={RECOMMEND.slotChips}>
+        <div data-view="loading" aria-live="polite">
+          <p class="flex items-center gap-2 font-semibold text-muted">
+            <span class="inline-block size-4 animate-spin rounded-full border-2 border-traveler-strong border-t-transparent motion-reduce:animate-none" aria-hidden="true"></span>
+            Finding routes that fit you…
+          </p>
+          <ul class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+            {[1, 2, 3].map(() => (
+              <li class="card overflow-hidden">
+                <div class="h-[72px] animate-pulse bg-jigi-soft motion-reduce:animate-none"></div>
+                <div class="space-y-3 p-5">
+                  <div class="h-5 w-3/4 animate-pulse rounded bg-border motion-reduce:animate-none"></div>
+                  <div class="h-16 animate-pulse rounded-xl bg-traveler-soft motion-reduce:animate-none"></div>
+                  <div class="h-4 w-1/2 animate-pulse rounded bg-border motion-reduce:animate-none"></div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div data-view="error" hidden>
+          <div class="card p-6 text-center md:p-10" role="alert">
+            <p class="text-3xl" aria-hidden="true">😕</p>
+            <p class="mt-2 font-bold" data-error-text>Something went wrong.</p>
+            <div class="mt-5 flex flex-wrap justify-center gap-3">
+              <button type="button" class="inline-flex min-h-11 items-center rounded-full bg-traveler-strong px-5 font-semibold text-white hover:bg-[#134FB0]" data-retry>Try again</button>
+              <a href={editHref} class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">Change my choices</a>
+            </div>
+          </div>
+        </div>
+
+        <div data-view="done" hidden>
+          <div class="space-y-10">
+          <section data-group="perfect" hidden aria-labelledby="g-perfect">
+            <h2 id="g-perfect" class="text-xl font-extrabold">Perfect match</h2>
+            <p class="mt-1 text-sm text-muted">These routes cover what you asked for.</p>
+            <ul class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" data-list></ul>
+          </section>
+          <section data-group="close" hidden aria-labelledby="g-close">
+            <h2 id="g-close" class="text-xl font-extrabold">Closest matches</h2>
+            <p class="mt-1 text-sm text-muted">Not an exact fit, but close to what you love.</p>
+            <ul class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" data-list></ul>
+          </section>
+          </div>
+
+          <div data-empty hidden class="card p-8 text-center md:p-12">
+            <p class="text-4xl" aria-hidden="true">🗺️</p>
+            <h2 class="mt-3 text-lg font-bold">No open routes for these choices yet</h2>
+            <p class="mt-2 text-muted">Try other dates or interests — local friends add new times every week.</p>
+          </div>
+
+          <div data-suggest hidden class="mt-10 rounded-2xl bg-brand-soft p-5 md:p-6">
+            <h2 class="font-bold">Want more options?</h2>
+            <p class="mt-1 text-sm text-muted">We found fewer than {RECOMMEND.finalCount} routes for these choices.</p>
+            <div class="mt-4 flex flex-wrap gap-3">
+              {canWiden && <a href={widenHref} class="inline-flex min-h-11 items-center rounded-full bg-traveler-strong px-5 font-semibold text-white hover:bg-[#134FB0]">Widen my dates</a>}
+              <a href={editHref} class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">Change interests</a>
+            </div>
+          </div>
+
+          <p class="mt-8 flex items-center gap-1.5 text-xs text-muted" data-ai-note></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <template data-card-template>
+    <li>
+      <a class="card group flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg" data-card-link>
+        <div class="flex items-center justify-between gap-3 bg-gradient-to-br from-jigi to-jigi-strong p-4 text-white">
+          <p class="truncate text-[24px] tracking-[6px]" aria-hidden="true" data-emojis></p>
+          <p class="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-extrabold text-jigi-strong" data-percent></p>
+        </div>
+        <div class="flex flex-1 flex-col p-5">
+          <h3 class="text-lg leading-snug font-extrabold group-hover:underline" data-title></h3>
+          <div class="mt-3 rounded-xl bg-traveler-soft px-3.5 py-3">
+            <p class="text-xs font-bold text-traveler-strong">Why this fits you</p>
+            <p class="mt-1 text-sm" data-reason></p>
+          </div>
+          <p class="mt-3 text-sm text-muted" data-summary></p>
+          <div class="mt-4 flex items-center gap-2.5">
+            <span class="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-jigi-soft font-bold text-jigi-strong" aria-hidden="true" data-avatar></span>
+            <p class="text-sm"><span class="text-muted">Local friend</span> <b data-jigi></b></p>
+          </div>
+          <p class="mt-3 text-sm text-muted" data-meta></p>
+          <div class="mt-auto pt-4">
+            <p class="text-xs font-semibold text-muted">Open times (KST)</p>
+            <ul class="mt-1.5 flex flex-wrap gap-1.5" data-slots></ul>
+          </div>
+        </div>
+      </a>
+    </li>
+  </template>
+</BaseLayout>
+
+<script>
+  import type { RecommendResult, RecommendationCard } from '../../../lib/recommend/engine';
+
+  const root = document.querySelector<HTMLElement>('[data-results]')!;
+  const tpl = document.querySelector<HTMLTemplateElement>('[data-card-template]')!;
+  const finalCount = Number(root.dataset.final);
+  const chipCount = Number(root.dataset.chips);
+  const view = (name: string) => root.querySelectorAll<HTMLElement>('[data-view]').forEach((v) => (v.hidden = v.dataset.view !== name));
+  const $ = <T extends HTMLElement>(el: ParentNode, sel: string) => el.querySelector<T>(sel)!;
+
+  const slotLabel = (iso: string) => {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString('en-US', { timeZone: 'Asia/Seoul', weekday: 'short', month: 'short', day: 'numeric' });
+    const time = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
+    return `${date} · ${time}`;
+  };
+
+  function card(c: RecommendationCard, recId: string | null) {
+    const li = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    const a = $<HTMLAnchorElement>(li, '[data-card-link]');
+    a.href = `/app/routes/${c.route_id}${recId ? `?rec=${recId}` : ''}`;
+    $(li, '[data-emojis]').textContent = c.emojis.join('');
+    $(li, '[data-percent]').textContent = `${c.percent}% match`;
+    $(li, '[data-title]').textContent = c.title;
+    $(li, '[data-reason]').textContent = c.reason;
+    $(li, '[data-summary]').textContent = c.summary;
+    $(li, '[data-avatar]').textContent = c.jigi_name.slice(0, 1);
+    $(li, '[data-jigi]').textContent = c.jigi_name;
+    $(li, '[data-meta]').textContent = [c.duration, c.area, c.vibe, `₩${c.list_price.toLocaleString('en-US')}`].join(' · ');
+    const slots = $(li, '[data-slots]');
+    for (const iso of c.slots.slice(0, chipCount)) {
+      const chip = document.createElement('li');
+      chip.className = 'rounded-full border border-border px-2.5 py-1 text-xs font-semibold tabular-nums';
+      chip.textContent = slotLabel(iso);
+      slots.append(chip);
+    }
+    if (c.slot_count > chipCount) {
+      const more = document.createElement('li');
+      more.className = 'px-1 py-1 text-xs font-semibold text-muted';
+      more.textContent = `+${c.slot_count - chipCount} more`;
+      slots.append(more);
+    }
+    return li;
+  }
+
+  function render(res: RecommendResult) {
+    for (const kind of ['perfect', 'close'] as const) {
+      const group = $(root, `[data-group="${kind}"]`);
+      const list = $(group, '[data-list]');
+      list.replaceChildren(...res.results.filter((c) => c.kind === kind).map((c) => card(c, res.id)));
+      group.hidden = list.children.length === 0;
+    }
+    $(root, '[data-empty]').hidden = res.results.length > 0;
+    $(root, '[data-suggest]').hidden = res.results.length >= finalCount;
+    $(root, '[data-ai-note]').textContent = res.results.length === 0 ? '' : res.ai
+      ? '✨ Recommended by YEONON AI · Reasons are written by AI from each route’s details.'
+      : 'Ranked by YEONON match score (shared interests and route quality).';
+    view('done');
+  }
+
+  async function load() {
+    view('loading');
+    try {
+      const resp = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: root.dataset.input,
+      });
+      if (resp.status === 401) {
+        location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+        return;
+      }
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        $(root, '[data-error-text]').textContent =
+          resp.status === 429 ? `You've searched a lot this hour. Please try again in about ${data.retry_after_minutes ?? 60} minutes.`
+          : resp.status === 400 ? 'Some of your choices need another look.'
+          : resp.status === 403 ? 'Route recommendations are for traveler accounts.'
+          : 'We couldn’t load your matches. Please try again.';
+        $<HTMLButtonElement>(root, '[data-retry]').hidden = resp.status !== 500 && resp.status < 502;
+        view('error');
+        return;
+      }
+      render(data as RecommendResult);
+    } catch {
+      $(root, '[data-error-text]').textContent = 'We couldn’t reach YEONON. Check your connection and try again.';
+      $<HTMLButtonElement>(root, '[data-retry]').hidden = false;
+      view('error');
+    }
+  }
+
+  $<HTMLButtonElement>(root, '[data-retry]').addEventListener('click', load);
+  load();
+</script>

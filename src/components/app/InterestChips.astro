@@ -1,0 +1,27 @@
+---
+/**
+ * 취향 칩 목록 — 앱 미리보기(/app-preview)와 추천 입력(/app/discover)이 같이 쓴다.
+ * 스타일은 styles/app-preview.css의 [data-app] .chip (조상에 [data-app]가 있어야 한다),
+ * 선택 동작은 scripts/phoneApp.ts의 createPicker.
+ */
+import Icon from '../Icon.astro';
+import { INTERESTS } from '../../data/interests';
+import '../../styles/app-preview.css';
+
+interface Props {
+  label?: string;
+  class?: string;
+}
+const { label = 'Travel interests', class: className } = Astro.props;
+---
+<ul class:list={['flex flex-wrap gap-2', className]} data-chips aria-label={label}>
+  {INTERESTS.map((it) => (
+    <li>
+      <button type="button" class="chip" aria-pressed="false" data-chip={it.id}>
+        <span aria-hidden="true">{it.emoji}</span>
+        <span>{it.label}</span>
+        <Icon name="check" class="chip-check size-[16px]" />
+      </button>
+    </li>
+  ))}
+</ul>
