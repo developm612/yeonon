@@ -23,6 +23,13 @@ export function createSupabaseServerClient(request: Request, cookies: AstroCooki
   });
 }
 
+/** 요청에 실려 온 Supabase 쿠키(sb-로 시작: 세션 토큰 조각, PKCE code-verifier 등)를 모두 지운다 */
+export function clearSupabaseCookies(request: Request, cookies: AstroCookies) {
+  for (const { name } of parseCookieHeader(request.headers.get('Cookie') ?? '')) {
+    if (name.startsWith('sb-')) cookies.delete(name, { path: '/' });
+  }
+}
+
 /** 로그인 후 돌아갈 주소. 같은 사이트 안의 경로만 허용한다 (외부로 보내는 오픈 리디렉트 방지) */
 export function safeNext(value: string | null | undefined, fallback = '/app'): string {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return fallback;

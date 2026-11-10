@@ -7,6 +7,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Notice from '../../components/account/Notice.astro';
 import { dbError, field } from '../../lib/forms';
 import { homeFor } from '../../lib/profile';
+import { clearSupabaseCookies } from '../../lib/supabase';
 
 export const prerender = false;
 
@@ -46,9 +47,7 @@ if (Astro.request.method === 'POST' && supabase && profile?.role !== 'admin') {
     else {
       // 사용자가 이미 지워졌으므로 서버 로그아웃 요청은 실패할 수 있다 — 쿠키는 어떤 경우든 지운다
       await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-      for (const name of (Astro.request.headers.get('Cookie') ?? '').split(/;\s*/).map((c) => c.split('=')[0])) {
-        if (name.startsWith('sb-')) Astro.cookies.delete(name, { path: '/' });
-      }
+      clearSupabaseCookies(Astro.request, Astro.cookies);
       return Astro.redirect('/');
     }
   }

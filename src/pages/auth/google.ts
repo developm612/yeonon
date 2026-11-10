@@ -28,6 +28,8 @@ export const GET: APIRoute = async ({ request, cookies, url, redirect }) => {
     options: {
       redirectTo: `${url.origin}/auth/callback`,
       skipBrowserRedirect: true,
+      // 매번 Google 계정 선택 화면을 띄워 다른 계정으로 바꿔 로그인할 수 있게 한다
+      queryParams: { prompt: 'select_account' },
     },
   });
   if (error || !data.url) return redirect('/login?error=auth&next=' + encodeURIComponent(next));

@@ -1,27 +1,36 @@
 ---
-/** 회원 영역(/app · /partner · /admin) 상단 탭 */
+/** 회원 영역(/app · /partner · /admin) 상단 탭. 오른쪽 끝에 로그아웃 버튼 (같은 사이트 POST → /auth/signout) */
 interface Props {
   items: { href: string; label: string }[];
   label: string;
+  /** 로그아웃 버튼 언어: 여행자 영역은 en, 지기·관리자 영역은 ko */
+  lang?: 'ko' | 'en';
 }
-const { items, label } = Astro.props;
+const { items, label, lang = 'ko' } = Astro.props;
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 // 가장 길게 일치하는 탭을 현재 탭으로 (예: /admin/users 에서 /admin 이 아니라 /admin/users)
 const current = items.map((i) => i.href).filter((h) => path === h || path.startsWith(h + '/')).sort((a, b) => b.length - a.length)[0];
 ---
 <nav aria-label={label} class="border-b border-border bg-surface">
-  <ul class="container-page flex gap-1 overflow-x-auto py-2">
-    {items.map((i) => (
-      <li>
-        <a
-          href={i.href}
-          aria-current={i.href === current ? 'page' : undefined}
-          class:list={[
-            'flex min-h-10 items-center rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors',
-            i.href === current ? 'bg-text text-white' : 'text-muted hover:bg-text/5',
-          ]}
-        >{i.label}</a>
-      </li>
-    ))}
-  </ul>
+  <div class="container-page flex items-center gap-2 py-2">
+    <ul class="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+      {items.map((i) => (
+        <li>
+          <a
+            href={i.href}
+            aria-current={i.href === current ? 'page' : undefined}
+            class:list={[
+              'flex min-h-10 items-center rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors',
+              i.href === current ? 'bg-text text-white' : 'text-muted hover:bg-text/5',
+            ]}
+          >{i.label}</a>
+        </li>
+      ))}
+    </ul>
+    <form method="post" action="/auth/signout" class="shrink-0">
+      <button type="submit" lang={lang} class="flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-semibold whitespace-nowrap text-muted transition-colors hover:border-text hover:text-text">
+        {lang === 'en' ? 'Sign out' : '로그아웃'}
+      </button>
+    </form>
+  </div>
 </nav>
