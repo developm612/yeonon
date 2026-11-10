@@ -1,0 +1,7 @@
+---
+/** 헤더 'My page' 링크: 역할에 맞는 홈으로 보낸다 (여행자 /app, 지기 /partner, 관리자 /admin) */
+import { homeFor } from '../../lib/profile';
+
+export const prerender = false;
+return Astro.redirect(homeFor(Astro.locals.profile));
+---

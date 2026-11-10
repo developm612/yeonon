@@ -4,7 +4,7 @@
  * 입력 정리·검증 규칙과 보안 메모는 scripts/formSafety.ts.
  */
 import { SITE, isTodo } from '../config/site';
-import { INTERESTS } from '../data/appPreview';
+import { INTERESTS } from '../data/interests';
 import { EMAIL, INSTAGRAM, REFERRER, WHATSAPP, addUtm, allowedOptions, check, clean, errorShower, send, type Rule } from './formSafety';
 
 interface ContactField {

@@ -1,0 +1,73 @@
+---
+/**
+ * 루트 빌더의 정류장 한 곳. 서버가 기존 정류장을 그리고, 같은 마크업을 <template>에 넣어 '장소 추가' 때 복제한다.
+ * 칸 이름은 정류장마다 같고(stop_place …), 화면 순서가 코스 순서다. id 대신 label로 감싸 복제해도 연결이 유지된다.
+ * 앱 미리보기의 '내 코스' 항목(번호·위로·빼기 버튼) 모양을 따른다.
+ */
+import Icon from '../Icon.astro';
+import { INTERESTS } from '../../data/interests';
+import { LIMITS, ROUTE_AREAS, STAY_OPTIONS, STOP_TAG_MAX } from '../../data/routeOptions';
+import type { StopDraft } from '../../lib/routeValidation';
+
+interface Props {
+  no: number;
+  stop: StopDraft;
+  /** 서버 검증에서 문제가 된 칸 이름 */
+  invalid?: string;
+}
+const { no, stop, invalid } = Astro.props;
+const bad = (name: string) => (invalid === name ? 'true' : undefined);
+const input = 'mt-1 block h-11 w-full rounded-xl border border-border bg-surface px-3 text-[0.9375rem] focus:border-jigi-strong focus:outline-none aria-invalid:border-[#B42318]';
+---
+<li class="stop-item rounded-[18px] bg-jigi-soft p-3 sm:p-4" data-stop>
+  <div class="flex items-center gap-2.5">
+    <span class="flex size-[28px] shrink-0 items-center justify-center rounded-full bg-jigi-strong text-[13px] font-bold text-white" data-no>{no}</span>
+    <span class="min-w-0 flex-1 truncate font-bold" data-stop-title>{stop.place_name || `${no}번 장소`}</span>
+    <button type="button" class="inline-flex size-[38px] items-center justify-center rounded-full bg-white text-jigi-strong disabled:opacity-30" data-up aria-label="순서 앞으로">
+      <Icon name="arrow" class="size-[16px] -rotate-90" />
+    </button>
+    <button type="button" class="inline-flex size-[38px] items-center justify-center rounded-full bg-white text-muted hover:text-text" data-remove aria-label="이 장소 빼기">
+      <Icon name="x" class="size-[16px]" />
+    </button>
+  </div>
+
+  <div class="mt-3 grid gap-3 rounded-[14px] bg-white p-3 sm:grid-cols-2 sm:p-4">
+    <label class="block text-sm font-semibold sm:col-span-2">장소 이름
+      <input name="stop_place" type="text" maxlength={LIMITS.place[1]} value={stop.place_name} placeholder="예: 수제화 골목 뒤 작은 로스터리" class={input} aria-invalid={bad('stop_place')} />
+    </label>
+    <label class="block text-sm font-semibold">구역
+      <select name="stop_area" class={input} aria-invalid={bad('stop_area')}>
+        <option value="">선택</option>
+        {ROUTE_AREAS.map((a) => <option value={a.id} selected={a.id === stop.area || undefined}>{a.ko}</option>)}
+      </select>
+    </label>
+    <label class="block text-sm font-semibold">머무는 시간
+      <select name="stop_stay" class={input} aria-invalid={bad('stop_stay')}>
+        <option value="">선택</option>
+        {STAY_OPTIONS.map((m) => <option value={m} selected={m === stop.stay_minutes || undefined}>{m}분</option>)}
+      </select>
+    </label>
+    <label class="block text-sm font-semibold sm:col-span-2">하는 일
+      <input name="stop_activity" type="text" maxlength={LIMITS.activity[1]} value={stop.activity} placeholder="예: 핸드드립 커피를 마시며 원두 고르는 법 알려 주기" class={input} aria-invalid={bad('stop_activity')} />
+    </label>
+    <label class="block text-sm font-semibold sm:col-span-2">지기의 팁 <span class="font-normal text-muted">(선택)</span>
+      <input name="stop_tip" type="text" maxlength={LIMITS.tip[1]} value={stop.tip} placeholder="예: 바 좌석에 앉으면 로스팅을 볼 수 있어요" class={input} />
+    </label>
+    <div class="sm:col-span-2">
+      <p class="text-sm font-semibold">이 장소의 취향 <span class="font-normal text-muted">(선택, 최대 {STOP_TAG_MAX}개)</span></p>
+      <input type="hidden" name="stop_tags" value={stop.tags.join(',')} data-stop-tags />
+      <ul class="mt-1.5 flex flex-wrap gap-1.5" data-stop-chips>
+        {INTERESTS.map((it) => (
+          <li>
+            <button
+              type="button"
+              aria-pressed={stop.tags.includes(it.id) ? 'true' : 'false'}
+              data-tag={it.id}
+              class="rounded-full border border-border bg-surface px-2.5 py-1 text-[13px] font-medium aria-pressed:border-jigi-strong aria-pressed:bg-jigi-strong aria-pressed:text-white"
+            ><span aria-hidden="true">{it.emoji}</span> {it.ko}</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</li>

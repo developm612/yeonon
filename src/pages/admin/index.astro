@@ -1,10 +1,87 @@
 ---
+/** 관리자 대시보드 (회원·지기 신청·루트 수). 예약·추천 지표는 이후 단계에서 추가 */
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import AreaPlaceholder from '../../components/AreaPlaceholder.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import { ADMIN_NAV } from '../../data/accountNav';
+import { APPLICATION_STATUS, APPLICATION_STATUSES } from '../../data/jigiStatus';
+import { ROUTE_STATUS, ROUTE_STATUSES } from '../../data/routeOptions';
 
 export const prerender = false;
-// TODO(Phase 2): profiles.role = 'admin' 확인 — 지금은 로그인만 확인하므로 실제 관리 기능을 넣지 않는다
+
+const { supabase } = Astro.locals;
+if (!supabase) return Astro.redirect('/login');
+
+/** head: true → 행은 받지 않고 개수만 받는다 */
+const count = async (table: string, column?: string, value?: string | null) => {
+  let q = supabase.from(table).select('*', { count: 'exact', head: true });
+  if (column) q = value === null ? q.is(column, null) : q.eq(column, value!);
+  const { count: n } = await q;
+  return n ?? 0;
+};
+
+const since = new Date(Date.now() - 7 * 864e5).toISOString();
+const [routeCounts, openSlots] = await Promise.all([
+  Promise.all(ROUTE_STATUSES.map((s) => count('routes', 'status', s))),
+  supabase.from('slots').select('*', { count: 'exact', head: true }).eq('status', 'open').gt('starts_at', new Date().toISOString()).then((r) => r.count ?? 0),
+]);
+const [total, travelers, jigis, pending, suspended, lastWeek, ...apps] = await Promise.all([
+  count('profiles'),
+  count('profiles', 'role', 'traveler'),
+  count('profiles', 'role', 'jigi'),
+  count('profiles', 'role', null),
+  count('profiles', 'status', 'suspended'),
+  supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', since).then((r) => r.count ?? 0),
+  ...APPLICATION_STATUSES.map((s) => count('jigi_applications', 'status', s)),
+]);
+
+const members = [
+  { label: '전체 회원', value: total },
+  { label: '여행자', value: travelers },
+  { label: '지기 (승인 전 포함)', value: jigis },
+  { label: '온보딩 전', value: pending },
+  { label: '최근 7일 가입', value: lastWeek },
+  { label: '정지', value: suspended },
+];
 ---
 <BaseLayout title="관리자 | YEONON" description="연온 관리자" lang="ko" sticky="none" noindex>
-  <AreaPlaceholder lang="ko" title="관리자" note="로그인 확인용 임시 화면입니다. 관리자 권한 확인과 관리 기능은 Phase 2에서 추가됩니다." />
+  <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <h1 class="text-3xl font-extrabold">대시보드</h1>
+
+      <h2 class="mt-10 font-bold">회원</h2>
+      <ul class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        {members.map((m) => (
+          <li class="card p-5">
+            <p class="text-sm text-muted">{m.label}</p>
+            <p class="mt-1 text-3xl font-extrabold tabular-nums">{m.value}</p>
+          </li>
+        ))}
+      </ul>
+
+      <h2 class="mt-10 font-bold">지기 신청</h2>
+      <ul class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
+        {APPLICATION_STATUSES.map((s, i) => (
+          <li>
+            <a href={`/admin/jigi-applications?status=${s}`} class="card block p-5 transition-colors hover:border-text">
+              <p class="text-sm text-muted">{APPLICATION_STATUS[s].label}</p>
+              <p class="mt-1 text-3xl font-extrabold tabular-nums">{apps[i]}</p>
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <h2 class="mt-10 font-bold">루트 <span class="font-normal text-muted">· 앞으로 4주 열린 시간 {openSlots}개</span></h2>
+      <ul class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
+        {ROUTE_STATUSES.map((s, i) => (
+          <li>
+            <a href={`/admin/routes?status=${s}`} class="card block p-5 transition-colors hover:border-text">
+              <p class="text-sm text-muted">{ROUTE_STATUS[s].label}</p>
+              <p class="mt-1 text-3xl font-extrabold tabular-nums">{routeCounts[i]}</p>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
 </BaseLayout>

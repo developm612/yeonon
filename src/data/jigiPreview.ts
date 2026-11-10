@@ -1,44 +1,23 @@
 /**
  * /app-preview-jigi (지기용 앱 미리보기) 데모 데이터.
  * 서버·DB 없이 이 파일의 샘플만 사용한다. 장소는 특정 가게가 아닌 예시 묘사다.
- * 취향 id는 여행자 미리보기(data/appPreview.ts INTERESTS)와 같다 — 같은 취향끼리 매칭되기 때문.
+ * 취향 id는 서비스 공용 목록(data/interests.ts)과 같다 — 같은 취향끼리 매칭되기 때문.
  */
-import { INTERESTS, type InterestId } from './appPreview';
+import { INTERESTS, INTEREST_MAX, INTEREST_MIN, type InterestId } from './interests';
 
 /** 취향 한국어 이름 */
-export const TASTE_KO: Record<InterestId, string> = {
-  'korean-food': '한식 투어',
-  kpop: 'K-팝 명소',
-  popup: '팝업스토어',
-  'night-view': '야경',
-  healing: '힐링·느린 여행',
-  market: '전통시장',
-  cafe: '숨은 카페',
-  tradition: '전통문화',
-  bakery: '빵지순례',
-  design: '디자인·문구',
-  'street-food': '길거리 음식',
-  bar: '수제맥주·바',
-  fashion: 'K-패션 쇼핑',
-  river: '한강·서울숲',
-  beauty: 'K-뷰티',
-  vegan: '비건·건강식',
-  photo: '사진 산책',
-  art: '전시·갤러리',
-  vintage: '빈티지·구제',
-  workshop: '공방 체험',
-};
+export const TASTE_KO = Object.fromEntries(INTERESTS.map((it) => [it.id, it.ko])) as Record<InterestId, string>;
 
 export const TASTES = INTERESTS.map((it) => ({ id: it.id, emoji: it.emoji, label: TASTE_KO[it.id] }));
 
-export const TASTE_MIN = 3;
-export const TASTE_MAX = 5;
+export const TASTE_MIN = INTEREST_MIN;
+export const TASTE_MAX = INTEREST_MAX;
 
 /** 코스에 담을 수 있는 장소 수 */
 export const COURSE_MIN = 2;
 export const COURSE_MAX = 5;
-/** 장소 사이 이동 시간 (분) */
-export const WALK_MIN = 15;
+/** 장소 사이 이동 시간 (분) — 실제 루트 빌더와 같은 값 */
+export { WALK_MIN } from './routeOptions';
 
 /** 코스 시작 시각 */
 export const START_TIMES = [

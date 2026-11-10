@@ -1,9 +1,88 @@
 ---
+/** 지기 홈: 신청 전 → 신청 안내, 신청 후 → 심사 상태, 승인 후 → 내 루트·가능 시간 요약 */
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import AreaPlaceholder from '../../components/AreaPlaceholder.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import Notice from '../../components/account/Notice.astro';
+import { PARTNER_NAV } from '../../data/accountNav';
+import { APPLICATION_STATUS, type ApplicationStatus } from '../../data/jigiStatus';
+import { dbError, notice } from '../../lib/forms';
 
 export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/onboarding');
+
+const [{ data: application, error: appError }, { data: jigi }] = await Promise.all([
+  supabase.from('jigi_applications').select('status, created_at, reviewed_at').eq('user_id', profile.id).maybeSingle(),
+  supabase.from('jigi_profiles').select('is_active, languages').eq('user_id', profile.id).maybeSingle(),
+]);
+dbError(appError, 'load own application');
+const status = application?.status as ApplicationStatus | undefined;
+const approved = status === 'approved' && jigi?.is_active;
+let routeCount = 0;
+let publishedCount = 0;
+let openSlotCount = 0;
+if (approved) {
+  const [{ data: routes }, { count }] = await Promise.all([
+    supabase.from('routes').select('status').eq('jigi_id', profile.id),
+    supabase.from('slots').select('id', { count: 'exact', head: true }).eq('jigi_id', profile.id).eq('status', 'open').gt('starts_at', new Date().toISOString()),
+  ]);
+  routeCount = routes?.length ?? 0;
+  publishedCount = routes?.filter((r) => r.status === 'published').length ?? 0;
+  openSlotCount = count ?? 0;
+}
+const applied = notice(Astro.url, { applied: '신청서를 보냈어요. 검토 후 연락드릴게요.' });
+const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
 ---
 <BaseLayout title="지기 홈 | YEONON" description="연온 지기 홈" lang="ko" sticky="none" noindex>
-  <AreaPlaceholder lang="ko" title="지기" note="로그인되었습니다. 지기 신청·루트 만들기 화면은 준비 중이에요." />
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-2xl!">
+      <p class="eyebrow">지기</p>
+      <h1 class="mt-3 text-3xl font-extrabold">{profile.display_name}님, 안녕하세요</h1>
+
+      {applied && <Notice class="mt-6">{applied}</Notice>}
+
+      <div class="card mt-8 p-6 md:p-8">
+        {!status ? (
+          <>
+            <h2 class="text-lg font-bold">지기 신청서를 작성해 주세요</h2>
+            <p class="mt-2 text-muted">신청서를 보내 주시면 짧은 인터뷰 후 지기로 활동할 수 있어요. 가이드 자격증은 필요 없어요.</p>
+            <a href="/partner/apply" class="mt-6 inline-flex min-h-11 items-center rounded-full bg-jigi-strong px-5 font-semibold text-white hover:bg-[#08566F]">신청서 작성하기</a>
+          </>
+        ) : approved ? (
+          <>
+            <p class="inline-flex rounded-full bg-jigi-soft px-3 py-1 text-sm font-semibold text-jigi-strong">승인된 지기</p>
+            <h2 class="mt-3 text-lg font-bold">연온 지기가 되신 걸 환영해요!</h2>
+            <p class="mt-2 text-muted">나만의 성수 루트를 만들어 검수를 받고, 만날 수 있는 시간을 열어 두세요.</p>
+            <p class="mt-4 text-sm text-muted">
+              내 루트 {routeCount}개 · 공개 {publishedCount}개 · 앞으로 4주 열린 시간 {openSlotCount}개
+            </p>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <a href="/partner/routes" class="inline-flex min-h-11 items-center rounded-full bg-jigi-strong px-5 font-semibold text-white hover:bg-[#08566F]">내 루트</a>
+              <a href="/partner/availability" class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">가능 시간</a>
+            </div>
+          </>
+        ) : (
+          <>
+            <p class="text-sm text-muted">신청 상태</p>
+            <p class="mt-1 text-2xl font-extrabold text-jigi-strong">{APPLICATION_STATUS[status].label}</p>
+            <p class="mt-2 text-muted">{APPLICATION_STATUS[status].desc}</p>
+            <p class="mt-4 text-sm text-muted">신청일 {date(application!.created_at)}{application!.reviewed_at && ` · 최근 검토 ${date(application!.reviewed_at)}`}</p>
+          </>
+        )}
+      </div>
+
+      <div class="mt-14 border-t border-border pt-8">
+        <h2 class="font-bold">계정</h2>
+        <p class="mt-1 text-sm text-muted">{profile.email}</p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <form method="post" action="/auth/signout">
+            <button type="submit" class="min-h-11 rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">로그아웃</button>
+          </form>
+          <a href="/account/delete" class="inline-flex min-h-11 items-center rounded-full px-5 font-semibold text-[#B42318] hover:bg-[#FDECEC]">회원 탈퇴</a>
+        </div>
+      </div>
+    </div>
+  </section>
 </BaseLayout>

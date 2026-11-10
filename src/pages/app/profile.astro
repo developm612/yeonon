@@ -1,0 +1,125 @@
+---
+/**
+ * 여행자 프로필. 본인이 바꿀 수 있는 칸만 저장한다 (DB 권한도 같은 칸만 허용 — 20261110000001_profiles.sql).
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import Notice from '../../components/account/Notice.astro';
+import { TRAVELER_LANGUAGES, TRAVELER_NAV } from '../../data/accountNav';
+import { INTERESTS, INTEREST_MAX, isInterestId } from '../../data/interests';
+import { dbError, field, fields, notice } from '../../lib/forms';
+import { clean } from '../../scripts/formSafety';
+
+export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/onboarding');
+
+let values = {
+  display_name: profile.display_name,
+  nationality: profile.nationality ?? '',
+  languages: profile.languages,
+  interests: profile.interests,
+  marketing_opt_in: profile.marketing_opt_in,
+};
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  values = {
+    display_name: clean(field(fd, 'display_name'), 40),
+    nationality: clean(field(fd, 'nationality'), 60),
+    languages: [...new Set(fields(fd, 'languages'))].filter((l) => TRAVELER_LANGUAGES.includes(l)),
+    interests: [...new Set(fields(fd, 'interests'))].filter(isInterestId),
+    marketing_opt_in: field(fd, 'marketing') === 'yes',
+  };
+  if (!values.display_name) error = 'Please enter a display name.';
+  else if (values.interests.length > INTEREST_MAX) error = `Please pick up to ${INTEREST_MAX} interests.`;
+  else {
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ ...values, nationality: values.nationality || null })
+      .eq('id', profile.id);
+    if (!dbError(updateError, 'update traveler profile')) return Astro.redirect('/app/profile?notice=saved');
+    error = "We couldn't save your changes. Please try again.";
+  }
+}
+
+const saved = notice(Astro.url, { saved: 'Your profile has been saved.' });
+const input = 'mt-2 block h-[52px] w-full rounded-[14px] border border-border bg-surface px-4 focus:border-traveler-strong focus:outline-none focus:ring-3 focus:ring-traveler/20';
+const pill = 'flex min-h-11 cursor-pointer items-center gap-2 rounded-[12px] border border-border bg-surface px-3.5 text-[0.9375rem] has-checked:border-traveler-strong has-checked:bg-traveler-soft';
+const check = 'size-[18px] shrink-0 cursor-pointer accent-traveler-strong';
+---
+<BaseLayout title="Profile | YEONON" description="Your YEONON profile." sticky="none" noindex>
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-2xl!">
+      <h1 class="text-3xl font-extrabold">Profile</h1>
+      <p class="mt-1 text-muted">{profile.email}</p>
+
+      <form method="post" class="mt-8 space-y-8" novalidate>
+        {saved && <Notice>{saved}</Notice>}
+        {error && <Notice tone="error">{error}</Notice>}
+
+        <div class="grid gap-6 sm:grid-cols-2">
+          <div>
+            <label for="pf-name" class="font-semibold">Display name</label>
+            <input id="pf-name" name="display_name" type="text" maxlength="40" required value={values.display_name} class={input} />
+          </div>
+          <div>
+            <label for="pf-nat" class="font-semibold">Nationality <span class="font-normal text-muted">(optional)</span></label>
+            <input id="pf-nat" name="nationality" type="text" maxlength="60" value={values.nationality} autocomplete="country-name" class={input} />
+          </div>
+        </div>
+
+        <fieldset>
+          <legend class="font-semibold">Languages you speak</legend>
+          <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {TRAVELER_LANGUAGES.map((l) => (
+              <label class={pill}><input type="checkbox" name="languages" value={l} class={check} checked={values.languages.includes(l) || undefined} />{l}</label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset data-max={INTEREST_MAX}>
+          <legend class="font-semibold">Your interests <span class="font-normal text-muted">(up to {INTEREST_MAX})</span></legend>
+          <p class="mt-1 text-sm text-muted">We'll use these to recommend routes.</p>
+          <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {INTERESTS.map((it) => (
+              <label class={pill}><input type="checkbox" name="interests" value={it.id} class={check} checked={values.interests.includes(it.id) || undefined} /><span aria-hidden="true">{it.emoji}</span>{it.label}</label>
+            ))}
+          </div>
+        </fieldset>
+
+        <label class="flex cursor-pointer items-start gap-3">
+          <input type="checkbox" name="marketing" value="yes" class={`mt-1 ${check}`} checked={values.marketing_opt_in || undefined} />
+          <span>Send me news and event emails. <span class="text-muted">(optional)</span></span>
+        </label>
+
+        <button type="submit" class="flex h-[52px] w-full items-center justify-center rounded-full bg-traveler-strong font-semibold text-white hover:bg-[#134FB0] sm:w-auto sm:px-8">Save</button>
+      </form>
+
+      <div class="mt-14 border-t border-border pt-8">
+        <h2 class="font-bold">Account</h2>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <form method="post" action="/auth/signout">
+            <button type="submit" class="min-h-11 rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">Sign out</button>
+          </form>
+          <a href="/account/delete" class="inline-flex min-h-11 items-center rounded-full px-5 font-semibold text-[#B42318] hover:bg-[#FDECEC]">Delete account</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // 관심사 최대 개수가 차면 나머지 칸을 잠근다 (서버도 다시 확인)
+  const max = Number(document.querySelector<HTMLElement>('[data-max]')?.dataset.max ?? 5);
+  const boxes = [...document.querySelectorAll<HTMLInputElement>('input[name="interests"]')];
+  const sync = () => {
+    const full = boxes.filter((b) => b.checked).length >= max;
+    boxes.forEach((b) => (b.disabled = full && !b.checked));
+  };
+  boxes.forEach((b) => b.addEventListener('change', sync));
+  sync();
+</script>

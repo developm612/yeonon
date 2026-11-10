@@ -2,7 +2,7 @@
 import Logo from './Logo.astro';
 import Button from './Button.astro';
 import Icon from './Icon.astro';
-import { isAuthConfigured } from '../lib/supabase';
+import { isAuthConfigured, isMemberUiPublic } from '../lib/supabase';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const links = [
@@ -11,7 +11,8 @@ const links = [
   { href: '/jigi', label: '지기 지원하기', lang: 'ko' },
 ];
 // 로그인 상태: 서버 렌더링 페이지는 세션으로, 정적 페이지는 브라우저의 세션 쿠키 유무로 표시만 바꾼다 (아래 스크립트)
-// Supabase 키가 없으면 로그인 링크를 아예 그리지 않아 기존 화면과 같다
+// Supabase 키가 없거나 회원 기능 비공개(PUBLIC_MEMBER_UI가 true가 아님)면 로그인 메뉴를 아예 그리지 않는다
+const showAuth = isAuthConfigured && isMemberUiPublic;
 const signedIn = Boolean(Astro.locals.user);
 ---
 <header class="sticky top-0 z-40 border-b border-border/70 bg-bg/90 backdrop-blur-md">
@@ -61,10 +62,13 @@ const signedIn = Boolean(Astro.locals.user);
           {l.label}
         </a>
       ))}
-      {isAuthConfigured && (
+      {showAuth && (
         <>
           <a href="/login" data-auth="out" hidden={signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">Sign in</a>
-          <a href="/app" data-auth="in" hidden={!signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-text transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">My page</a>
+          <a href="/account" data-auth="in" hidden={!signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-text transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">My page</a>
+          <form method="post" action="/auth/signout" data-auth="in" hidden={!signedIn}>
+            <button type="submit" lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">Sign out</button>
+          </form>
         </>
       )}
       <!-- 앱 미리보기 페이지 안에서는 다시 불러오지 않고 하단 대기자 폼으로 이동 -->
@@ -104,16 +108,19 @@ const signedIn = Boolean(Astro.locals.user);
           </a>
         </li>
       ))}
-      {isAuthConfigured && (
+      {showAuth && (
         <li>
           <a href="/login" data-auth="out" hidden={signedIn} lang="en" class="flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold">
             Sign in
             <Icon name="arrow" class="size-5 text-muted" />
           </a>
-          <a href="/app" data-auth="in" hidden={!signedIn} lang="en" class="flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold">
+          <a href="/account" data-auth="in" hidden={!signedIn} lang="en" class="flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold">
             My page
             <Icon name="arrow" class="size-5 text-muted" />
           </a>
+          <form method="post" action="/auth/signout" data-auth="in" hidden={!signedIn}>
+            <button type="submit" lang="en" class="flex w-full items-center border-b border-border/60 py-4 text-left text-lg font-semibold text-muted">Sign out</button>
+          </form>
         </li>
       )}
       <li>
@@ -143,9 +150,13 @@ const signedIn = Boolean(Astro.locals.user);
 
   // 정적 페이지: Supabase 세션 쿠키(sb-<프로젝트>-auth-token)가 있으면 'My page'로 바꿔 보여 준다.
   // 표시만 바꾸는 것이고, 실제 접근 권한은 서버(src/middleware.ts)가 확인한다.
-  if (/(?:^|;\s*)sb-[^=]+-auth-token(?:\.0)?=/.test(document.cookie)) {
-    document.querySelectorAll<HTMLElement>('[data-auth]').forEach((el) => (el.hidden = el.dataset.auth !== 'in'));
-  }
+  // 로그아웃 후 뒤로 가기로 캐시된 페이지가 다시 보일 때(bfcache)도 쿠키 기준으로 다시 맞춘다.
+  const syncAuthLinks = () => {
+    const signedIn = /(?:^|;\s*)sb-[^=]+-auth-token(?:\.0)?=/.test(document.cookie);
+    document.querySelectorAll<HTMLElement>('[data-auth]').forEach((el) => (el.hidden = el.dataset.auth !== (signedIn ? 'in' : 'out')));
+  };
+  syncAuthLinks();
+  window.addEventListener('pageshow', (e) => e.persisted && syncAuthLinks());
 
   // 설문 링크가 아직 TODO인 경우 이동을 막는다
   document.querySelectorAll('[data-pending-link]').forEach((a) =>

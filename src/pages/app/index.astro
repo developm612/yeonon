@@ -1,9 +1,31 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import AreaPlaceholder from '../../components/AreaPlaceholder.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import { TRAVELER_NAV } from '../../data/accountNav';
 
 export const prerender = false;
+const { profile } = Astro.locals;
 ---
 <BaseLayout title="My YEONON" description="Your YEONON home." sticky="none" noindex>
-  <AreaPlaceholder lang="en" title="Traveler" note="You're signed in. Route recommendations and bookings are coming soon." />
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-2xl!">
+      <p class="eyebrow">Traveler</p>
+      <h1 class="mt-3 text-3xl font-extrabold">Hi, {profile?.display_name}</h1>
+      <div class="card mt-8 p-6 md:p-8">
+        <h2 class="text-lg font-bold">Your route recommendations are coming soon</h2>
+        <p class="mt-2 text-muted">
+          Soon you'll pick your interests and dates here, and we'll recommend routes made by Jigis in Seongsu.
+          For now, add your interests to your profile so we can get ready for you.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <a href="/app/profile" class="inline-flex min-h-11 items-center rounded-full bg-traveler-strong px-5 font-semibold text-white hover:bg-[#134FB0]">Edit my profile</a>
+          <a href="/routes" class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">Browse routes</a>
+        </div>
+      </div>
+      <form method="post" action="/auth/signout" class="mt-8">
+        <button type="submit" class="text-sm font-semibold text-muted underline underline-offset-2 hover:text-text">Sign out</button>
+      </form>
+    </div>
+  </section>
 </BaseLayout>

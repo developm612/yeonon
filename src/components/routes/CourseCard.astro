@@ -1,0 +1,29 @@
+---
+/**
+ * 여행자에게 보이는 코스 카드 (지기용 앱 미리보기와 루트 빌더 미리보기가 같이 쓴다).
+ * 내용은 scripts/courseCard.ts의 renderCourseCard()가 data-card-* 칸에 textContent로 채운다.
+ */
+import Icon from '../Icon.astro';
+
+interface Props {
+  class?: string;
+  /** 지기 이름 자리에 보일 글자 */
+  host?: string;
+}
+const { class: className = '', host = '지기 · 나' } = Astro.props;
+---
+<article class:list={['overflow-hidden rounded-[20px] border border-border bg-white shadow-card', className]} data-course-card>
+  <div class="relative flex h-[112px] items-end bg-gradient-to-br from-jigi to-jigi-strong p-4 text-white">
+    <span class="absolute top-3 right-3 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold">Preview</span>
+    <p class="text-[30px] tracking-[6px]" aria-hidden="true" data-card-emojis></p>
+  </div>
+  <div class="p-4">
+    <h3 class="text-[18px] leading-snug font-extrabold" data-card-title></h3>
+    <p class="mt-1 text-[13px] text-muted">
+      <span class="inline-flex items-center gap-1"><Icon name="user" class="size-[14px]" /> {host}</span>
+      <span aria-hidden="true"> · </span><span data-card-duration></span>
+    </p>
+    <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="취향" data-card-tags></ul>
+    <ol class="mt-4 border-l-2 border-jigi-soft pl-4" aria-label="코스 일정" data-card-timeline></ol>
+  </div>
+</article>

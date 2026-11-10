@@ -1,0 +1,158 @@
+---
+/**
+ * 내 루트 목록: 상태(작성 중 / 검수 중 / 공개 / 수정 요청 / 비공개), 수정 요청 사유, 열린 시간 수,
+ * 고치기 · 미리보기(/routes/[id]) · 검수 요청 · 검수 요청 취소 · 삭제. 상태 변경은 DB 함수로만 한다.
+ */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import JigiOnly from '../../../components/account/JigiOnly.astro';
+import Notice from '../../../components/account/Notice.astro';
+import { PARTNER_NAV } from '../../../data/accountNav';
+import { interestNames } from '../../../data/interests';
+import { ROUTE_STATUS, areaName } from '../../../data/routeOptions';
+import { fmtDuration } from '../../../lib/course';
+import { dbError, field, notice } from '../../../lib/forms';
+import { ROUTE_COLUMNS, UUID, loadApprovedJigi, won, type RouteRow } from '../../../lib/routes';
+
+export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/onboarding');
+const jigi = await loadApprovedJigi(supabase, profile);
+
+const ACTIONS = { submit: 'submit_route', withdraw: 'withdraw_route', delete: 'delete_route' } as const;
+let error: string | null = null;
+if (Astro.request.method === 'POST' && jigi) {
+  const fd = await Astro.request.formData();
+  const id = field(fd, 'id');
+  const action = field(fd, 'action') as keyof typeof ACTIONS;
+  if (!UUID.test(id) || !(action in ACTIONS)) error = '잘못된 요청이에요.';
+  else {
+    const { error: rpcError } = await supabase.rpc(ACTIONS[action], { p_id: id });
+    if (!dbError(rpcError, `route ${action}`)) return Astro.redirect(`/partner/routes?notice=${action}`);
+    error = /2 to 6/.test(rpcError!.message) ? '코스 장소가 2곳 이상이어야 검수를 요청할 수 있어요.' : '처리하지 못했어요. 새로고침 후 다시 시도해 주세요.';
+  }
+}
+
+let routes: RouteRow[] = [];
+const stopCount = new Map<string, number>();
+const openSlots = new Map<string, number>();
+const memoOf = new Map<string, string>();
+if (jigi) {
+  const { data, error: listError } = await supabase.from('routes').select(ROUTE_COLUMNS).eq('jigi_id', profile.id).order('updated_at', { ascending: false });
+  dbError(listError, 'list own routes');
+  routes = (data ?? []) as RouteRow[];
+  const ids = routes.map((r) => r.id);
+  if (ids.length) {
+    const [{ data: stops }, { data: slots }, { data: notes }] = await Promise.all([
+      supabase.from('route_stops').select('route_id').in('route_id', ids),
+      supabase.from('slots').select('route_id').in('route_id', ids).eq('status', 'open').gt('starts_at', new Date().toISOString()),
+      supabase.from('route_review_notes').select('route_id, memo').in('route_id', ids),
+    ]);
+    for (const s of stops ?? []) stopCount.set(s.route_id, (stopCount.get(s.route_id) ?? 0) + 1);
+    for (const s of slots ?? []) openSlots.set(s.route_id, (openSlots.get(s.route_id) ?? 0) + 1);
+    for (const n of notes ?? []) if (n.memo) memoOf.set(n.route_id, n.memo);
+  }
+}
+
+const done = notice(Astro.url, {
+  saved: '저장했어요. 다 고쳤으면 검수를 요청해 주세요.',
+  submitted: '저장하고 검수를 요청했어요. 확인 후 공개해 드릴게요.',
+  saved_not_submitted: '저장은 했지만 검수 요청을 하지 못했어요. 아래에서 다시 요청해 주세요.',
+  submit: '검수를 요청했어요. 확인 후 공개해 드릴게요.',
+  withdraw: '검수 요청을 취소했어요. 이제 고칠 수 있어요.',
+  delete: '루트를 삭제했어요.',
+  not_found: '루트를 찾을 수 없어요.',
+});
+const badge: Record<string, string> = {
+  draft: 'bg-bg text-muted',
+  in_review: 'bg-brand-soft text-brand',
+  published: 'bg-jigi-strong text-white',
+  changes_requested: 'bg-[#FDECEC] text-[#8A1C1C]',
+  hidden: 'bg-text/10 text-text',
+};
+const btn = 'inline-flex min-h-10 items-center rounded-full px-4 text-sm font-semibold';
+---
+<BaseLayout title="내 루트 | YEONON" description="연온 지기 루트 목록" lang="ko" sticky="none" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-3xl!">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p class="eyebrow">지기</p>
+          <h1 class="mt-3 text-3xl font-extrabold">내 루트</h1>
+        </div>
+        {jigi && routes.length < 20 && (
+          <a href="/partner/routes/new" class="inline-flex min-h-11 items-center rounded-full bg-jigi-strong px-5 font-semibold text-white hover:bg-[#08566F]">+ 새 루트 만들기</a>
+        )}
+      </div>
+
+      {done && <Notice class="mt-6">{done}</Notice>}
+      {error && <Notice tone="error" class="mt-6">{error}</Notice>}
+
+      {!jigi ? (
+        <JigiOnly isAdmin={profile.role === 'admin'} />
+      ) : routes.length === 0 ? (
+        <div class="card mt-8 p-6 text-center md:p-10">
+          <p class="text-4xl" aria-hidden="true">🗺️</p>
+          <h2 class="mt-3 text-lg font-bold">아직 만든 루트가 없어요</h2>
+          <p class="mt-2 text-muted">내가 아끼는 성수 장소 2~6곳을 순서대로 엮어 첫 루트를 만들어 보세요.</p>
+          <a href="/partner/routes/new" class="mt-6 inline-flex min-h-11 items-center rounded-full bg-jigi-strong px-5 font-semibold text-white hover:bg-[#08566F]">첫 루트 만들기</a>
+        </div>
+      ) : (
+        <>
+          <ul class="mt-8 space-y-4">
+            {routes.map((r) => (
+              <li class="card p-5 md:p-6">
+                <div class="flex flex-wrap items-start gap-3">
+                  <h2 class="min-w-0 flex-1 text-lg font-bold">{r.title}</h2>
+                  <span class:list={['rounded-full px-3 py-1 text-sm font-semibold', badge[r.status]]}>{ROUTE_STATUS[r.status].label}</span>
+                </div>
+                <p class="mt-1 text-muted">{r.summary}</p>
+                <p class="mt-2 text-sm text-muted">
+                  {fmtDuration(r.duration_minutes)} · 장소 {stopCount.get(r.id) ?? 0}곳 · {areaName(r.area, 'ko')} · 최대 {r.max_party_size}명 · {won(r.list_price)}
+                </p>
+                <p class="mt-1 text-sm text-muted">{interestNames(r.tags, 'ko').join(' · ')}</p>
+                {r.status === 'published' && (
+                  <p class="mt-2 text-sm font-semibold text-jigi-strong">
+                    앞으로 4주 열린 시간 {openSlots.get(r.id) ?? 0}개
+                    {!openSlots.get(r.id) && <a href="/partner/availability" class="ml-1 underline underline-offset-4">가능 시간 열기</a>}
+                  </p>
+                )}
+                {memoOf.get(r.id) && (r.status === 'changes_requested' || r.status === 'hidden') && (
+                  <p class="mt-3 rounded-xl bg-[#FDECEC] px-4 py-3 text-sm text-[#8A1C1C]"><b>연온의 메모</b> {memoOf.get(r.id)}</p>
+                )}
+                <div class="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+                  {r.status !== 'in_review' && <a href={`/partner/routes/${r.id}/edit`} class:list={[btn, 'border border-border bg-surface hover:border-text']}>고치기</a>}
+                  <a href={`/routes/${r.id}`} class:list={[btn, 'border border-border bg-surface hover:border-text']}>미리보기</a>
+                  {(r.status === 'draft' || r.status === 'changes_requested') && (
+                    <form method="post"><input type="hidden" name="id" value={r.id} /><input type="hidden" name="action" value="submit" />
+                      <button type="submit" class:list={[btn, 'bg-jigi-strong text-white hover:bg-[#08566F]']}>검수 요청</button></form>
+                  )}
+                  {r.status === 'in_review' && (
+                    <form method="post"><input type="hidden" name="id" value={r.id} /><input type="hidden" name="action" value="withdraw" />
+                      <button type="submit" class:list={[btn, 'border border-border bg-surface hover:border-text']}>검수 요청 취소</button></form>
+                  )}
+                  {(r.status === 'draft' || r.status === 'changes_requested') && (
+                    <form method="post" data-confirm="이 루트를 삭제할까요? 되돌릴 수 없어요."><input type="hidden" name="id" value={r.id} /><input type="hidden" name="action" value="delete" />
+                      <button type="submit" class:list={[btn, 'text-[#B42318] hover:bg-[#FDECEC]']}>삭제</button></form>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p class="mt-6 text-sm text-muted">공개된 루트는 삭제할 수 없어요. 그만 보이게 하고 싶으면 연온에 알려 주세요.</p>
+        </>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // 되돌릴 수 없는 작업은 한 번 더 묻는다
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((f) =>
+    f.addEventListener('submit', (e) => {
+      if (!confirm(f.dataset.confirm)) e.preventDefault();
+    }),
+  );
+</script>

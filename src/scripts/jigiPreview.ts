@@ -8,7 +8,9 @@ import {
   COURSE_MAX, COURSE_MIN, PUBLISH_MS, SPOTS, START_TIMES, TASTE_KO, TASTE_MAX, TASTE_MIN, WALK_MIN,
   type Spot,
 } from '../data/jigiPreview';
-import type { InterestId } from '../data/appPreview';
+import type { InterestId } from '../data/interests';
+import { courseMinutes, fmtDuration } from '../lib/course';
+import { renderCourseCard } from './courseCard';
 import { $, createPicker, initPhoneApp } from './phoneApp';
 
 const PUBLISH_TEXT = ['코스를 정리하고 있어요…', '여행자에게 보일 카드를 만드는 중…', '거의 다 됐어요…'];
@@ -58,12 +60,7 @@ const spotTpl = $<HTMLTemplateElement>('template[data-spot-template]');
 const stopTpl = $<HTMLTemplateElement>('template[data-stop-template]');
 
 /** 머무는 시간 합 + 장소 사이 이동 시간 */
-const totalMin = () => course.reduce((sum, s) => sum + s.min, 0) + Math.max(0, course.length - 1) * WALK_MIN;
-const fmtDuration = (min: number) => {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return [h && `${h}시간`, m && `${m}분`].filter(Boolean).join(' ') || '0분';
-};
+const totalMin = () => courseMinutes(course.map((s) => s.min), WALK_MIN);
 const overlap = (s: Spot) => s.tags.filter((t) => tastes.includes(t)).length;
 
 const clone = (tpl: HTMLTemplateElement) => tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
@@ -160,11 +157,8 @@ app.addEventListener('animationend', (e) => (e.target as HTMLElement).classList?
 /* ── 3. 미리보기 ── */
 const titleInput = $<HTMLInputElement>('[data-course-title]', app);
 const startBtns = Array.from(app.querySelectorAll<HTMLButtonElement>('[data-start]'));
-const cardEmojis = $<HTMLElement>('[data-card-emojis]', app);
+const card = $<HTMLElement>('[data-course-card]', app);
 const cardTitle = $<HTMLElement>('[data-card-title]', app);
-const cardDuration = $<HTMLElement>('[data-card-duration]', app);
-const cardTags = $<HTMLElement>('[data-card-tags]', app);
-const cardTimeline = $<HTMLElement>('[data-card-timeline]', app);
 let startTime = START_TIMES[0].value;
 let titleEdited = false;
 
@@ -177,45 +171,13 @@ function enterPreview() {
 }
 
 function renderCard() {
-  cardEmojis.textContent = course.map((s) => s.emoji).join('');
-  cardTitle.textContent = courseTitle();
-  cardDuration.textContent = `약 ${fmtDuration(totalMin())} · ${course.length}곳`;
-  cardTags.replaceChildren(
-    ...tastes.map((id) => {
-      const li = document.createElement('li');
-      li.className = 'rounded-full bg-jigi-soft px-2.5 py-1 text-[12px] font-semibold text-jigi-strong';
-      li.textContent = TASTE_KO[id];
-      return li;
-    }),
-  );
-
-  // 시작 시각부터 머무는 시간 + 이동 시간을 더해 각 장소 도착 시각 계산
-  const [h, m] = startTime.split(':').map(Number);
-  let t = h * 60 + m;
-  const clock = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-  cardTimeline.replaceChildren(
-    ...course.flatMap((spot, i) => {
-      const li = document.createElement('li');
-      li.className = 'relative pb-3 last:pb-0';
-      const dot = document.createElement('span');
-      dot.className = 'absolute top-[5px] -left-[23px] size-[12px] rounded-full border-2 border-white bg-jigi-strong';
-      dot.setAttribute('aria-hidden', 'true');
-      const time = document.createElement('span');
-      time.className = 'block text-[12px] font-bold text-jigi-strong tabular-nums';
-      time.textContent = clock(t);
-      const name = document.createElement('span');
-      name.className = 'block text-[14px] font-semibold';
-      name.textContent = `${spot.emoji} ${spot.name}`;
-      li.append(dot, time, name);
-      t += spot.min;
-      if (i === course.length - 1) return [li];
-      const walk = document.createElement('li');
-      walk.className = 'pb-3 text-[12px] text-muted';
-      walk.textContent = `🚶 걸어서 ${WALK_MIN}분`;
-      t += WALK_MIN;
-      return [li, walk];
-    }),
-  );
+  renderCourseCard(card, {
+    title: courseTitle(),
+    tags: tastes.map((id) => TASTE_KO[id]),
+    stops: course.map((s) => ({ emoji: s.emoji, name: s.name, min: s.min })),
+    start: startTime,
+    walk: WALK_MIN,
+  });
 }
 
 titleInput.addEventListener('input', () => {
