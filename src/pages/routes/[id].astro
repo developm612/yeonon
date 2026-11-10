@@ -11,7 +11,7 @@ import { ROUTE_STATUS, WALK_MIN, areaName, languageName, vibeName } from '../../
 import { courseMinutes, courseTimeline, fmtDuration, stopEmoji } from '../../lib/course';
 import { kstDate, kstDay, kstTime, loadRoute, won, type PublicJigi, type SlotRow } from '../../lib/routes';
 import { isOnboarded } from '../../lib/profile';
-import { createSupabaseServerClient, isAuthConfigured } from '../../lib/supabase';
+import { createSupabaseServerClient, isAuthConfigured, isMemberUiPublic } from '../../lib/supabase';
 
 export const prerender = false;
 
@@ -47,7 +47,7 @@ const cta = 'mt-5 flex h-[52px] items-center justify-center rounded-full bg-trav
   title={route ? `${route.title} | YEONON` : 'Route not found | YEONON'}
   description={route?.summary ?? 'This route is not available.'}
   sticky="none"
-  noindex={!route || isPreview}
+  noindex={!route || isPreview || !isMemberUiPublic}
 >
   {!route ? (
     <section class="section">

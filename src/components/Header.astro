@@ -2,7 +2,7 @@
 import Logo from './Logo.astro';
 import Button from './Button.astro';
 import Icon from './Icon.astro';
-import { isAuthConfigured } from '../lib/supabase';
+import { isAuthConfigured, isMemberUiPublic } from '../lib/supabase';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const links = [
@@ -11,7 +11,8 @@ const links = [
   { href: '/jigi', label: '지기 지원하기', lang: 'ko' },
 ];
 // 로그인 상태: 서버 렌더링 페이지는 세션으로, 정적 페이지는 브라우저의 세션 쿠키 유무로 표시만 바꾼다 (아래 스크립트)
-// Supabase 키가 없으면 로그인 링크를 아예 그리지 않아 기존 화면과 같다
+// Supabase 키가 없거나 회원 기능 비공개(PUBLIC_MEMBER_UI가 true가 아님)면 로그인 메뉴를 아예 그리지 않는다
+const showAuth = isAuthConfigured && isMemberUiPublic;
 const signedIn = Boolean(Astro.locals.user);
 ---
 <header class="sticky top-0 z-40 border-b border-border/70 bg-bg/90 backdrop-blur-md">
@@ -61,7 +62,7 @@ const signedIn = Boolean(Astro.locals.user);
           {l.label}
         </a>
       ))}
-      {isAuthConfigured && (
+      {showAuth && (
         <>
           <a href="/login" data-auth="out" hidden={signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">Sign in</a>
           <a href="/account" data-auth="in" hidden={!signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-text transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">My page</a>
@@ -107,7 +108,7 @@ const signedIn = Boolean(Astro.locals.user);
           </a>
         </li>
       ))}
-      {isAuthConfigured && (
+      {showAuth && (
         <li>
           <a href="/login" data-auth="out" hidden={signedIn} lang="en" class="flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold">
             Sign in

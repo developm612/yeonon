@@ -9,6 +9,12 @@ import type { AstroCookies } from 'astro';
 export const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const isAuthConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+/**
+ * 회원 기능 공개 스위치 (.env.example 참고). 'true'가 아니면 헤더의 로그인 메뉴를 숨기고,
+ * /routes는 로그인한 사람에게만 보이며, 서버 렌더링 페이지 전체가 검색엔진에 노출되지 않는다. /login 주소 직접 접속은 된다.
+ * PUBLIC_ 값은 빌드할 때 페이지에 들어가므로 Vercel에서 바꾸면 다시 배포해야 한다.
+ */
+export const isMemberUiPublic = import.meta.env.PUBLIC_MEMBER_UI === 'true';
 
 export function createSupabaseServerClient(request: Request, cookies: AstroCookies) {
   return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

@@ -10,7 +10,7 @@ import { areaName } from '../../data/routeOptions';
 import { fmtDuration, stopEmoji } from '../../lib/course';
 import { dbError } from '../../lib/forms';
 import { ROUTE_COLUMNS, kstDate, won, type PublicJigi, type RouteRow } from '../../lib/routes';
-import { createSupabaseServerClient, isAuthConfigured } from '../../lib/supabase';
+import { createSupabaseServerClient, isAuthConfigured, isMemberUiPublic } from '../../lib/supabase';
 
 export const prerender = false;
 
@@ -41,7 +41,7 @@ if (supabase) {
   }
 }
 ---
-<BaseLayout title="Routes in Seongsu | YEONON" description="Browse small-group routes in Seongsu, made by local friends (jigi) who know the neighborhood." sticky="none">
+<BaseLayout title="Routes in Seongsu | YEONON" description="Browse small-group routes in Seongsu, made by local friends (jigi) who know the neighborhood." sticky="none" noindex={!isMemberUiPublic}>
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">
       <p class="eyebrow">Routes</p>

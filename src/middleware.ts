@@ -1,5 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
-import { createSupabaseServerClient, isAuthConfigured } from './lib/supabase';
+import { createSupabaseServerClient, isAuthConfigured, isMemberUiPublic } from './lib/supabase';
 import { AREAS, PROFILE_COLUMNS, homeFor, inArea, isOnboarded, type Profile } from './lib/profile';
 
 /** 로그인해야 들어갈 수 있는 곳. /app-preview 같은 공개 페이지는 해당하지 않는다 */
@@ -32,6 +32,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const { user, profile } = context.locals;
   const here = context.url.pathname + context.url.search;
 
+  // 회원 기능 비공개 동안 공개 루트 목록·상세는 로그인한 사람(내부 테스트)에게만 보인다
+  const isRoutes = inArea(path, '/routes');
+  if (isRoutes && !isMemberUiPublic && !user) return context.redirect('/');
+
   if (LOGIN_REQUIRED.some((base) => inArea(path, base))) {
     if (!user) return context.redirect('/login?next=' + encodeURIComponent(here));
     // 프로필이 없으면 DB 마이그레이션 전 — 온보딩 화면이 안내를 보여 준다
@@ -51,5 +55,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const response = await next();
   // 로그인 상태에 따라 내용이 달라지는 페이지는 캐시하지 않는다
   if (!response.headers.has('Cache-Control')) response.headers.set('Cache-Control', 'private, no-store');
+  // 서버 렌더링 페이지(로그인·회원 영역·인증)는 검색엔진에 노출하지 않는다. /routes만 회원 기능 공개 후 허용
+  if (!(isRoutes && isMemberUiPublic)) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   return response;
 });
