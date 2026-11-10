@@ -31,16 +31,37 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 
 ## 로그인 · 회원 영역 (실서비스 전환, 진행 중)
 
-계획: `../yeonon-service-plan-v2.md`. Phase 1(로그인 기반)까지 구현됨.
+계획: `../yeonon-service-plan-v2.md`. Phase 2(가입·프로필·지기 승인)까지 구현됨.
 
 | 경로 | 내용 |
 |---|---|
 | `/login` | Google 로그인 (`?next=`로 돌아갈 곳 지정, 사이트 안 경로만 허용) |
 | `/auth/google` → `/auth/callback` | Supabase OAuth 시작 / 세션 쿠키 발급 |
-| `/auth/signout` | 로그아웃 (같은 사이트에서 보낸 POST만) |
-| `/app` · `/partner` · `/admin` | 로그인 필요 (`src/middleware.ts`). 지금은 임시 화면 |
+| `/auth/signout` | 로그아웃 (POST) |
+| `/onboarding` | 첫 로그인 후 한 번: 역할(여행자/지기) + 필수 동의(약관·개인정보·만 18세) + 선택 동의(마케팅) |
+| `/account` | 헤더 `My page` → 역할별 홈으로 이동 |
+| `/account/delete` | 회원 탈퇴 (프로필·지기 신청·지기 프로필 함께 삭제) |
+| `/app`, `/app/profile` | 여행자 홈·프로필 (영문) |
+| `/partner`, `/partner/apply` | 지기 홈(신청 상태)·지기 신청서 (한글) |
+| `/admin`, `/admin/users`, `/admin/jigi-applications` | 관리자 대시보드·회원 관리(정지·메모)·지기 신청 심사 (한글) |
+| `/terms` | 이용약관 자리 — **공개 전 실제 약관으로 교체 필요** |
 
+- **접근 규칙** (`src/middleware.ts`): 로그인 전 → `/login`, 온보딩 전 → `/onboarding`, 정지 → `/suspended`, 다른 역할의 영역 → 자기 홈. 관리자는 모든 영역에 들어갈 수 있다. 다른 사이트에서 보낸 폼 전송(POST)은 모두 거절한다.
 - **키 설정**: `.env.example`을 `.env`로 복사해 Supabase 값을 채운다. 값이 비어 있으면 로그인 기능이 꺼지고 헤더의 Sign in도 보이지 않는다 (기존 사이트와 같은 화면).
+
+### DB (Supabase)
+
+`supabase/migrations/`의 SQL을 **파일 이름 순서대로** Supabase Dashboard → SQL Editor에 붙여넣어 실행한다. 여러 번 실행해도 된다.
+
+1. `20261110000001_profiles.sql` — profiles, `is_admin()`, 가입 트리거 + 기존 가입자 백필, audit_log, admin_notes
+2. `20261110000002_jigi.sql` — jigi_applications, jigi_application_notes(심사 메모), jigi_profiles, `review_jigi_application()`
+3. `20261110000003_account.sql` — `complete_onboarding()`, `admin_set_user_status()`, `admin_set_user_memo()`, `delete_my_account()`
+
+첫 관리자: 관리자 계정으로 한 번 로그인한 뒤 SQL Editor에서 `update public.profiles set role = 'admin' where email = 'yeonon.official2026@gmail.com';`
+
+- 모든 테이블 RLS 사용. 역할·상태·동의 시각·심사 결과는 클라이언트가 직접 못 바꾸고 위 DB 함수로만 바뀐다 (함수가 권한 확인 + audit_log 기록).
+- 지기 휴대폰 번호는 본인과 관리자만 볼 수 있다. 심사 메모·회원 메모는 관리자만 볼 수 있도록 별도 테이블에 둔다.
+- 취향 id 목록은 `src/data/interests.ts` 한 곳에서 관리한다 (여행자 관심사·지기 취향 공용).
 - **렌더링**: 공개 페이지는 지금처럼 빌드 때 정적 HTML로 만들고, `export const prerender = false`인 페이지만 요청마다 서버에서 렌더링한다.
 - **헤더 로그인 표시**: 정적 페이지는 브라우저의 Supabase 세션 쿠키 유무로 `Sign in` ↔ `My page`를 바꿔 보여 줄 뿐이고, 실제 접근 확인은 서버가 한다.
 

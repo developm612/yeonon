@@ -1,21 +1,59 @@
 /**
- * /app-preview-jigi 지기 사전 신청 폼.
- * 검증·정리한 값만 form=jigi와 함께 SITE.waitlistEndpoint로 POST 한다 (Apps Script가 'Jigi' 시트에 저장).
+ * 지기 신청 폼 (components/app/JigiApplyForm.astro).
+ * - 사전 신청(/app-preview-jigi): 검증·정리한 값만 form=jigi와 함께 SITE.waitlistEndpoint로 POST 한다 (Apps Script가 'Jigi' 시트에 저장).
+ * - 로그인 후 신청(/partner/apply, data-mode="account"): 서버와 같은 검증(lib/jigiApplication.ts)으로 먼저 안내하고,
+ *   통과하면 정리한 값으로 바꿔 그대로 제출한다. 서버가 다시 검증해 저장한다.
  * 입력 정리·검증 규칙과 보안 메모는 scripts/formSafety.ts.
  */
 import { SITE, isTodo } from '../config/site';
+import { INTRO_MAX, INTRO_MIN } from '../data/jigiApplyOptions';
 import { SPOTS, START_TIMES, TASTE_KO } from '../data/jigiPreview';
+import { validateJigiApplication } from '../lib/jigiApplication';
 import {
   EMAIL, INSTAGRAM, KR_MOBILE, PERSON_NAME, REFERRER, addUtm, allowedOptions, check, clean, errorShower, send,
 } from './formSafety';
 
-const INTRO_MIN = 20;
-const INTRO_MAX = 300;
 const TASTE_LABELS = new Set<string>(Object.values(TASTE_KO));
 const SPOT_NAMES = new Set<string>(SPOTS.map((s) => s.name));
 const START_VALUES = new Set(START_TIMES.map((s) => s.value));
 
-const form = document.querySelector<HTMLFormElement>('[data-jigi-form]');
+const accountForm = document.querySelector<HTMLFormElement>('[data-jigi-form][data-mode="account"]');
+if (accountForm) {
+  const intro = accountForm.querySelector<HTMLTextAreaElement>('#ja-intro')!;
+  const introCount = accountForm.querySelector<HTMLElement>('[data-ja-intro-count]')!;
+  const phone = accountForm.querySelector<HTMLInputElement>('#ja-phone')!;
+  const insta = accountForm.querySelector<HTMLInputElement>('#ja-insta')!;
+  const submit = accountForm.querySelector<HTMLButtonElement>('[data-ja-submit]')!;
+  const { show: showError, clear: clearError } = errorShower(accountForm, accountForm.querySelector<HTMLElement>('[data-ja-error]')!);
+
+  intro.addEventListener('input', () => {
+    introCount.textContent = `${intro.value.length} / ${INTRO_MAX}`;
+  });
+  phone.addEventListener('blur', () => {
+    const v = phone.value.trim() && check(KR_MOBILE, phone.value);
+    if (v) phone.value = v;
+  });
+
+  accountForm.addEventListener('submit', (e) => {
+    if (submit.disabled) return e.preventDefault();
+    const data = new FormData(accountForm);
+    const result = validateJigiApplication((k) => String(data.get(k) ?? ''), (k) => data.getAll(k).map(String));
+    if (!result.ok) {
+      e.preventDefault();
+      const target = accountForm.querySelector<HTMLElement>(`[name="${result.field}"]`) ?? undefined;
+      showError(result.message, target);
+      return;
+    }
+    clearError();
+    // 서버에도 정리된 형식으로 보낸다 (예: 01012345678 → 010-1234-5678)
+    phone.value = result.data.phone;
+    insta.value = result.data.instagram ?? '';
+    submit.disabled = true;
+    submit.textContent = '신청하는 중…';
+  });
+}
+
+const form = document.querySelector<HTMLFormElement>('[data-jigi-form]:not([data-mode="account"])');
 if (form) {
   const $ = <T extends Element>(sel: string) => form.querySelector<T>(sel)!;
   const name = $<HTMLInputElement>('#ja-name');

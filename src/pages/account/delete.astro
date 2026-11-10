@@ -1,0 +1,82 @@
+---
+/**
+ * 회원 탈퇴. DB 함수 delete_my_account가 auth 사용자를 지우면 프로필·지기 신청·지기 프로필이 함께 지워진다.
+ * 지기·관리자는 한국어, 여행자는 영어로 보여 준다.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Notice from '../../components/account/Notice.astro';
+import { dbError, field } from '../../lib/forms';
+import { homeFor } from '../../lib/profile';
+
+export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+const ko = profile?.role === 'jigi' || profile?.role === 'admin';
+const t = ko
+  ? {
+      title: '회원 탈퇴',
+      lead: '탈퇴하면 계정과 아래 정보가 바로 삭제되고 되돌릴 수 없어요.',
+      items: ['프로필 (이름, 이메일, 취향 등)', '지기 신청서와 지기 프로필 (있는 경우)'],
+      confirm: '위 내용을 확인했고, 탈퇴합니다.',
+      submit: '탈퇴하기',
+      cancel: '취소',
+      needConfirm: '확인란에 체크해 주세요.',
+      failed: '탈퇴하지 못했어요. 잠시 후 다시 시도하거나 문의해 주세요.',
+      admin: '관리자 계정은 여기서 탈퇴할 수 없어요. 다른 관리자가 SQL로 역할을 바꾼 뒤 진행해 주세요.',
+    }
+  : {
+      title: 'Delete account',
+      lead: 'Your account and the information below will be deleted right away. This cannot be undone.',
+      items: ['Your profile (name, email, interests and more)'],
+      confirm: 'I understand and want to delete my account.',
+      submit: 'Delete my account',
+      cancel: 'Cancel',
+      needConfirm: 'Please check the box to confirm.',
+      failed: "We couldn't delete your account. Please try again later or contact us.",
+      admin: '',
+    };
+
+let error: string | null = null;
+if (Astro.request.method === 'POST' && supabase && profile?.role !== 'admin') {
+  const fd = await Astro.request.formData();
+  if (field(fd, 'confirm') !== 'yes') error = t.needConfirm;
+  else {
+    const { error: rpcError } = await supabase.rpc('delete_my_account');
+    if (dbError(rpcError, 'delete_my_account')) error = t.failed;
+    else {
+      // 사용자가 이미 지워졌으므로 서버 로그아웃 요청은 실패할 수 있다 — 쿠키는 어떤 경우든 지운다
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      for (const name of (Astro.request.headers.get('Cookie') ?? '').split(/;\s*/).map((c) => c.split('=')[0])) {
+        if (name.startsWith('sb-')) Astro.cookies.delete(name, { path: '/' });
+      }
+      return Astro.redirect('/');
+    }
+  }
+}
+---
+<BaseLayout title={`${t.title} | YEONON`} description={t.title} lang={ko ? 'ko' : 'en'} sticky="none" noindex>
+  <section class="section pt-10! md:pt-16!">
+    <div class="container-page max-w-lg!">
+      <div class="card p-6 md:p-8">
+        <h1 class="text-2xl font-extrabold">{t.title}</h1>
+        {profile?.role === 'admin' ? (
+          <Notice class="mt-6">{t.admin}</Notice>
+        ) : (
+          <form method="post" class="mt-4 space-y-6">
+            <p class="text-muted">{t.lead}</p>
+            <ul class="list-disc space-y-1 pl-5 text-sm text-muted">{t.items.map((i) => <li>{i}</li>)}</ul>
+            {error && <Notice tone="error">{error}</Notice>}
+            <label class="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" name="confirm" value="yes" class="mt-1 size-[18px] accent-[#B42318]" />
+              <span>{t.confirm}</span>
+            </label>
+            <div class="flex flex-wrap gap-3">
+              <button type="submit" class="min-h-11 rounded-full bg-[#B42318] px-5 font-semibold text-white hover:bg-[#912018]">{t.submit}</button>
+              <a href={homeFor(profile)} class="inline-flex min-h-11 items-center rounded-full border border-border px-5 font-semibold hover:border-text">{t.cancel}</a>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -8,7 +8,7 @@ import {
   COURSE_MAX, COURSE_MIN, PUBLISH_MS, SPOTS, START_TIMES, TASTE_KO, TASTE_MAX, TASTE_MIN, WALK_MIN,
   type Spot,
 } from '../data/jigiPreview';
-import type { InterestId } from '../data/appPreview';
+import type { InterestId } from '../data/interests';
 import { $, createPicker, initPhoneApp } from './phoneApp';
 
 const PUBLISH_TEXT = ['코스를 정리하고 있어요…', '여행자에게 보일 카드를 만드는 중…', '거의 다 됐어요…'];

@@ -64,7 +64,7 @@ const signedIn = Boolean(Astro.locals.user);
       {isAuthConfigured && (
         <>
           <a href="/login" data-auth="out" hidden={signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">Sign in</a>
-          <a href="/app" data-auth="in" hidden={!signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-text transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">My page</a>
+          <a href="/account" data-auth="in" hidden={!signedIn} lang="en" class="rounded-full px-2.5 py-2 text-sm font-medium whitespace-nowrap text-text transition-colors hover:bg-text/5 lg:px-3.5 lg:text-[0.9375rem]">My page</a>
         </>
       )}
       <!-- 앱 미리보기 페이지 안에서는 다시 불러오지 않고 하단 대기자 폼으로 이동 -->
@@ -110,7 +110,7 @@ const signedIn = Boolean(Astro.locals.user);
             Sign in
             <Icon name="arrow" class="size-5 text-muted" />
           </a>
-          <a href="/app" data-auth="in" hidden={!signedIn} lang="en" class="flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold">
+          <a href="/account" data-auth="in" hidden={!signedIn} lang="en" class="flex items-center justify-between border-b border-border/60 py-4 text-lg font-semibold">
             My page
             <Icon name="arrow" class="size-5 text-muted" />
           </a>

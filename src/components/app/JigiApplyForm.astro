@@ -1,17 +1,28 @@
 ---
 /**
- * /app-preview-jigi 하단 지기 사전 신청 폼.
- * 제출 데이터는 SITE.waitlistEndpoint(대기자 폼과 같은 Apps Script)로 form=jigi와 함께 POST 되고 'Jigi' 시트에 저장된다.
- * 사이트 자체에는 저장하지 않음. 동작은 scripts/jigiApply.ts.
+ * 지기 신청 폼. 두 가지로 쓴다.
+ * - mode="preview" (기본): /app-preview-jigi 하단 사전 신청. SITE.waitlistEndpoint(Apps Script)로 form=jigi와 함께 POST → 'Jigi' 시트.
+ * - mode="account": 로그인 후 /partner/apply. 같은 페이지로 POST → 서버가 다시 검증해 jigi_applications에 저장.
+ *   이메일은 Google 계정 것을 쓰고, 앱 미리보기 대신 취향 칩·추천 코스 칸을 직접 받는다.
+ * 동작은 scripts/jigiApply.ts.
  */
 import Icon from '../Icon.astro';
 import { SITE, isTodo } from '../../config/site';
+import { AGES as ages, AVAILABILITY as availability, INTRO_MAX, LANGUAGES as languages, RELATIONS as relations, SAMPLE_COURSE_MAX, SOURCES as sources } from '../../data/jigiApplyOptions';
+import { INTERESTS, INTEREST_MAX, INTEREST_MIN } from '../../data/interests';
 
-const ages = ['20대', '30대', '40대', '50대 이상'];
-const relations = ['성수동에 살아요', '성수동에서 일해요', '성수동 근처 학교에 다녀요', '성수동에 자주 놀러 가요', '기타'];
-const languages = ['영어', '일본어', '중국어', '기타 외국어'];
-const availability = ['평일 낮', '평일 저녁', '주말'];
-const sources = ['인스타그램', '지인 소개', '대학·학교 커뮤니티', '지역 커뮤니티(당근 등)', '검색', '기타'];
+interface Props {
+  mode?: 'preview' | 'account';
+  /** account: 로그인한 사람의 Google 이메일·이름 */
+  account?: { email: string; name: string };
+  /** account: 서버 검증에 실패했을 때 다시 채울 값과 오류 */
+  values?: Record<string, string | string[]>;
+  error?: { field: string; message: string };
+}
+const { mode = 'preview', account, values = {}, error } = Astro.props;
+const isAccount = mode === 'account';
+const val = (k: string) => (typeof values[k] === 'string' ? (values[k] as string) : '');
+const has = (k: string, v: string) => (Array.isArray(values[k]) ? (values[k] as string[]).includes(v) : false);
 
 const email = SITE.contactEmail;
 const retention = isTodo(SITE.retentionPeriod)
@@ -28,8 +39,8 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
 ---
 <section id="jigi-apply" lang="ko" class="scroll-mt-20 bg-gradient-to-b from-white via-white to-jigi-soft pb-20 md:pb-28" aria-labelledby="ja-title">
   <div class="container-page pt-16 text-center md:pt-20">
-    <p class="text-[0.8125rem] font-bold tracking-[0.14em] text-jigi-strong">성수동 지기 1기 사전 모집</p>
-    <h2 id="ja-title" class="mt-2 text-[2rem] leading-tight font-extrabold md:text-[2.75rem]">지기 사전 신청</h2>
+    <p class="text-[0.8125rem] font-bold tracking-[0.14em] text-jigi-strong">{isAccount ? '성수동 지기 1기 모집' : '성수동 지기 1기 사전 모집'}</p>
+    <h2 id="ja-title" class="mt-2 text-[2rem] leading-tight font-extrabold md:text-[2.75rem]">{isAccount ? '지기 신청서' : '지기 사전 신청'}</h2>
     <p class="mx-auto mt-3 max-w-md text-[0.9375rem] text-muted md:text-base">
       신청해 주시면 짧은 인터뷰 일정을 먼저 연락드려요. 가이드 자격증은 필요 없어요.
     </p>
@@ -41,29 +52,40 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
 
   <div class="container-page mt-8 md:mt-10">
     <div class="mx-auto max-w-[560px] rounded-[24px] border border-border bg-surface p-6 text-left shadow-card md:p-8">
-      <form class="space-y-6" novalidate data-jigi-form>
-        <input type="hidden" name="taste" data-ja-taste />
-        <input type="hidden" name="course" data-ja-course />
-        <!-- 스팸 봇 차단용: 사람에게는 보이지 않는 칸 (채워지면 전송하지 않음) -->
-        <div class="absolute -left-[9999px] size-px overflow-hidden" aria-hidden="true">
-          <label for="ja-company">Company</label>
-          <input id="ja-company" name="company" type="text" tabindex="-1" autocomplete="off" data-ja-hp />
-        </div>
+      <form class="space-y-6" novalidate data-jigi-form {...(isAccount ? { method: 'post', 'data-mode': 'account' } : {})}>
+        {!isAccount && (
+          <>
+            <input type="hidden" name="taste" data-ja-taste />
+            <input type="hidden" name="course" data-ja-course />
+            <!-- 스팸 봇 차단용: 사람에게는 보이지 않는 칸 (채워지면 전송하지 않음) -->
+            <div class="absolute -left-[9999px] size-px overflow-hidden" aria-hidden="true">
+              <label for="ja-company">Company</label>
+              <input id="ja-company" name="company" type="text" tabindex="-1" autocomplete="off" data-ja-hp />
+            </div>
+          </>
+        )}
 
         <div>
           <label for="ja-name" class={label}>이름</label>
-          <input id="ja-name" name="name" type="text" maxlength="30" autocomplete="name" class={field} placeholder="홍길동" />
+          <input id="ja-name" name="name" type="text" maxlength="30" autocomplete="name" class={field} placeholder="홍길동" value={isAccount ? (val('name') || account?.name) : undefined} />
         </div>
 
         <div class="grid gap-6 sm:grid-cols-2">
           <div>
             <label for="ja-phone" class={label}>휴대폰 번호</label>
-            <input id="ja-phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" class={field} placeholder="010-1234-5678" />
+            <input id="ja-phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" class={field} placeholder="010-1234-5678" value={isAccount ? val('phone') : undefined} />
           </div>
-          <div>
-            <label for="ja-email" class={label}>이메일</label>
-            <input id="ja-email" name="email" type="email" inputmode="email" maxlength="254" autocomplete="email" autocapitalize="off" spellcheck="false" class={field} placeholder="you@example.com" />
-          </div>
+          {isAccount ? (
+            <div>
+              <label for="ja-email" class={label}>이메일 <span class={optional}>(Google 계정)</span></label>
+              <input id="ja-email" type="email" readonly value={account?.email} class={`${field} read-only:bg-bg read-only:text-muted`} />
+            </div>
+          ) : (
+            <div>
+              <label for="ja-email" class={label}>이메일</label>
+              <input id="ja-email" name="email" type="email" inputmode="email" maxlength="254" autocomplete="email" autocapitalize="off" spellcheck="false" class={field} placeholder="you@example.com" />
+            </div>
+          )}
         </div>
 
         <div class="grid gap-6 sm:grid-cols-2">
@@ -71,8 +93,8 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
             <label for="ja-age" class={label}>나이대</label>
             <div class="relative">
               <select id="ja-age" name="age_group" class={select}>
-                <option value="" selected disabled>선택해 주세요</option>
-                {ages.map((a) => <option>{a}</option>)}
+                <option value="" selected={!val('age_group')} disabled>선택해 주세요</option>
+                {ages.map((a) => <option selected={val('age_group') === a || undefined}>{a}</option>)}
               </select>
               <Fragment set:html={chevron} />
             </div>
@@ -81,8 +103,8 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
             <label for="ja-relation" class={label}>성수동과의 관계</label>
             <div class="relative">
               <select id="ja-relation" name="seongsu_relation" class={select}>
-                <option value="" selected disabled>선택해 주세요</option>
-                {relations.map((r) => <option>{r}</option>)}
+                <option value="" selected={!val('seongsu_relation')} disabled>선택해 주세요</option>
+                {relations.map((r) => <option selected={val('seongsu_relation') === r || undefined}>{r}</option>)}
               </select>
               <Fragment set:html={chevron} />
             </div>
@@ -94,7 +116,7 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
           <p class="mt-1 text-[0.8125rem] text-muted">일상 대화가 가능하면 충분해요.</p>
           <div class="mt-2 grid grid-cols-2 gap-2" data-ja-languages>
             {languages.map((l) => (
-              <label class={pill}><input type="checkbox" name="languages" value={l} class={check} />{l}</label>
+              <label class={pill}><input type="checkbox" name="languages" value={l} class={check} checked={has('languages', l) || undefined} />{l}</label>
             ))}
           </div>
         </fieldset>
@@ -103,7 +125,7 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
           <legend class={label}>활동 가능한 시간 <span class={optional}>(여러 개 선택 가능)</span></legend>
           <div class="mt-2 grid grid-cols-3 gap-2" data-ja-availability>
             {availability.map((a) => (
-              <label class={pill}><input type="checkbox" name="availability" value={a} class={check} />{a}</label>
+              <label class={pill}><input type="checkbox" name="availability" value={a} class={check} checked={has('availability', a) || undefined} />{a}</label>
             ))}
           </div>
         </fieldset>
@@ -111,21 +133,40 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
         <div>
           <label for="ja-intro" class={label}>자기소개</label>
           <p class="mt-1 text-[0.8125rem] text-muted" id="ja-intro-help">여행자에게 보여 주고 싶은 성수, 나의 단골 장소 등을 자유롭게 적어 주세요. (20~300자)</p>
-          <textarea id="ja-intro" name="intro" rows="4" maxlength="300" aria-describedby="ja-intro-help" class={`${field} h-auto! py-3 leading-relaxed`} placeholder="예) 성수에서 5년째 일하는 디자이너예요. 주말마다 새로 생긴 팝업과 숨은 카페를 찾아다녀요."></textarea>
-          <p class="mt-1 text-right text-[0.8125rem] text-muted tabular-nums" aria-live="polite" data-ja-intro-count>0 / 300</p>
+          <textarea id="ja-intro" name="intro" rows="4" maxlength="300" aria-describedby="ja-intro-help" class={`${field} h-auto! py-3 leading-relaxed`} placeholder="예) 성수에서 5년째 일하는 디자이너예요. 주말마다 새로 생긴 팝업과 숨은 카페를 찾아다녀요.">{isAccount ? val('intro') : undefined}</textarea>
+          <p class="mt-1 text-right text-[0.8125rem] text-muted tabular-nums" aria-live="polite" data-ja-intro-count>{isAccount ? val('intro').length : 0} / {INTRO_MAX}</p>
         </div>
+
+        {isAccount && (
+          <>
+            <fieldset>
+              <legend class={label}>나의 취향 <span class={optional}>({INTEREST_MIN}~{INTEREST_MAX}개)</span></legend>
+              <p class="mt-1 text-[0.8125rem] text-muted">취향이 맞는 여행자와 연결하는 데 써요.</p>
+              <div class="mt-2 grid grid-cols-2 gap-2" data-ja-taste-chips>
+                {INTERESTS.map((it) => (
+                  <label class={pill}><input type="checkbox" name="taste" value={it.id} class={check} checked={has('taste', it.id) || undefined} /><span aria-hidden="true">{it.emoji}</span>{it.ko}</label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div>
+              <label for="ja-course" class={label}>여행자에게 보여 주고 싶은 코스 <span class={optional}>(선택)</span></label>
+              <textarea id="ja-course" name="sample_course" rows="3" maxlength={SAMPLE_COURSE_MAX} class={`${field} h-auto! py-3 leading-relaxed`} placeholder="예) 로스터리 카페 → 서울숲 산책 → 해 질 녘 한강 다리 뷰">{val('sample_course')}</textarea>
+            </div>
+          </>
+        )}
 
         <div>
           <label for="ja-insta" class={label}>인스타그램 <span class={optional}>(선택)</span></label>
-          <input id="ja-insta" name="instagram" type="text" maxlength="100" autocomplete="off" autocapitalize="off" spellcheck="false" class={field} placeholder="@yourhandle" />
+          <input id="ja-insta" name="instagram" type="text" maxlength="100" autocomplete="off" autocapitalize="off" spellcheck="false" class={field} placeholder="@yourhandle" value={isAccount ? val('instagram') : undefined} />
         </div>
 
         <div>
           <label for="ja-source" class={label}>연온을 어떻게 알게 되셨나요?</label>
           <div class="relative">
             <select id="ja-source" name="heard_from" class={select}>
-              <option value="" selected disabled>선택해 주세요</option>
-              {sources.map((s) => <option>{s}</option>)}
+              <option value="" selected={!val('heard_from')} disabled>선택해 주세요</option>
+              {sources.map((s) => <option selected={val('heard_from') === s || undefined}>{s}</option>)}
             </select>
             <Fragment set:html={chevron} />
           </div>
@@ -133,7 +174,7 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
 
         <div>
           <label for="ja-ref" class={label}>추천인 <span class={optional}>(선택)</span></label>
-          <input id="ja-ref" name="referred_by" type="text" maxlength="60" autocomplete="off" class={field} placeholder="추천해 준 분의 이름" />
+          <input id="ja-ref" name="referred_by" type="text" maxlength="60" autocomplete="off" class={field} placeholder="추천해 준 분의 이름" value={isAccount ? val('referred_by') : undefined} />
         </div>
 
         <div class="ja-notice max-h-[188px] overflow-y-auto rounded-[14px] bg-bg p-4 text-[0.8125rem] leading-relaxed text-muted" tabindex="0" role="region" aria-label="개인정보 수집·이용 안내">
@@ -141,9 +182,13 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
           <p class="mt-3 font-semibold text-text">1. 이용 목적</p>
           <p>· 지기 선발 인터뷰 일정 연락, 활동 안내 및 오리엔테이션 안내</p>
           <p class="mt-3 font-semibold text-text">2. 수집 항목</p>
-          <p>· 이름, 휴대폰 번호, 이메일, 나이대, 성수동과의 관계, 외국어, 활동 가능 시간, 자기소개, 알게 된 경로<br />· 선택: 인스타그램, 추천인<br />· 이 페이지 앱 미리보기에서 고른 취향과 만든 코스 (있는 경우)</p>
+          {isAccount ? (
+            <p>· 이름, 휴대폰 번호, 나이대, 성수동과의 관계, 외국어, 활동 가능 시간, 취향, 자기소개, 알게 된 경로<br />· 선택: 추천 코스, 인스타그램, 추천인<br />· 이메일은 로그인한 Google 계정의 주소를 써요</p>
+          ) : (
+            <p>· 이름, 휴대폰 번호, 이메일, 나이대, 성수동과의 관계, 외국어, 활동 가능 시간, 자기소개, 알게 된 경로<br />· 선택: 인스타그램, 추천인<br />· 이 페이지 앱 미리보기에서 고른 취향과 만든 코스 (있는 경우)</p>
+          )}
           <p class="mt-3 font-semibold text-text">3. 보관 기간</p>
-          <p>· {retention}</p>
+          <p>· {isAccount ? '회원 탈퇴 시 바로 삭제돼요. 휴대폰 번호는 연온 운영팀만 보고, 여행자에게는 보여 주지 않아요.' : retention}</p>
           <p class="mt-3 font-semibold text-text">4. 동의 거부</p>
           <p>· 동의하지 않으실 수 있지만, 이 경우 신청이 접수되지 않아요. 삭제를 원하시면 언제든 요청해 주세요{isTodo(email) ? '.' : <> (<a class="font-semibold text-jigi-strong underline" href={`mailto:${email}`}>{email}</a>).</>} 자세한 내용은 <a class="font-semibold text-jigi-strong underline" href="/privacy">개인정보 안내</a>를 확인해 주세요.</p>
         </div>
@@ -153,20 +198,21 @@ const chevron = '<svg aria-hidden="true" class="pointer-events-none absolute top
           <span>위 안내를 읽었고, 개인정보 수집·이용에 동의합니다. (필수)</span>
         </label>
 
-        <p class="hidden rounded-[12px] bg-jigi-soft px-4 py-3 text-[0.875rem] font-medium text-[#0B4F68]" role="alert" data-ja-error></p>
+        <p class:list={['rounded-[12px] bg-jigi-soft px-4 py-3 text-[0.875rem] font-medium text-[#0B4F68]', !error && 'hidden']} role="alert" data-ja-error>{error?.message}</p>
 
         <button type="submit" class="flex h-[56px] w-full items-center justify-center gap-2 rounded-full bg-jigi-strong text-base font-semibold text-white transition-colors hover:bg-[#095a77] disabled:cursor-wait disabled:opacity-70" data-ja-submit>
-          지기 사전 신청하기
+          {isAccount ? '지기 신청하기' : '지기 사전 신청하기'}
         </button>
       </form>
 
-      <div class="hidden py-6 text-center" data-ja-success tabindex="-1">
+      {/* account 모드는 완료 화면 대신 서버가 /partner로 보낸다 */}
+      {!isAccount && <div class="hidden py-6 text-center" data-ja-success tabindex="-1">
         <span class="mx-auto flex size-16 items-center justify-center rounded-full bg-jigi-strong text-white" aria-hidden="true">
           <Icon name="check" class="size-8" />
         </span>
         <h3 class="mt-5 text-2xl font-extrabold">신청이 접수됐어요!</h3>
         <p class="mt-2 text-[0.9375rem] text-muted">인터뷰 일정은 입력하신 휴대폰 번호나 이메일로 먼저 연락드릴게요.</p>
-      </div>
+      </div>}
     </div>
   </div>
 </section>

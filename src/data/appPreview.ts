@@ -13,33 +13,10 @@ export const TIMING = {
   foundMs: 2000,       // '찾았어요' 문구 유지
 };
 
-export const PICK_MIN = 3;
-export const PICK_MAX = 5;
+export { INTEREST_MIN as PICK_MIN, INTEREST_MAX as PICK_MAX } from './interests';
 
-export const INTERESTS = [
-  { id: 'korean-food', emoji: '🍲', label: 'Korean Food Tour' },
-  { id: 'kpop', emoji: '🎤', label: 'K-Pop Spots' },
-  { id: 'popup', emoji: '🛍️', label: 'Pop-up Store Tour' },
-  { id: 'night-view', emoji: '🌃', label: 'Night Views' },
-  { id: 'healing', emoji: '🌿', label: 'Healing & Slow Travel' },
-  { id: 'market', emoji: '🧺', label: 'Local Markets' },
-  { id: 'cafe', emoji: '☕', label: 'Hidden Cafés' },
-  { id: 'tradition', emoji: '🏮', label: 'Traditional Culture' },
-  { id: 'bakery', emoji: '🥐', label: 'Bakery Hopping' },
-  { id: 'design', emoji: '✏️', label: 'Design & Stationery' },
-  { id: 'street-food', emoji: '🍢', label: 'Street Food' },
-  { id: 'bar', emoji: '🍻', label: 'Craft Beer & Bars' },
-  { id: 'fashion', emoji: '👟', label: 'K-Fashion Shopping' },
-  { id: 'river', emoji: '🌊', label: 'Han River & Seoul Forest' },
-  { id: 'beauty', emoji: '💄', label: 'K-Beauty' },
-  { id: 'vegan', emoji: '🥗', label: 'Vegan & Healthy Eats' },
-  { id: 'photo', emoji: '📸', label: 'Photo Walk' },
-  { id: 'art', emoji: '🎨', label: 'Art & Galleries' },
-  { id: 'vintage', emoji: '🧥', label: 'Vintage & Thrift' },
-  { id: 'workshop', emoji: '🧶', label: 'Craft Workshops' },
-] as const;
-
-export type InterestId = (typeof INTERESTS)[number]['id'];
+/** 취향 목록은 서비스 공용 data/interests.ts */
+export { INTERESTS, type InterestId } from './interests';
 
 export const LANG_FLAGS: Record<string, string> = {
   Korean: '🇰🇷',
