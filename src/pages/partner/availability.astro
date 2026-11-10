@@ -1,0 +1,252 @@
+---
+/**
+ * 가능 시간: 주간 반복 시간 + 날짜별 예외(쉬는 날·추가로 여는 날) + 확정 방식.
+ * 저장하면 DB가 공개 루트마다 앞으로 4주치 슬롯을 루트 소요 시간 간격으로 다시 만든다 (refresh_jigi_slots).
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import JigiOnly from '../../components/account/JigiOnly.astro';
+import Notice from '../../components/account/Notice.astro';
+import { PARTNER_NAV } from '../../data/accountNav';
+import { CONFIRM_MODES, WEEKDAYS } from '../../data/routeOptions';
+import { TIME_OPTIONS, kstToday, readException, readRules, type Rule } from '../../lib/availability';
+import { fmtDuration } from '../../lib/course';
+import { dbError, field, fields, notice } from '../../lib/forms';
+import { UUID, kstDay, kstTime, loadApprovedJigi } from '../../lib/routes';
+
+export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/onboarding');
+const jigi = await loadApprovedJigi(supabase, profile);
+
+const today = kstToday();
+const lastDay = kstToday(90);
+let error: string | null = null;
+let postedRules: Rule[] | null = null;
+let postedMode: string | null = null;
+
+if (Astro.request.method === 'POST' && jigi) {
+  const fd = await Astro.request.formData();
+  const action = field(fd, 'action');
+  let rpc: PromiseLike<{ error: { message: string; code?: string } | null }> | null = null;
+  if (action === 'rules') {
+    const { rules, error: ruleError } = readRules(fields(fd, 'rule_weekday'), fields(fd, 'rule_start'), fields(fd, 'rule_end'));
+    postedRules = rules;
+    postedMode = field(fd, 'confirm_mode');
+    if (ruleError) error = ruleError;
+    else if (postedMode !== 'manual' && postedMode !== 'instant') error = '확정 방식을 골라 주세요.';
+    else rpc = supabase.rpc('save_availability', { p_rules: rules, p_confirm_mode: postedMode });
+  } else if (action === 'add_exception') {
+    const r = readException(field(fd, 'date'), field(fd, 'type'), field(fd, 'start'), field(fd, 'end'), today, lastDay);
+    if (r.error) error = r.error;
+    else rpc = supabase.rpc('add_availability_exception', r.value);
+  } else if (action === 'delete_exception' && UUID.test(field(fd, 'id'))) {
+    rpc = supabase.rpc('delete_availability_exception', { p_id: field(fd, 'id') });
+  } else error = '잘못된 요청이에요.';
+
+  if (rpc) {
+    const { error: rpcError } = await rpc;
+    if (!dbError(rpcError, `availability ${action}`)) return Astro.redirect(`/partner/availability?notice=${action}`);
+    error = /overlapping/.test(rpcError!.message) ? '같은 요일의 시간이 서로 겹쳐요.'
+      : /too many/.test(rpcError!.message) ? '날짜별 예외는 60개까지 둘 수 있어요.'
+      : '저장하지 못했어요. 다시 시도해 주세요.';
+  }
+}
+
+let rules: Rule[] = [];
+let exceptions: { id: string; date: string; type: 'closed' | 'extra'; start_time: string | null; end_time: string | null }[] = [];
+let routes: { id: string; title: string; duration_minutes: number }[] = [];
+let slots: { route_id: string; starts_at: string; status: string }[] = [];
+if (jigi) {
+  const [r, e, p, s] = await Promise.all([
+    supabase.from('availability_rules').select('weekday, start_time, end_time').eq('jigi_id', profile.id).order('weekday').order('start_time'),
+    supabase.from('availability_exceptions').select('id, date, type, start_time, end_time').eq('jigi_id', profile.id).gte('date', today).order('date'),
+    supabase.from('routes').select('id, title, duration_minutes').eq('jigi_id', profile.id).eq('status', 'published'),
+    supabase.from('slots').select('route_id, starts_at, status').eq('jigi_id', profile.id).gt('starts_at', new Date().toISOString()).order('starts_at').limit(500),
+  ]);
+  dbError(r.error, 'load availability rules');
+  const hhmm = (t: string | null) => (t ? t.slice(0, 5) : null);
+  rules = (r.data ?? []).map((x) => ({ weekday: x.weekday, start_time: hhmm(x.start_time)!, end_time: hhmm(x.end_time)! }));
+  exceptions = (e.data ?? []).map((x) => ({ ...x, start_time: hhmm(x.start_time), end_time: hhmm(x.end_time) }));
+  routes = p.data ?? [];
+  slots = s.data ?? [];
+}
+const shownRules = postedRules ?? rules;
+const mode = postedMode ?? jigi?.confirm_mode ?? 'manual';
+const titleOf = new Map(routes.map((r) => [r.id, r.title]));
+// 날짜별로 묶어서 보여 준다
+const byDay = new Map<string, typeof slots>();
+for (const s of slots) byDay.set(kstDay(s.starts_at), [...(byDay.get(kstDay(s.starts_at)) ?? []), s]);
+const dayLabel = (d: string) => {
+  const [y, m, day] = d.split('-').map(Number);
+  return `${m}/${day} (${WEEKDAYS[new Date(Date.UTC(y, m - 1, day)).getUTCDay()]})`;
+};
+
+const done = notice(Astro.url, {
+  rules: '가능 시간을 저장했어요. 공개된 루트의 예약 가능 시간이 다시 만들어졌어요.',
+  add_exception: '날짜별 예외를 추가했어요.',
+  delete_exception: '날짜별 예외를 지웠어요.',
+});
+const select = 'h-11 rounded-xl border border-border bg-surface px-3 text-[0.9375rem]';
+const pill = 'flex min-h-11 cursor-pointer items-start gap-3 rounded-[14px] border border-border bg-surface p-3.5 has-checked:border-jigi-strong has-checked:bg-jigi-soft';
+---
+<BaseLayout title="가능 시간 | YEONON" description="연온 지기 가능 시간" lang="ko" sticky="none" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-3xl!">
+      <p class="eyebrow">지기</p>
+      <h1 class="mt-3 text-3xl font-extrabold">가능 시간</h1>
+      <p class="mt-2 text-muted">만날 수 있는 시간을 열어 두면, 공개된 루트마다 앞으로 4주 동안의 시작 시각이 루트 소요 시간에 맞춰 자동으로 만들어져요. (한국 시간 기준)</p>
+
+      {done && <Notice class="mt-6">{done}</Notice>}
+      {error && <Notice tone="error" class="mt-6">{error}</Notice>}
+
+      {!jigi ? (
+        <JigiOnly isAdmin={profile.role === 'admin'} />
+      ) : (
+        <>
+          <!-- 주간 반복 + 확정 방식 -->
+          <form method="post" class="card mt-8 space-y-8 p-5 md:p-8" novalidate data-rules-form>
+            <input type="hidden" name="action" value="rules" />
+            <fieldset>
+              <legend class="text-lg font-bold">확정 방식</legend>
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                {CONFIRM_MODES.map((m) => (
+                  <label class={pill}>
+                    <input type="radio" name="confirm_mode" value={m.id} checked={mode === m.id || undefined} class="mt-1 size-[18px] accent-jigi-strong" />
+                    <span><span class="block font-semibold">{m.label}</span><span class="block text-sm text-muted">{m.desc}</span></span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend class="text-lg font-bold">매주 반복</legend>
+              <p class="mt-1 text-sm text-muted">예: 토요일 14:00 ~ 18:00 → 3시간 루트는 14:00, 2시간 루트는 14:00·16:00에 시작할 수 있어요.</p>
+              <ul class="mt-4 space-y-2" data-rules>
+                {[...shownRules, null].map((rule) => (
+                  <li class="flex flex-wrap items-center gap-2" data-rule>
+                    <select name="rule_weekday" aria-label="요일" class={select}>
+                      <option value="">요일</option>
+                      {WEEKDAYS.map((w, i) => <option value={i} selected={rule?.weekday === i || undefined}>{w}요일</option>)}
+                    </select>
+                    <select name="rule_start" aria-label="시작" class={select}>
+                      <option value="">시작</option>
+                      {TIME_OPTIONS.map((t) => <option value={t} selected={rule?.start_time === t || undefined}>{t}</option>)}
+                    </select>
+                    <span aria-hidden="true">~</span>
+                    <select name="rule_end" aria-label="끝" class={select}>
+                      <option value="">끝</option>
+                      {TIME_OPTIONS.map((t) => <option value={t} selected={rule?.end_time === t || undefined}>{t}</option>)}
+                    </select>
+                    <button type="button" class="inline-flex size-11 items-center justify-center rounded-full text-muted hover:bg-text/5 hover:text-text" aria-label="이 시간 지우기" data-remove-rule>✕</button>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" class="mt-3 min-h-11 rounded-full border-2 border-dashed border-jigi-strong px-5 font-semibold text-jigi-strong" data-add-rule hidden>+ 시간 추가</button>
+            </fieldset>
+
+            <button type="submit" class="flex h-[52px] w-full items-center justify-center rounded-full bg-jigi-strong font-semibold text-white hover:bg-[#08566F] sm:w-auto sm:px-8">저장</button>
+          </form>
+
+          <!-- 날짜별 예외 -->
+          <div class="card mt-6 p-5 md:p-8">
+            <h2 class="text-lg font-bold">날짜별 예외</h2>
+            <p class="mt-1 text-sm text-muted">쉬는 날(시간을 비우면 하루 종일)이나, 반복 시간 외에 추가로 여는 날을 정해요.</p>
+            <form method="post" class="mt-4 flex flex-wrap items-end gap-3" novalidate>
+              <input type="hidden" name="action" value="add_exception" />
+              <label class="text-sm font-semibold">날짜
+                <input type="date" name="date" min={today} max={lastDay} required class={`mt-1 block ${select}`} />
+              </label>
+              <label class="text-sm font-semibold">종류
+                <select name="type" class={`mt-1 block ${select}`}>
+                  <option value="closed">쉬는 날</option>
+                  <option value="extra">추가로 열기</option>
+                </select>
+              </label>
+              <label class="text-sm font-semibold">시작 <span class="font-normal text-muted">(선택)</span>
+                <select name="start" class={`mt-1 block ${select}`}>
+                  <option value="">-</option>
+                  {TIME_OPTIONS.map((t) => <option value={t}>{t}</option>)}
+                </select>
+              </label>
+              <label class="text-sm font-semibold">끝
+                <select name="end" class={`mt-1 block ${select}`}>
+                  <option value="">-</option>
+                  {TIME_OPTIONS.map((t) => <option value={t}>{t}</option>)}
+                </select>
+              </label>
+              <button type="submit" class="h-11 rounded-xl bg-text px-5 text-sm font-semibold text-white">추가</button>
+            </form>
+
+            {exceptions.length > 0 && (
+              <ul class="mt-6 divide-y divide-border border-t border-border">
+                {exceptions.map((x) => (
+                  <li class="flex items-center gap-3 py-3">
+                    <span class:list={['rounded-full px-2.5 py-1 text-xs font-bold', x.type === 'closed' ? 'bg-[#FDECEC] text-[#8A1C1C]' : 'bg-jigi-soft text-jigi-strong']}>{x.type === 'closed' ? '쉬는 날' : '추가'}</span>
+                    <span class="flex-1 font-medium">{dayLabel(x.date)} {x.start_time ? `${x.start_time} ~ ${x.end_time}` : '하루 종일'}</span>
+                    <form method="post">
+                      <input type="hidden" name="action" value="delete_exception" />
+                      <input type="hidden" name="id" value={x.id} />
+                      <button type="submit" class="min-h-10 rounded-full px-3 text-sm font-semibold text-muted hover:bg-text/5 hover:text-text">지우기</button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <!-- 만들어진 슬롯 -->
+          <div class="mt-6">
+            <h2 class="text-lg font-bold">앞으로 4주 예약 가능한 시간 <span class="text-jigi-strong tabular-nums">{slots.filter((s) => s.status === 'open').length}개</span></h2>
+            {routes.length === 0 ? (
+              <p class="mt-2 text-muted">공개된 루트가 아직 없어요. 루트가 검수를 통과해 공개되면 여기 시간이 만들어져요.</p>
+            ) : (
+              <>
+                <p class="mt-1 text-sm text-muted">공개 루트: {routes.map((r) => `${r.title} (${fmtDuration(r.duration_minutes)})`).join(', ')}</p>
+                {byDay.size === 0 ? (
+                  <p class="mt-3 text-muted">열어 둔 시간이 없어요. 위에서 매주 반복 시간을 정해 주세요.</p>
+                ) : (
+                  <ul class="mt-4 space-y-2">
+                    {[...byDay].map(([d, list]) => (
+                      <li class="rounded-xl bg-surface px-4 py-3 shadow-card">
+                        <p class="font-semibold">{dayLabel(d)}</p>
+                        <p class="mt-1 text-sm text-muted">
+                          {list.map((s) => `${kstTime(s.starts_at)} ${titleOf.get(s.route_id) ?? ''}${s.status !== 'open' ? ' (예약 진행 중)' : ''}`).join(' · ')}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // 반복 시간 줄 추가·지우기 (스크립트가 없으면 빈 줄 하나에 입력해 저장할 수 있다)
+  const list = document.querySelector<HTMLElement>('[data-rules]');
+  const add = document.querySelector<HTMLButtonElement>('[data-add-rule]');
+  if (list && add) {
+    const blank = list.lastElementChild!.cloneNode(true) as HTMLElement;
+    add.hidden = false;
+    add.addEventListener('click', () => {
+      const row = blank.cloneNode(true) as HTMLElement;
+      list.append(row);
+      row.querySelector('select')?.focus();
+    });
+    list.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-remove-rule]');
+      if (!btn) return;
+      const row = btn.closest('[data-rule]')!;
+      if (list.children.length > 1) row.remove();
+      else row.querySelectorAll('select').forEach((s) => (s.value = ''));
+      add.focus();
+    });
+  }
+</script>

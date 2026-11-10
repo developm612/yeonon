@@ -17,11 +17,12 @@ const { profile, supabase } = Astro.locals;
 if (profile && isOnboarded(profile)) return Astro.redirect(homeFor(profile));
 
 const nextParam = Astro.url.searchParams.get('next');
-/** 온보딩 후 갈 곳: 원래 가려던 곳이 그 역할의 영역이면 그곳, 아니면 역할의 첫 화면 */
+/** 온보딩 후 갈 곳: 원래 가려던 곳이 그 역할의 영역(또는 공개 루트 화면)이면 그곳, 아니면 역할의 첫 화면 */
 const destination = (role: Role) => {
   const next = safeNext(nextParam, '');
   const area = AREAS.find((a) => next && inArea(next.split('?')[0], a.base));
   if (area?.roles.includes(role)) return next;
+  if (role === 'traveler' && next && inArea(next.split('?')[0], '/routes')) return next;
   return role === 'jigi' ? '/partner/apply' : '/app';
 };
 

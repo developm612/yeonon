@@ -16,8 +16,8 @@ export const TASTE_MAX = INTEREST_MAX;
 /** 코스에 담을 수 있는 장소 수 */
 export const COURSE_MIN = 2;
 export const COURSE_MAX = 5;
-/** 장소 사이 이동 시간 (분) */
-export const WALK_MIN = 15;
+/** 장소 사이 이동 시간 (분) — 실제 루트 빌더와 같은 값 */
+export { WALK_MIN } from './routeOptions';
 
 /** 코스 시작 시각 */
 export const START_TIMES = [

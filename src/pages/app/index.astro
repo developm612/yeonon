@@ -7,7 +7,7 @@ export const prerender = false;
 const { profile } = Astro.locals;
 ---
 <BaseLayout title="My YEONON" description="Your YEONON home." sticky="none" noindex>
-  <AreaNav items={TRAVELER_NAV} label="Traveler menu" />
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page max-w-2xl!">
       <p class="eyebrow">Traveler</p>
@@ -18,7 +18,10 @@ const { profile } = Astro.locals;
           Soon you'll pick your interests and dates here, and we'll recommend routes made by Jigis in Seongsu.
           For now, add your interests to your profile so we can get ready for you.
         </p>
-        <a href="/app/profile" class="mt-6 inline-flex min-h-11 items-center rounded-full bg-traveler-strong px-5 font-semibold text-white hover:bg-[#134FB0]">Edit my profile</a>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <a href="/app/profile" class="inline-flex min-h-11 items-center rounded-full bg-traveler-strong px-5 font-semibold text-white hover:bg-[#134FB0]">Edit my profile</a>
+          <a href="/routes" class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">Browse routes</a>
+        </div>
       </div>
       <form method="post" action="/auth/signout" class="mt-8">
         <button type="submit" class="text-sm font-semibold text-muted underline underline-offset-2 hover:text-text">Sign out</button>

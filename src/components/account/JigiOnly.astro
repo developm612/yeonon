@@ -1,0 +1,22 @@
+---
+/** 승인된 지기만 쓰는 화면에 승인 전 지기·관리자가 들어왔을 때 보이는 안내 */
+interface Props {
+  isAdmin: boolean;
+}
+const { isAdmin } = Astro.props;
+---
+<div class="card mt-8 p-6 md:p-8">
+  {isAdmin ? (
+    <>
+      <h2 class="text-lg font-bold">관리자 확인용 화면이에요</h2>
+      <p class="mt-2 text-muted">루트와 가능 시간은 승인된 지기 계정으로만 만들 수 있어요. 지기가 만든 루트는 루트 검수에서 볼 수 있어요.</p>
+      <a href="/admin/routes" class="mt-6 inline-flex min-h-11 items-center rounded-full bg-text px-5 font-semibold text-white">루트 검수로 가기</a>
+    </>
+  ) : (
+    <>
+      <h2 class="text-lg font-bold">지기로 승인된 뒤에 쓸 수 있어요</h2>
+      <p class="mt-2 text-muted">신청서 검토와 인터뷰가 끝나 승인되면 나만의 루트를 만들고 만날 수 있는 시간을 열 수 있어요.</p>
+      <a href="/partner" class="mt-6 inline-flex min-h-11 items-center rounded-full bg-jigi-strong px-5 font-semibold text-white hover:bg-[#08566F]">신청 상태 보기</a>
+    </>
+  )}
+</div>

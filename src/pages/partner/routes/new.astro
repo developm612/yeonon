@@ -1,0 +1,46 @@
+---
+/** 새 루트 만들기 (승인된 지기만). 저장은 lib/routeSave.ts → DB 함수 save_route */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import JigiOnly from '../../../components/account/JigiOnly.astro';
+import RouteBuilder from '../../../components/routes/RouteBuilder.astro';
+import { PARTNER_NAV } from '../../../data/accountNav';
+import { loadApprovedJigi } from '../../../lib/routes';
+import { saveRouteFromForm } from '../../../lib/routeSave';
+import type { RouteError, RouteForm } from '../../../lib/routeValidation';
+
+export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/onboarding');
+const jigi = await loadApprovedJigi(supabase, profile);
+
+let values: RouteForm = {
+  route: {
+    title: '', summary: '', tags: [], vibe: 'slow', duration_minutes: 180, meeting_point_note: '', area: '',
+    max_party_size: 2, languages: ['English'], list_price: NaN,
+  },
+  stops: [],
+};
+let error: RouteError | undefined;
+
+if (Astro.request.method === 'POST' && jigi) {
+  const result = await saveRouteFromForm(supabase, null, await Astro.request.formData());
+  if ('redirect' in result) return Astro.redirect(result.redirect);
+  ({ form: values, error } = result);
+}
+---
+<BaseLayout title="새 루트 | YEONON" description="연온 지기 루트 만들기" lang="ko" sticky="none" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <a href="/partner/routes" class="text-sm font-semibold text-muted hover:text-text">← 내 루트</a>
+      <h1 class="mt-3 text-3xl font-extrabold">새 루트 만들기</h1>
+      {jigi ? <RouteBuilder values={values} error={error} /> : <JigiOnly isAdmin={profile.role === 'admin'} />}
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import '../../../scripts/routeBuilder.ts';
+</script>

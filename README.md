@@ -31,7 +31,7 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 
 ## 로그인 · 회원 영역 (실서비스 전환, 진행 중)
 
-계획: `../yeonon-service-plan-v2.md`. Phase 2(가입·프로필·지기 승인)까지 구현됨.
+계획: `../yeonon-service-plan-v2.md`. Phase 3(루트 빌더·슬롯·검수)까지 구현됨.
 
 | 경로 | 내용 |
 |---|---|
@@ -43,7 +43,10 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 | `/account/delete` | 회원 탈퇴 (프로필·지기 신청·지기 프로필 함께 삭제) |
 | `/app`, `/app/profile` | 여행자 홈·프로필 (영문) |
 | `/partner`, `/partner/apply` | 지기 홈(신청 상태)·지기 신청서 (한글) |
-| `/admin`, `/admin/users`, `/admin/jigi-applications` | 관리자 대시보드·회원 관리(정지·메모)·지기 신청 심사 (한글) |
+| `/partner/routes`, `/partner/routes/new`, `/partner/routes/[id]/edit` | 내 루트 목록·루트 빌더(기본 정보 → 코스 → 미리보기 → 검수 요청). 승인된 지기만 |
+| `/partner/availability` | 주간 반복 시간·날짜별 예외·확정 방식 → 앞으로 4주 슬롯 자동 생성 |
+| `/admin`, `/admin/users`, `/admin/jigi-applications`, `/admin/routes` | 관리자 대시보드·회원 관리(정지·메모)·지기 신청 심사·루트 검수(공개/수정 요청/비공개) (한글) |
+| `/routes`, `/routes/[id]` | 공개 루트 둘러보기·상세 (누구나, 영문). 공개 전 루트는 주인 지기·관리자에게만 미리보기로 보임 |
 | `/terms` | 이용약관 자리 — **공개 전 실제 약관으로 교체 필요** |
 
 - **접근 규칙** (`src/middleware.ts`): 로그인 전 → `/login`, 온보딩 전 → `/onboarding`, 정지 → `/suspended`, 다른 역할의 영역 → 자기 홈. 관리자는 모든 영역에 들어갈 수 있다. 다른 사이트에서 보낸 폼 전송(POST)은 모두 거절한다.
@@ -56,12 +59,17 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 1. `20261110000001_profiles.sql` — profiles, `is_admin()`, 가입 트리거 + 기존 가입자 백필, audit_log, admin_notes
 2. `20261110000002_jigi.sql` — jigi_applications, jigi_application_notes(심사 메모), jigi_profiles, `review_jigi_application()`
 3. `20261110000003_account.sql` — `complete_onboarding()`, `admin_set_user_status()`, `admin_set_user_memo()`, `delete_my_account()`
+4. `20261110000004_routes.sql` — routes, route_stops, route_review_notes(검수 메모), public_jigis 뷰(지기 이름 일부만)
+5. `20261110000005_availability_slots.sql` — availability_rules·availability_exceptions, slots, 슬롯 계산·갱신 함수
+6. `20261110000006_route_functions.sql` — `save_route()`·`submit_route()`·`withdraw_route()`·`delete_route()`, `admin_review_route()`, `save_availability()`·예외 추가/삭제
+7. `20261110000007_slots_cron.sql` — (선택) pg_cron으로 매일 00:05 KST에 4주 창을 앞으로 민다. Dashboard → Database → Extensions에서 pg_cron을 먼저 켠다
 
 첫 관리자: 관리자 계정으로 한 번 로그인한 뒤 SQL Editor에서 `update public.profiles set role = 'admin' where email = 'yeonon.official2026@gmail.com';`
 
 - 모든 테이블 RLS 사용. 역할·상태·동의 시각·심사 결과는 클라이언트가 직접 못 바꾸고 위 DB 함수로만 바뀐다 (함수가 권한 확인 + audit_log 기록).
 - 지기 휴대폰 번호는 본인과 관리자만 볼 수 있다. 심사 메모·회원 메모는 관리자만 볼 수 있도록 별도 테이블에 둔다.
-- 취향 id 목록은 `src/data/interests.ts` 한 곳에서 관리한다 (여행자 관심사·지기 취향 공용).
+- 루트·정류장·가능 시간·슬롯도 DB 함수로만 쓴다. 공개·비공개 루트를 고치면 작성 중으로 돌아가 다시 검수를 받는다. 슬롯은 공개 루트마다 가능 시간 안에서 루트 소요 시간 간격으로 만들어지고(한국 시간), 요청·확정된 슬롯은 가능 시간을 바꿔도 남는다.
+- 취향 id 목록은 `src/data/interests.ts` 한 곳에서 관리한다 (여행자 관심사·지기 취향·루트 태그 공용). DB의 `valid_interest_tags()`와 같아야 한다.
 - **렌더링**: 공개 페이지는 지금처럼 빌드 때 정적 HTML로 만들고, `export const prerender = false`인 페이지만 요청마다 서버에서 렌더링한다.
 - **헤더 로그인 표시**: 정적 페이지는 브라우저의 Supabase 세션 쿠키 유무로 `Sign in` ↔ `My page`를 바꿔 보여 줄 뿐이고, 실제 접근 확인은 서버가 한다.
 

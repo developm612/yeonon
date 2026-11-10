@@ -1,0 +1,83 @@
+---
+/**
+ * 루트 고치기 (자기 루트만). 검수 중이면 잠겨 있다.
+ * 공개·비공개 루트를 저장하면 '작성 중'으로 돌아가 다시 검수를 받는다 (DB 함수 save_route가 처리).
+ */
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../../components/account/AreaNav.astro';
+import JigiOnly from '../../../../components/account/JigiOnly.astro';
+import Notice from '../../../../components/account/Notice.astro';
+import RouteBuilder from '../../../../components/routes/RouteBuilder.astro';
+import { PARTNER_NAV } from '../../../../data/accountNav';
+import { ROUTE_STATUS } from '../../../../data/routeOptions';
+import { loadApprovedJigi, loadRoute } from '../../../../lib/routes';
+import { saveRouteFromForm } from '../../../../lib/routeSave';
+import type { RouteError, RouteForm } from '../../../../lib/routeValidation';
+
+export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/onboarding');
+const jigi = await loadApprovedJigi(supabase, profile);
+
+const loaded = jigi ? await loadRoute(supabase, Astro.params.id ?? '') : null;
+// 관리자는 모든 루트를 읽을 수 있지만, 고치는 건 루트 주인만
+if (jigi && (!loaded || loaded.route.jigi_id !== profile.id)) return Astro.redirect('/partner/routes?notice=not_found');
+
+let values: RouteForm | undefined;
+let error: RouteError | undefined;
+let memo = '';
+if (loaded) {
+  const { route, stops } = loaded;
+  values = {
+    route: {
+      title: route.title, summary: route.summary, tags: route.tags, vibe: route.vibe, duration_minutes: route.duration_minutes,
+      meeting_point_note: route.meeting_point_note, area: route.area, max_party_size: route.max_party_size,
+      languages: route.languages, list_price: route.list_price,
+    },
+    stops: stops.map((s) => ({ place_name: s.place_name, area: s.area, stay_minutes: s.stay_minutes, activity: s.activity, tip: s.tip ?? '', tags: s.tags })),
+  };
+  const { data: note } = await supabase.from('route_review_notes').select('memo').eq('route_id', route.id).maybeSingle();
+  memo = note?.memo ?? '';
+
+  if (Astro.request.method === 'POST' && route.status !== 'in_review') {
+    const result = await saveRouteFromForm(supabase, route.id, await Astro.request.formData());
+    if ('redirect' in result) return Astro.redirect(result.redirect);
+    ({ form: values, error } = result);
+  }
+}
+const status = loaded?.route.status;
+---
+<BaseLayout title="루트 고치기 | YEONON" description="연온 지기 루트 고치기" lang="ko" sticky="none" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <a href="/partner/routes" class="text-sm font-semibold text-muted hover:text-text">← 내 루트</a>
+      <h1 class="mt-3 text-3xl font-extrabold">루트 고치기</h1>
+      {!jigi || !values || !status ? (
+        <JigiOnly isAdmin={profile.role === 'admin'} />
+      ) : (
+        <>
+          <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="rounded-full bg-jigi-soft px-3 py-1 text-sm font-semibold text-jigi-strong">{ROUTE_STATUS[status].label}</span>
+            <p class="text-sm text-muted">{ROUTE_STATUS[status].desc}</p>
+          </div>
+          {memo && (status === 'changes_requested' || status === 'hidden') && (
+            <Notice tone="error" class="mt-4">연온의 메모: {memo}</Notice>
+          )}
+          {(status === 'published' || status === 'hidden') && (
+            <Notice class="mt-4">저장하면 '작성 중'으로 바뀌고 다시 검수를 받아야 해요. 검수가 끝날 때까지 여행자에게 보이지 않아요.</Notice>
+          )}
+          {status === 'in_review' && (
+            <Notice class="mt-4">검수 중에는 고칠 수 없어요. 고치려면 내 루트에서 '검수 요청 취소'를 눌러 주세요.</Notice>
+          )}
+          <RouteBuilder values={values} error={error} locked={status === 'in_review'} />
+        </>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import '../../../../scripts/routeBuilder.ts';
+</script>

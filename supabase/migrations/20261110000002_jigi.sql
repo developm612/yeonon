@@ -86,7 +86,7 @@ create policy "jigi_application_notes: admin read" on public.jigi_application_no
 
 -- ---------------------------------------------------------------------
 -- jigi_profiles: 승인된 지기의 공개 프로필. 승인할 때 심사 함수가 만든다.
--- 공개 정보만 둔다 (연락처 없음). 활성 프로필은 누구나 읽을 수 있다 (Phase 3 루트 화면에서 사용).
+-- 공개 정보만 둔다 (연락처·신청서 내용 없음). 활성 프로필은 누구나 읽을 수 있다 (Phase 3 루트 화면에서 사용).
 -- ---------------------------------------------------------------------
 create table if not exists public.jigi_profiles (
   user_id               uuid primary key references public.profiles (id) on delete cascade,
@@ -178,8 +178,9 @@ begin
     set memo = excluded.memo, updated_by = excluded.updated_by, updated_at = excluded.updated_at;
 
   if p_status = 'approved' then
-    insert into public.jigi_profiles (user_id, bio, languages, is_active)
-    values (app.user_id, app.intro, app.languages, true)
+    -- 신청서 자기소개(관리자에게 쓴 글)는 공개 프로필로 옮기지 않는다. 공개 소개는 지기가 따로 쓴다.
+    insert into public.jigi_profiles (user_id, languages, is_active)
+    values (app.user_id, app.languages, true)
     on conflict (user_id) do update set is_active = true;
   elsif app.status = 'approved' then
     -- 승인을 취소하면 공개 프로필을 숨긴다 (작성한 내용은 남겨 둔다)

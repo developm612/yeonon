@@ -1,0 +1,153 @@
+---
+/**
+ * 루트 검수: 상태별 목록, 루트 전체 내용, 공개 승인 / 수정 요청(사유 필수, 지기에게 보임) / 비공개.
+ * 변경은 DB 함수 admin_review_route로만 한다 (슬롯 생성·정리, audit_log 기록).
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import Notice from '../../components/account/Notice.astro';
+import { ADMIN_NAV } from '../../data/accountNav';
+import { interestNames } from '../../data/interests';
+import { ROUTE_STATUS, ROUTE_STATUSES, areaName, languageName, vibeName, type RouteStatus } from '../../data/routeOptions';
+import { fmtDuration } from '../../lib/course';
+import { dbError, field, notice } from '../../lib/forms';
+import { ROUTE_COLUMNS, STOP_COLUMNS, UUID, won, type RouteRow, type StopRow } from '../../lib/routes';
+import { clean } from '../../scripts/formSafety';
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+if (!supabase) return Astro.redirect('/login');
+
+/** 상태별로 할 수 있는 검수 동작 (DB 함수와 같은 규칙) */
+const ACTIONS = {
+  publish: { label: '공개 승인', from: ['in_review', 'hidden'] },
+  request_changes: { label: '수정 요청', from: ['in_review', 'published', 'hidden'] },
+  hide: { label: '비공개', from: ['in_review', 'published', 'changes_requested'] },
+} as const;
+type Action = keyof typeof ACTIONS;
+const actionsFor = (s: RouteStatus) => (Object.keys(ACTIONS) as Action[]).filter((a) => (ACTIONS[a].from as readonly string[]).includes(s));
+const isStatus = (v: string): v is RouteStatus => (ROUTE_STATUSES as string[]).includes(v);
+
+let error: string | null = null;
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const id = field(fd, 'id');
+  const action = field(fd, 'action');
+  const memo = clean(field(fd, 'memo'), 500);
+  if (!UUID.test(id) || !(action in ACTIONS)) error = '잘못된 요청이에요.';
+  else if (action === 'request_changes' && !memo) error = '수정 요청 사유를 적어 주세요. 지기에게 그대로 보여요.';
+  else {
+    const { error: rpcError } = await supabase.rpc('admin_review_route', { p_id: id, p_action: action, p_memo: memo });
+    if (!dbError(rpcError, 'review route')) {
+      const back = new URL(Astro.url);
+      back.searchParams.set('notice', action);
+      return Astro.redirect(back.pathname + back.search);
+    }
+    error = /not active/.test(rpcError!.message) ? '지기가 정지되었거나 승인이 취소된 상태라 공개할 수 없어요.'
+      : /cannot/.test(rpcError!.message) ? '지금 상태에서는 할 수 없는 작업이에요. 새로고침해 주세요.'
+      : '저장하지 못했어요. 다시 시도해 주세요.';
+  }
+}
+
+const tab = Astro.url.searchParams.get('status') ?? 'in_review';
+const current: RouteStatus = isStatus(tab) ? tab : 'in_review';
+
+const [{ data, error: listError }, ...counts] = await Promise.all([
+  supabase.from('routes').select(ROUTE_COLUMNS).eq('status', current).order(current === 'in_review' ? 'submitted_at' : 'updated_at', { ascending: current === 'in_review' }).limit(100),
+  ...ROUTE_STATUSES.map((s) => supabase.from('routes').select('*', { count: 'exact', head: true }).eq('status', s)),
+]);
+dbError(listError, 'admin list routes');
+const routes = (data ?? []) as RouteRow[];
+const ids = routes.map((r) => r.id);
+const jigiIds = [...new Set(routes.map((r) => r.jigi_id))];
+const [{ data: stops }, { data: notes }, { data: people }] = ids.length
+  ? await Promise.all([
+      supabase.from('route_stops').select(`route_id, ${STOP_COLUMNS}`).in('route_id', ids).order('order_no'),
+      supabase.from('route_review_notes').select('route_id, memo').in('route_id', ids),
+      supabase.from('profiles').select('id, display_name, email').in('id', jigiIds),
+    ])
+  : [{ data: [] }, { data: [] }, { data: [] }];
+const stopsOf = (id: string) => ((stops ?? []) as (StopRow & { route_id: string })[]).filter((s) => s.route_id === id);
+const memoOf = new Map((notes ?? []).map((n) => [n.route_id as string, n.memo as string]));
+const personOf = new Map((people ?? []).map((p) => [p.id as string, p as { display_name: string; email: string | null }]));
+
+const done = notice(Astro.url, { publish: '공개했어요. 가능 시간이 있으면 슬롯이 만들어졌어요.', request_changes: '수정을 요청했어요.', hide: '비공개로 바꿨어요.' });
+const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'medium', timeStyle: 'short' }) : '-');
+---
+<BaseLayout title="루트 검수 | 관리자 | YEONON" description="연온 관리자 루트 검수" lang="ko" sticky="none" noindex>
+  <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <h1 class="text-3xl font-extrabold">루트 검수</h1>
+      <p class="mt-2 text-muted">안전(공개 장소에서 만나는지), 품질, 표현(과장·외부 연락 유도 없음)을 확인해 주세요.</p>
+
+      <nav aria-label="루트 상태" class="mt-6 flex flex-wrap gap-2">
+        {ROUTE_STATUSES.map((s, i) => (
+          <a
+            href={`?status=${s}`}
+            aria-current={s === current ? 'page' : undefined}
+            class:list={['rounded-full border px-4 py-2 text-sm font-semibold', s === current ? 'border-text bg-text text-white' : 'border-border bg-surface hover:border-text']}
+          >{ROUTE_STATUS[s].label} <span class="tabular-nums opacity-70">{counts[i].count ?? 0}</span></a>
+        ))}
+      </nav>
+
+      {done && <Notice class="mt-6">{done}</Notice>}
+      {error && <Notice tone="error" class="mt-6">{error}</Notice>}
+
+      <ul class="mt-6 space-y-4">
+        {routes.length === 0 && <li class="card p-6 text-center text-muted">이 상태의 루트가 없어요.</li>}
+        {routes.map((r) => {
+          const person = personOf.get(r.jigi_id);
+          const actions = actionsFor(r.status);
+          return (
+            <li id={`route-${r.id}`} class="card scroll-mt-24 p-5 md:p-6">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 class="text-lg font-bold">{r.title}</h2>
+                <p class="text-sm text-muted">{person?.display_name} · {person?.email}</p>
+                <a href={`/routes/${r.id}`} class="ml-auto text-sm font-semibold text-brand underline-offset-4 hover:underline">여행자 화면으로 보기</a>
+              </div>
+              <p class="mt-1">{r.summary}</p>
+              <dl class="mt-4 grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
+                <div><dt class="inline text-muted">태그 </dt><dd class="inline">{interestNames(r.tags, 'ko').join(', ')}</dd></div>
+                <div><dt class="inline text-muted">분위기 </dt><dd class="inline">{vibeName(r.vibe, 'ko')}</dd></div>
+                <div><dt class="inline text-muted">소요 시간 </dt><dd class="inline">{fmtDuration(r.duration_minutes)}</dd></div>
+                <div><dt class="inline text-muted">최대 인원 </dt><dd class="inline">{r.max_party_size}명</dd></div>
+                <div><dt class="inline text-muted">만나는 곳 </dt><dd class="inline">{areaName(r.area, 'ko')} · {r.meeting_point_note}</dd></div>
+                <div><dt class="inline text-muted">언어 </dt><dd class="inline">{r.languages.map((l) => languageName(l, 'ko')).join(', ')}</dd></div>
+                <div><dt class="inline text-muted">정가 </dt><dd class="inline">{won(r.list_price)}</dd></div>
+                <div><dt class="inline text-muted">검수 요청 </dt><dd class="inline">{date(r.submitted_at)}{r.reviewed_at && ` · 최근 검수 ${date(r.reviewed_at)}`}</dd></div>
+              </dl>
+              <ol class="mt-4 space-y-2 border-l-2 border-jigi-soft pl-4 text-sm">
+                {stopsOf(r.id).map((s) => (
+                  <li>
+                    <p class="font-semibold">{s.order_no}. {s.place_name} <span class="font-normal text-muted">· {areaName(s.area, 'ko')} · {s.stay_minutes}분{s.tags.length > 0 && ` · ${interestNames(s.tags, 'ko').join(', ')}`}</span></p>
+                    <p>{s.activity}</p>
+                    {s.tip && <p class="text-muted">팁: {s.tip}</p>}
+                  </li>
+                ))}
+              </ol>
+
+              {actions.length > 0 && (
+                <form method="post" class="mt-5 grid gap-3 border-t border-border pt-5 md:grid-cols-[auto_1fr_auto] md:items-end">
+                  <input type="hidden" name="id" value={r.id} />
+                  <div>
+                    <label for={`act-${r.id}`} class="block text-sm font-semibold">검수 결과</label>
+                    <select id={`act-${r.id}`} name="action" class="mt-1 h-11 rounded-xl border border-border bg-surface px-3 text-sm">
+                      {actions.map((a) => <option value={a}>{ACTIONS[a].label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label for={`memo-${r.id}`} class="block text-sm font-semibold">메모 <span class="font-normal text-muted">(지기에게 보여요 · 수정 요청은 필수)</span></label>
+                    <input id={`memo-${r.id}`} name="memo" type="text" maxlength="500" value={memoOf.get(r.id) ?? ''} class="mt-1 h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm" />
+                  </div>
+                  <button type="submit" class="h-11 rounded-xl bg-text px-5 text-sm font-semibold text-white">저장</button>
+                </form>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
