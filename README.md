@@ -5,19 +5,18 @@ Astro + Tailwind CSS v4 사이트입니다 (공개 페이지는 정적, 로그�
 
 **신청 버튼 연결** (`src/config/cta.ts` 한 곳 — 회원 기능 공개 스위치 `PUBLIC_MEMBER_UI`에 따라 바뀜)
 - 여행자: 사전 등록 중 `Join the early list` → `/app-preview` / 공개 후 `Find my route` → Google 로그인 → `/app/discover`
-  (헤더, 홈(히어로·하단), `/travelers`(히어로·하단), `/how-it-works` 하단, 모바일 하단 고정 버튼, 앱 미리보기 결과 화면)
+  (헤더, 홈(히어로·하단), `/travelers`(히어로·하단), 모바일 하단 고정 버튼, 앱 미리보기 결과 화면)
 - 지기: 사전 등록 중 `지기 지원하기` → `/app-preview-jigi` / 공개 후 `Google로 시작하고 지원하기` → Google 로그인 → `/partner/apply`
-  (`/jigi`(히어로·하단), `/how-it-works` 하단, `/jigi` 모바일 하단 고정 버튼, 지기 앱 미리보기 완료 화면)
+  (`/jigi`(히어로·하단), `/jigi` 모바일 하단 고정 버튼, 지기 앱 미리보기 완료 화면)
 - 공개 후에는 앱 미리보기 하단의 대기자·지기 사전 신청 폼 대신 로그인 안내가 보이고, 푸터의 '사전 등록 단계' 문구가 바뀐다.
 
 ## 페이지
 
 | 경로 | 내용 | 언어 |
 |---|---|---|
-| `/` | 홈 — 프로그램 소개 | 영문 |
+| `/` | 홈 — 프로그램 소개, 진행 방식(`#how-it-works`: 탭, 매칭 다이어그램, 안전, 비교) | 영문 + 한국어 요약 |
 | `/travelers` | 여행자 페이지 | 영문 |
 | `/jigi` | 지기 모집 페이지 | 한글 |
-| `/how-it-works` | 진행 방식 (탭, 매칭 다이어그램) | 영문 + 한국어 요약 |
 | `/privacy` | 개인정보처리방침 (초안 — 법률 검토 필요) | 한글 기본 + 영문 전환 |
 | `/terms` | 이용약관 (초안 — 법률 검토 필요) | 한글 기본 + 영문 전환 |
 | `/404`, `/500` | 없는 주소 / 서버 오류 화면 | 영문 + 한글 |
@@ -176,7 +175,7 @@ src/
   components/  Header, Footer, Hero, Card, StepTimeline, FAQ, CTASection, StickyCTA,
                StatCard, MatchDiagram, SmartImage, SectionHeading, Button, Icon, Logo
   layouts/     BaseLayout.astro   (lang 속성, SEO·OG 메타, 폰트)
-  pages/       index, travelers, jigi, how-it-works, privacy
+  pages/       index, travelers, jigi, privacy
   config/      site.ts            (모든 TODO 값·외부 링크·SHOW_PRICE)
   styles/      global.css         (색상 토큰, 공통 클래스)
 public/
@@ -184,7 +183,7 @@ public/
   favicon.png, apple-touch-icon.png
 ```
 
-JS는 모바일 메뉴(Header), 탭 토글(how-it-works)에만 사용합니다. FAQ는 `<details>` 기반이라 JS가 없습니다.
+JS는 모바일 메뉴(Header), 탭 토글(홈 How it works 섹션)에만 사용합니다. FAQ는 `<details>` 기반이라 JS가 없습니다.
 
 ### 디자인 메모
 - 로고 색을 기준으로 한 블루톤입니다. (명세서의 아이보리·레드·그린·오렌지 팔레트에서 변경)

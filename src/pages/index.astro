@@ -7,6 +7,37 @@ import Card from '../components/Card.astro';
 import Icon from '../components/Icon.astro';
 import SectionHeading from '../components/SectionHeading.astro';
 import CTASection from '../components/CTASection.astro';
+import StepTimeline from '../components/StepTimeline.astro';
+import MatchDiagram from '../components/MatchDiagram.astro';
+
+const travelerSteps = [
+  { title: 'Tell us your taste', body: 'Interests, dates, language, and travel style. Takes about 3 minutes.' },
+  MEMBER_OPEN
+    ? { title: 'Pick a route that fits you', body: 'YEONON AI suggests routes made by jigis who share your taste. Choose one and a time — your jigi confirms it.' }
+    : { title: 'We match you with a Jigi', body: 'During pre-launch, our team recommends a Jigi based on your answers.' },
+  { title: 'Plan together', body: "Share what you'd like to try. Your Jigi suggests places only locals know." },
+  { title: 'Meet & explore', body: '3–4 hours in Seongsu, at your pace.' },
+  { title: 'Share your experience', body: 'Your feedback helps us match better next time.' },
+];
+const jigiSteps = [
+  { title: 'Apply online' },
+  { title: 'ID check & interview' },
+  { title: 'Onboarding & guidelines' },
+  { title: 'Get matched with travelers who share your taste' },
+  { title: 'Meet, explore, and get feedback' },
+];
+const safety = [
+  { label: 'ID-checked Jigis', icon: 'id' },
+  { label: 'Interviewed before joining', icon: 'chat' },
+  { label: 'Activity guidelines', icon: 'book' },
+  { label: 'Public meeting places', icon: 'pin' },
+  { label: 'Feedback after every meetup', icon: 'feedback' },
+] as const;
+const compare = [
+  ['A local friend matched to your taste', 'A group tour with a fixed route'],
+  ['Flexible, 3–4 hours', 'An all-day package'],
+  ['Hidden local places', 'Only the famous spots'],
+];
 ---
 <BaseLayout
   title="YEONON — Meet a local friend in Seoul"
@@ -21,7 +52,7 @@ import CTASection from '../components/CTASection.astro';
   >
     <Fragment slot="actions">
       <Button href={TRAVELER_CTA.href} size="lg">{TRAVELER_CTA.label}</Button>
-      <Button href="/how-it-works" variant="secondary" size="lg">See how it works</Button>
+      <Button href="#how-it-works" variant="secondary" size="lg">See how it works</Button>
     </Fragment>
     <p slot="after" class="mt-6">
       <a href="/jigi" lang="ko" class="inline-flex items-center gap-1.5 text-[0.9375rem] font-semibold text-jigi-strong underline-offset-4 hover:underline">
@@ -103,8 +134,131 @@ import CTASection from '../components/CTASection.astro';
     </div>
   </section>
 
-  <!-- 5. Two doors -->
-  <section class="section" aria-label="Choose your path">
+  <!-- 5. How it works (전 /how-it-works 페이지 내용: 진행 방식 탭 → 매칭 → 안전 → 비교 → 한국어 요약) -->
+  <section id="how-it-works" class="section scroll-mt-16 md:scroll-mt-[72px]" aria-labelledby="flow">
+    <div class="container-page">
+      <SectionHeading
+        id="flow"
+        eyebrow="How it works"
+        title="How YEONON works"
+        lead="Simple for travelers. Fair for locals. Built on real connections."
+      />
+      <div role="tablist" aria-label="Choose a flow" class="mt-10 flex w-full max-w-md md:mt-14 rounded-full border border-border bg-bg p-1.5" data-tabs>
+        <button
+          role="tab"
+          id="tab-travelers"
+          aria-controls="panel-travelers"
+          aria-selected="true"
+          class="flex-1 rounded-full px-4 py-2.5 text-[0.9375rem] font-semibold transition-colors aria-selected:bg-traveler-strong aria-selected:text-white"
+        >For Travelers</button>
+        <button
+          role="tab"
+          id="tab-jigis"
+          aria-controls="panel-jigis"
+          aria-selected="false"
+          tabindex="-1"
+          class="flex-1 rounded-full px-4 py-2.5 text-[0.9375rem] font-semibold transition-colors aria-selected:bg-jigi-strong aria-selected:text-white"
+        >For Jigis</button>
+      </div>
+
+      <div class="mt-12 max-w-2xl">
+        <div role="tabpanel" id="panel-travelers" aria-labelledby="tab-travelers" tabindex="0">
+          <StepTimeline steps={travelerSteps} tone="traveler" />
+        </div>
+        <div role="tabpanel" id="panel-jigis" aria-labelledby="tab-jigis" tabindex="0" hidden>
+          <StepTimeline steps={jigiSteps} tone="jigi" />
+          <p class="mt-10">
+            <a href="/jigi" lang="ko" class="inline-flex items-center gap-1.5 font-semibold text-jigi-strong underline-offset-4 hover:underline">
+              한국어로 보기 <Icon name="arrow" class="size-4" />
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. How we match -->
+  <section class="section bg-surface" aria-labelledby="match">
+    <div class="container-page">
+      <SectionHeading
+        id="match"
+        eyebrow="How we match"
+        title="Must-haves first. Then taste."
+        lead="We first filter by what has to line up, then look for the Jigi whose taste fits yours best."
+      />
+      <div class="mt-10 md:mt-14">
+        <MatchDiagram />
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Safety & trust -->
+  <section class="section" aria-labelledby="safety">
+    <div class="container-page">
+      <SectionHeading id="safety" eyebrow="Safety & trust" title="Built to feel safe on both sides." />
+      <ul class="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 md:mt-14 lg:grid-cols-5 lg:gap-4">
+        {safety.map((s) => (
+          <li class="card flex items-center gap-4 p-5 lg:flex-col lg:items-start">
+            <span class="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
+              <Icon name={s.icon} />
+            </span>
+            <span class="font-semibold leading-snug">{s.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- 8. Is / isn't -->
+  <section class="section bg-surface" aria-labelledby="compare">
+    <div class="container-page">
+      <SectionHeading id="compare" eyebrow="Clear expectations" title="What YEONON is — and isn't" />
+      <div class="mt-10 grid gap-4 md:mt-14 md:grid-cols-2 md:gap-6">
+        <div class="card overflow-hidden">
+          <h3 class="bg-brand px-6 py-4 text-lg font-bold text-white">YEONON is</h3>
+          <ul class="divide-y divide-border">
+            {compare.map(([is]) => (
+              <li class="flex items-start gap-3 px-6 py-4">
+                <Icon name="check" class="mt-0.5 size-5 shrink-0 text-brand" />
+                <span class="font-medium">{is}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="card overflow-hidden">
+          <h3 class="border-b border-border bg-bg px-6 py-4 text-lg font-bold text-muted">YEONON isn't</h3>
+          <ul class="divide-y divide-border">
+            {compare.map(([, isnt]) => (
+              <li class="flex items-start gap-3 px-6 py-4 text-muted">
+                <Icon name="x" class="mt-0.5 size-5 shrink-0" />
+                <span>{isnt}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. 한국어 요약 -->
+  <section class="py-16 lg:py-24" aria-labelledby="ko-summary" lang="ko">
+    <div class="container-page">
+      <div class="rounded-[20px] border border-dashed border-border bg-surface p-6 md:p-8">
+        <h2 id="ko-summary" class="text-lg font-bold">한국어로 보기</h2>
+        <ol class="mt-4 space-y-2 text-[0.9375rem] text-muted">
+          <li>1. 여행자가 취향을 알려 주면</li>
+          <li>2. 연온이 맞는 지기를 직접 추천하고</li>
+          <li>3. 성수동에서 서너 시간 함께 다닙니다.</li>
+        </ol>
+        <p class="mt-4 text-[0.9375rem]">
+          지기 지원은 <a href="/jigi" class="font-semibold text-jigi-strong underline underline-offset-2">지기 페이지</a>에서 할 수 있어요.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. Two doors -->
+  <section class="section bg-surface" aria-label="Choose your path">
     <div class="container-page grid gap-4 md:grid-cols-2 md:gap-6">
       <a href="/travelers" class="group card relative flex min-h-[260px] flex-col overflow-hidden p-7 transition-shadow hover:shadow-lg md:p-10">
         <span aria-hidden="true" class="absolute inset-x-0 top-0 h-1.5 bg-traveler"></span>
@@ -127,8 +281,30 @@ import CTASection from '../components/CTASection.astro';
     </div>
   </section>
 
-  <!-- 6. Final CTA -->
+  <!-- 11. Final CTA -->
   <CTASection title="Be one of our first travelers in Seongsu.">
     <Button href={TRAVELER_CTA.href} size="lg" class="bg-white! text-brand! hover:bg-bg!">{TRAVELER_CTA.label}</Button>
   </CTASection>
 </BaseLayout>
+
+<script>
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-tabs] [role="tab"]'));
+  const select = (tab: HTMLButtonElement) => {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')!)!.hidden = !on;
+    });
+  };
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => select(tab));
+    tab.addEventListener('keydown', (e) => {
+      const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!dir) return;
+      const next = tabs[(i + dir + tabs.length) % tabs.length];
+      select(next);
+      next.focus();
+    });
+  });
+</script>

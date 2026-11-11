@@ -33,6 +33,8 @@ export default defineConfig({
   // (docs/launch-checklist.md '도메인 연결 시 바꿀 곳'). 비어 있으면 지금 공개 주소를 쓴다.
   site: SITE_URL,
   trailingSlash: 'ignore',
+  // 진행 방식 페이지는 홈 섹션으로 합쳤다. 예전 링크·검색 결과는 홈의 그 섹션으로 보낸다
+  redirects: { '/how-it-works': '/#how-it-works' },
   // checkOrigin(다른 사이트의 폼 전송 차단)은 기본값 그대로 켜 둔다
   security: { checkOrigin: true, allowedDomains },
   // AI 키·모델 이름: 서버에서만 읽는 비밀 값 (PUBLIC_ 금지). 비어 있으면 AI 없이 점수 순 추천으로 동작한다 — .env.example 참고
