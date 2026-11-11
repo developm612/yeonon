@@ -1,0 +1,31 @@
+---
+/** 메시지 목록 본문 — /app/messages(영문), /partner/messages(한글). 실시간 갱신은 ConversationList 아일랜드 */
+import ConversationList from '../islands/ConversationList';
+import { dbError } from '../../lib/forms';
+import type { ConversationListItem } from '../../lib/chat';
+
+interface Props {
+  lang: 'en' | 'ko';
+}
+const { lang } = Astro.props;
+const { supabase, user } = Astro.locals;
+const ko = lang === 'ko';
+let items: ConversationListItem[] = [];
+if (supabase && user) {
+  const { data, error } = await supabase.rpc('my_conversations');
+  dbError(error, 'my_conversations');
+  items = (data ?? []) as ConversationListItem[];
+}
+---
+<section class="section pt-10! md:pt-14!">
+  <div class="container-page max-w-2xl!">
+    <p class="eyebrow">{ko ? '지기' : 'Traveler'}</p>
+    <h1 class="mt-3 text-3xl font-extrabold">{ko ? '메시지' : 'Messages'}</h1>
+    <p class="mt-2 text-muted">
+      {ko ? '예약마다 대화방이 하나씩 열려요. 확정 전에는 질문만, 확정 후에는 자유롭게 대화할 수 있어요.' : 'Each booking has its own chat. Before confirmation it’s for questions; once matched, chat freely.'}
+    </p>
+    <div class="mt-8">
+      {user && <ConversationList client:load userId={user.id} lang={lang} base={ko ? '/partner/messages' : '/app/messages'} initial={items} />}
+    </div>
+  </div>
+</section>

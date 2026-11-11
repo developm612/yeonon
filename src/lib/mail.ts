@@ -39,6 +39,46 @@ async function send(to: string, subject: string, text: string, html: string): Pr
 }
 
 /**
+ * 안 읽은 채팅 메시지 메일 (Phase 6). DB 크론이 5분마다 /api/cron/chat-unread-mail 을 부르면 실행된다.
+ * 후보(chat_unread_mail_candidates): 받은 메시지를 10분(설정값) 넘게 안 읽었고, 마지막 메일 뒤로 안 읽은 대화 — 대화당 1회.
+ * 메시지 내용은 메일에 넣지 않는다 (상대 이름·루트 이름·안 읽은 수만). 보낸 수를 돌려준다.
+ */
+export async function sendChatUnreadMails(origin: string): Promise<{ sent: number; skipped: string | null }> {
+  if (!isMailConfigured()) return { sent: 0, skipped: 'mail_not_configured' };
+  const sb = service();
+  const { data, error } = await sb.rpc('chat_unread_mail_candidates');
+  if (error) {
+    console.error('[YEONON] chat mail: candidates:', error.message);
+    return { sent: 0, skipped: 'db_error' };
+  }
+  const rows = (data ?? []) as { conversation_id: string; recipient_id: string; recipient_role: 'traveler' | 'jigi'; email: string; unread: number; route_title: string; other_name: string | null }[];
+  let sent = 0;
+  for (const r of rows) {
+    // 샘플·테스트 계정은 보내지 않지만, 다시 후보가 되지 않게 보낸 것으로 표시한다
+    if (r.email && !r.email.endsWith('.invalid')) {
+      const ko = r.recipient_role === 'jigi';
+      const url = `${origin}/${ko ? 'partner' : 'app'}/messages/${r.conversation_id}`;
+      const who = r.other_name ?? (ko ? '여행자' : 'Your jigi');
+      const subject = ko ? `[YEONON] ${who}님의 안 읽은 메시지 ${r.unread}개` : `[YEONON] ${r.unread} unread message${r.unread === 1 ? '' : 's'} from ${who}`;
+      const text = ko
+        ? `${r.route_title} 대화에 안 읽은 메시지가 있어요.\n\n${url}\n\n— YEONON`
+        : `You have unread messages about ${r.route_title}.\n\n${url}\n\n— YEONON`;
+      const html = `<p>${escapeHtml(text.split('\n\n')[0])}</p><p><a href="${escapeHtml(url)}">${escapeHtml(url)}</a></p><p style="color:#667085">— YEONON</p>`;
+      try {
+        if (!(await send(r.email, subject, text, html))) continue;
+        sent++;
+      } catch (e) {
+        console.error('[YEONON] chat mail send error:', (e as Error).message);
+        continue;
+      }
+    }
+    const { error: markError } = await sb.rpc('chat_mark_unread_mailed', { p_conversation: r.conversation_id, p_recipient: r.recipient_id });
+    if (markError) console.error('[YEONON] chat mail: mark:', markError.message);
+  }
+  return { sent, skipped: null };
+}
+
+/**
  * 방금(since 이후) 이 예약에 만들어진 알림 중 아직 메일로 안 보낸 것을 받는 사람에게 보낸다.
  * 실패해도 예약 처리에는 영향이 없다 (로그만 남긴다).
  */

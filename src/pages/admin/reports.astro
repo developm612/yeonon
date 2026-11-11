@@ -1,0 +1,195 @@
+---
+/**
+ * 채팅 신고 (관리자): 신고 목록(사유·상태) → 상세 → [대화 열람] → 처리(문제없음·경고·정지).
+ * 관리자는 대화를 일반 조회할 수 없다. 신고 건의 대화만 admin_view_report_conversation()으로 열람하고,
+ * 열람할 때마다 audit_log('report.view_conversation')에 남는다. 처리는 admin_resolve_report() — audit_log('report.resolve').
+ * 정지는 신고된 회원 계정을 정지한다 (/admin/users에서 해제 가능).
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import Notice from '../../components/account/Notice.astro';
+import { ADMIN_NAV } from '../../data/accountNav';
+import { kstWhen } from '../../data/bookingOptions';
+import { REPORT_REASONS, REPORT_STATUS } from '../../data/chatOptions';
+import { dbError, field } from '../../lib/forms';
+import { UUID } from '../../lib/routes';
+import { clean } from '../../scripts/formSafety';
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+if (!supabase) return Astro.redirect('/login');
+
+interface Report {
+  id: string;
+  conversation_id: string | null;
+  message_id: string | null;
+  reporter_id: string | null;
+  reported_id: string | null;
+  reason: string;
+  detail: string | null;
+  status: 'open' | 'dismissed' | 'warned' | 'suspended';
+  handled_at: string | null;
+  handle_note: string | null;
+  created_at: string;
+}
+const COLUMNS = 'id, conversation_id, message_id, reporter_id, reported_id, reason, detail, status, handled_at, handle_note, created_at';
+const ACTIONS = { dismiss: '문제없음', warn: '경고', suspend: '정지' } as const;
+
+const id = Astro.url.searchParams.get('id') ?? '';
+const tab = Astro.url.searchParams.get('status') ?? 'open';
+const current = tab in REPORT_STATUS || tab === 'all' ? tab : 'open';
+
+let error: string | null = null;
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const rid = field(fd, 'id');
+  const action = field(fd, 'action');
+  const note = clean(field(fd, 'note'), 500);
+  if (!UUID.test(rid) || !(action in ACTIONS)) error = '잘못된 요청이에요.';
+  else if (action !== 'dismiss' && !note) error = '경고·정지는 처리 메모를 적어 주세요. 관리 기록에 남아요.';
+  else {
+    const { error: rpcError } = await supabase.rpc('admin_resolve_report', { p_report: rid, p_action: action, p_note: note || null });
+    if (!dbError(rpcError, 'resolve report')) return Astro.redirect(`/admin/reports?id=${rid}&notice=${action}`);
+    error = /already handled/.test(rpcError!.message) ? '이미 처리된 신고예요.'
+      : /another admin|your own/.test(rpcError!.message) ? '관리자 계정은 정지할 수 없어요.'
+      : '처리하지 못했어요. 다시 시도해 주세요.';
+  }
+}
+
+const [{ data: listData, error: listError }, ...counts] = await Promise.all([
+  (current === 'all' ? supabase.from('message_reports').select(COLUMNS) : supabase.from('message_reports').select(COLUMNS).eq('status', current))
+    .order('created_at', { ascending: current !== 'open' ? false : true }).limit(100),
+  ...Object.keys(REPORT_STATUS).map((s) => supabase.from('message_reports').select('id', { count: 'exact', head: true }).eq('status', s)),
+]);
+dbError(listError, 'admin list reports');
+const reports = (listData ?? []) as Report[];
+
+// 상세
+const { data: detailData } = UUID.test(id) ? await supabase.from('message_reports').select(COLUMNS).eq('id', id).maybeSingle() : { data: null };
+const report = detailData as Report | null;
+// 대화 열람은 [대화 열람]을 눌렀을 때만 (열람 기록이 남는다)
+const viewing = Boolean(report && Astro.url.searchParams.get('view') === '1');
+let thread: { id: string; sender_role: 'traveler' | 'jigi'; body: string; flagged: boolean; flag_reasons: string[]; created_at: string }[] = [];
+let threadMissing = false;
+if (viewing && report) {
+  const { data, error: viewError } = await supabase.rpc('admin_view_report_conversation', { p_report: report.id });
+  dbError(viewError, 'admin view report conversation');
+  thread = (data ?? []) as typeof thread;
+  threadMissing = !viewError && thread.length === 0 && !report.conversation_id;
+}
+
+const peopleIds = [...new Set([...reports, ...(report ? [report] : [])].flatMap((r) => [r.reporter_id, r.reported_id]).filter(Boolean))] as string[];
+const { data: people } = peopleIds.length ? await supabase.from('profiles').select('id, display_name, role, status').in('id', peopleIds) : { data: [] };
+const personOf = new Map((people ?? []).map((p) => [p.id as string, p as { display_name: string; role: string | null; status: string }]));
+const who = (uid: string | null) => {
+  if (!uid) return '탈퇴한 회원';
+  const p = personOf.get(uid);
+  if (!p) return '-';
+  return `${p.display_name || '-'} (${p.role === 'jigi' ? '지기' : p.role === 'traveler' ? '여행자' : p.role ?? '-'}${p.status !== 'active' ? ` · ${p.status === 'suspended' ? '정지됨' : p.status}` : ''})`;
+};
+const reasonKo = (r: string) => REPORT_REASONS.find((x) => x.id === r)?.ko ?? r;
+const reportedRole = report?.reported_id ? personOf.get(report.reported_id)?.role : null;
+const notices: Record<string, string> = { dismiss: '문제없음으로 처리했어요.', warn: '경고 알림을 보냈어요.', suspend: '신고된 회원을 정지했어요. /admin/users에서 해제할 수 있어요.' };
+const done = notices[Astro.url.searchParams.get('notice') ?? ''] ?? null;
+const statusClass = (s: string) => (s === 'open' ? 'bg-[#FFF4D6] text-[#7A5200]' : s === 'dismissed' ? 'bg-text/5 text-muted' : 'bg-[#FDECEC] text-[#8A1C1C]');
+---
+<BaseLayout title="신고 | 관리자 | YEONON" description="연온 관리자 채팅 신고" lang="ko" sticky="none" noindex>
+  <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <h1 class="text-3xl font-extrabold">채팅 신고</h1>
+      <p class="mt-2 text-sm text-muted">대화 내용은 신고된 건만, [대화 열람]을 누를 때만 볼 수 있어요. 열람할 때마다 관리 기록(audit_log)에 남아요.</p>
+      {done && <Notice class="mt-6">{done}</Notice>}
+      {error && <Notice tone="error" class="mt-6">{error}</Notice>}
+
+      {report && (
+        <div class="card mt-8 p-5 md:p-7" id="detail">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class:list={['rounded-full px-2.5 py-0.5 text-xs font-bold', statusClass(report.status)]}>{REPORT_STATUS[report.status].ko}</span>
+            <span class="font-bold">{reasonKo(report.reason)}</span>
+            <span class="ml-auto text-xs text-muted tabular-nums">신고 {kstWhen(report.created_at, 'ko')}</span>
+          </div>
+          <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <div><dt class="text-xs font-semibold text-muted">신고한 사람</dt><dd class="mt-0.5 font-semibold">{who(report.reporter_id)}</dd></div>
+            <div><dt class="text-xs font-semibold text-muted">신고된 사람</dt><dd class="mt-0.5 font-semibold">{who(report.reported_id)}</dd></div>
+            {report.detail && <div class="sm:col-span-2"><dt class="text-xs font-semibold text-muted">신고 내용</dt><dd class="mt-0.5">{report.detail}</dd></div>}
+            {report.handled_at && <div class="sm:col-span-2"><dt class="text-xs font-semibold text-muted">처리</dt><dd class="mt-0.5">{kstWhen(report.handled_at, 'ko')} · {report.handle_note ?? '메모 없음'}</dd></div>}
+          </dl>
+
+          {!viewing ? (
+            <a href={`/admin/reports?id=${report.id}&view=1#thread`} class="mt-5 inline-flex min-h-11 items-center rounded-full bg-text px-5 text-sm font-semibold text-white">대화 열람 (기록 남음)</a>
+          ) : (
+            <div class="mt-6" id="thread">
+              <h2 class="font-bold">대화 내용 <span class="font-normal text-muted">· 열람 기록됨</span></h2>
+              {threadMissing || thread.length === 0 ? (
+                <p class="mt-2 text-sm text-muted">보관 기간이 지나 지워졌거나 메시지가 없는 대화예요.</p>
+              ) : (
+                <ol class="mt-3 max-h-[480px] space-y-2 overflow-y-auto rounded-xl bg-bg p-3">
+                  {thread.map((m) => (
+                    <li class:list={['rounded-xl px-3 py-2 text-sm', m.id === report.message_id ? 'border-2 border-[#B42318] bg-surface' : 'bg-surface']}>
+                      <p class="text-xs font-semibold text-muted tabular-nums">
+                        {m.sender_role === 'traveler' ? '여행자' : '지기'} · {kstWhen(m.created_at, 'ko')}
+                        {m.id === report.message_id && <span class="ml-1 text-[#B42318]">· 신고된 메시지</span>}
+                        {m.flagged && <span class="ml-1 text-[#8A1C1C]">· 자동 감지({m.flag_reasons.map((f) => (f === 'contact' ? '연락처' : f === 'payment' ? '외부 결제' : f)).join(', ')})</span>}
+                      </p>
+                      <p class="mt-0.5 whitespace-pre-wrap break-words">{m.body}</p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+
+          {report.status === 'open' && (
+            <form method="post" class="mt-6 space-y-3 border-t border-border pt-5">
+              <input type="hidden" name="id" value={report.id} />
+              <fieldset>
+                <legend class="text-sm font-semibold">처리</legend>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  {Object.entries(ACTIONS).map(([k, label]) => (
+                    <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3.5 has-checked:border-text">
+                      <input type="radio" name="action" value={k} required class="size-[18px]" />
+                      <span>{label}{k === 'warn' ? ' (신고된 회원에게 경고 알림)' : k === 'suspend' ? ` (${reportedRole === 'jigi' ? '지기' : '회원'} 계정 정지)` : ''}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <label class="block text-sm font-semibold">처리 메모 (경고·정지는 필수, 관리 기록에 남음)
+                <textarea name="note" rows="2" maxlength="500" class="mt-1 block w-full rounded-xl border border-border bg-surface px-3 py-2 font-normal"></textarea>
+              </label>
+              <button type="submit" class="min-h-11 rounded-full bg-text px-6 text-sm font-semibold text-white">처리 저장</button>
+            </form>
+          )}
+          <a href={`/admin/reports?status=${current}`} class="mt-5 inline-block text-sm font-semibold text-muted underline underline-offset-2">목록으로</a>
+        </div>
+      )}
+
+      <nav aria-label="신고 상태" class="mt-8 flex flex-wrap gap-1.5">
+        {[...Object.keys(REPORT_STATUS), 'all'].map((s, i) => (
+          <a href={`/admin/reports?status=${s}`} aria-current={s === current ? 'page' : undefined}
+            class:list={['inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold', s === current ? 'bg-text text-white' : 'bg-surface text-muted shadow-card hover:text-text']}>
+            {s === 'all' ? '전체' : REPORT_STATUS[s].ko}
+            {s !== 'all' && <span class="tabular-nums opacity-80">{counts[i]?.count ?? 0}</span>}
+          </a>
+        ))}
+      </nav>
+      {reports.length === 0 ? (
+        <p class="mt-6 text-muted">해당하는 신고가 없어요.</p>
+      ) : (
+        <ul class="mt-4 divide-y divide-border rounded-2xl bg-surface shadow-card">
+          {reports.map((r) => (
+            <li>
+              <a href={`/admin/reports?id=${r.id}&status=${current}#detail`} class:list={['flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-text/5', r.id === report?.id && 'bg-text/5']}>
+                <span class:list={['rounded-full px-2.5 py-0.5 text-xs font-bold', statusClass(r.status)]}>{REPORT_STATUS[r.status].ko}</span>
+                <span class="font-semibold">{reasonKo(r.reason)}</span>
+                <span class="text-sm text-muted">신고된 사람 {who(r.reported_id)}</span>
+                <span class="ml-auto text-xs text-muted tabular-nums">{kstWhen(r.created_at, 'ko')}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </section>
+</BaseLayout>

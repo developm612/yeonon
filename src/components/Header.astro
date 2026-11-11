@@ -2,6 +2,7 @@
 import Logo from './Logo.astro';
 import Button from './Button.astro';
 import Icon from './Icon.astro';
+import ChatBadge from './islands/ChatBadge';
 import NotificationBell from './islands/NotificationBell';
 import { isOnboarded } from '../lib/profile';
 import { isAuthConfigured, isMemberUiPublic } from '../lib/supabase';
@@ -84,6 +85,9 @@ const bell = isAuthConfigured && signedIn && me && me.status === 'active' && isO
     </nav>
 
     <div class:list={['-mr-2 flex items-center justify-self-end', !bell && 'md:hidden']}>
+      {bell && (bell.role === 'traveler' || bell.role === 'jigi') && (
+        <ChatBadge client:load userId={bell.id} lang={bell.role === 'traveler' ? 'en' : 'ko'} href={bell.role === 'traveler' ? '/app/messages' : '/partner/messages'} />
+      )}
       {bell && <NotificationBell client:load userId={bell.id} lang={bell.role === 'traveler' ? 'en' : 'ko'} />}
       <button
         type="button"

@@ -31,7 +31,7 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 
 ## 로그인 · 회원 영역 (실서비스 전환, 진행 중)
 
-계획: `../yeonon-service-plan-v2.md`. Phase 5(실시간 자동 매칭·무료 이용)까지 구현됨.
+계획: `../yeonon-service-plan-v2.md`. Phase 6(채팅)까지 구현됨.
 
 | 경로 | 내용 |
 |---|---|
@@ -47,6 +47,10 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 | `/app/bookings`, `/app/bookings/[id]` | 내 예약 목록 / 상태 타임라인(실시간)·응답 기한·만남 안내·취소·만료·거절 시 `See other routes`(같은 조건의 /app/discover) |
 | `/api/bookings/request`·`respond`·`cancel` | 예약 API (POST, JSON 또는 폼). 입력 검증 → DB 함수 → 오류 코드를 여행자 영문·지기 한글 문구로 |
 | `/account/notifications` | 알림 목록·읽음 처리 (헤더 알림 종의 전체 보기) |
+| `/app/messages`, `/app/messages/[id]` | 메시지 목록(상대 이름·마지막 메시지·안 읽은 수) / 대화(실시간·읽음 표시·번역·신고·차단, 예약 요약) (영문) |
+| `/partner/messages`, `/partner/messages/[id]` | 같은 구성 (한글) |
+| `/api/chat/send`·`read`·`report`·`block`·`translate` | 채팅 API (POST JSON). 번역은 LLM 키가 있을 때만 |
+| `/api/cron/chat-unread-mail` | 안 읽은 메시지 메일 (GET, `CRON_SECRET` 필요 — DB 크론이 부름) |
 | `/api/recommend` | 추천 API (POST, 로그인한 여행자만) |
 | `/partner`, `/partner/apply` | 지기 홈(신청 상태 / 승인 후 새 요청 실시간·응답 기한 카운트다운·이번 주 만남)·지기 신청서 (한글) |
 | `/partner/bookings`, `/partner/bookings/[id]` | 예약 목록 / 상세(수락·거절 사유·취소, 실시간) |
@@ -56,6 +60,7 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 | `/admin/recommendations` | 추천 로그(조건·결과·모델·지연·대체 여부·클릭·요청), 대체 비율, 임베딩 백필 |
 | `/admin/bookings` | 상태별 예약 현황, 강제 취소(사유 → audit_log), 기한 만료·완료 [지금 처리] |
 | `/admin/promotions` | 할인(할인율·대상·기간·사용 한도·켜고 끄기) + 예약 규칙(응답 기한·대기 요청 수 등) |
+| `/admin/reports` | 채팅 신고 목록 → 상세 → [대화 열람](열람마다 audit_log) → 처리(문제없음·경고·정지) |
 | `/routes`, `/routes/[id]` | 공개 루트 둘러보기·상세 (누구나, 영문). 공개 전 루트는 주인 지기·관리자에게만 미리보기로 보임 |
 | `/terms` | 이용약관 자리 — **공개 전 실제 약관으로 교체 필요** |
 
@@ -78,6 +83,10 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 10. `20261110000010_bookings.sql` — booking_settings(예약 규칙 한 행), promotions(+얼리 멤버 100% 기본 1건, 가입 시 얼리 멤버 자동), bookings(슬롯당 활성 예약 1건 유니크 인덱스, 가격 스냅샷), notifications, 겹치는 슬롯 처리
 11. `20261110000011_booking_functions.sql` — `request_booking()`·`respond_booking()`·`cancel_booking()`, `expire_pending_bookings()`·`complete_past_bookings()`, `booking_quote()`, `mark_notifications_read()`, 관리자 함수, 탈퇴 시 진행 중 예약 취소
 12. `20261110000012_bookings_cron_realtime.sql` — pg_cron 5분마다 만료·완료 처리, Realtime publication에 bookings·notifications 추가
+13. `20261110000013_chat.sql` — chat_settings(보관 기간 등 한 행), conversations, messages, message_reports, blocks, translation_requests, cron_hooks + 기존 예약의 대화방
+14. `20261110000014_chat_safety.sql` — 연락처·외부 결제 유도 감지 규칙 `chat_safety_flags()` (규칙은 이 파일 한 곳)
+15. `20261110000015_chat_functions.sql` — `request_booking()`(대화방 자동 생성), `send_message()`·`mark_read()`·`my_conversations()`·`conversation_info()`, 신고·차단, 관리자 열람·처리, 번역 사용량, 안 읽은 메일 후보, `purge_old_conversations()`
+16. `20261110000016_chat_cron_realtime.sql` — pg_net, 보관 기간 삭제(매일), 안 읽은 메일 호출(5분), Realtime publication에 messages·conversations 추가
 
 추천 테스트용 샘플(선택, 마이그레이션 뒤): `supabase/seed/recommend_sample.sql` → 테스트 후 `supabase/seed/recommend_sample_cleanup.sql`로 한 번에 삭제.
 
@@ -96,6 +105,13 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
   - 메모·사유의 연락처(이메일·전화·링크·SNS 아이디)는 서버가 지운다. 여행자 이메일은 지기에게 보이지 않는다.
 - **알림**: 사이트 알림(notifications)은 DB 함수가 받는 사람 언어로 만든다. 헤더 알림 종(Preact 아일랜드, `src/components/islands/`)이 Realtime으로 바로 보여 준다. 메일은 `RESEND_API_KEY`·`MAIL_FROM`·`SUPABASE_SERVICE_ROLE_KEY`가 모두 있을 때만 보낸다 (`src/lib/mail.ts`). 크론이 만든 알림(만료·완료)은 사이트 알림만 남는다.
 - **실시간 RLS 확인**: Realtime(postgres_changes)은 구독자 토큰으로 bookings·notifications의 select 정책을 확인한 뒤에만 보낸다. 브라우저 2개(여행자 A·B)로 A가 요청할 때 B의 알림 종·예약 화면이 바뀌지 않는지, 지기 화면에는 바로 뜨는지 본다. 연결이 안 되면 화면은 30초마다 다시 읽는다.
+- **채팅** (계획서 2-5): 예약마다 대화방 1개(매칭 요청 때 생성). 대기 중엔 '질문만' 안내, 거절·만료·취소되면 읽기만.
+  - 메시지는 당사자만 읽고, send_message()로만 보낸다 (1~1000자, 1분 20개, 차단 시 양쪽 모두 불가). 보낸 메시지는 수정·삭제할 수 없다.
+  - 연락처·외부 결제 유도로 보이면 보내지되 flagged + 양쪽 화면에 안전 안내. 감지 규칙은 `20261110000014_chat_safety.sql` 한 곳.
+  - 관리자는 대화를 일반 조회할 수 없다. 신고 건만 /admin/reports에서 [대화 열람] → 열람마다 audit_log.
+  - 보관: 만남 완료·취소 후 6개월(`chat_settings.retention_months`)이 지나면 매일 크론이 지운다 (처리 대기 신고가 있으면 남김).
+  - 번역: `LLM_API_KEY`가 있을 때만 버튼이 보인다. 결과는 저장하지 않고, 사용자당 시간당 30회(`src/config/chat.ts`).
+  - 안 읽은 메시지 메일: 10분 넘게 안 읽으면 대화당 1회(읽은 뒤 다시 쌓이면 다시 1회). 메일 키 + `CRON_SECRET` + cron_hooks 설정이 모두 있어야 동작한다. 메일에는 메시지 내용을 넣지 않는다.
 - **렌더링**: 공개 페이지는 지금처럼 빌드 때 정적 HTML로 만들고, `export const prerender = false`인 페이지만 요청마다 서버에서 렌더링한다.
 - **헤더 로그인 표시**: 정적 페이지는 브라우저의 Supabase 세션 쿠키 유무로 `Sign in` ↔ `My page`를 바꿔 보여 줄 뿐이고, 실제 접근 확인은 서버가 한다.
 

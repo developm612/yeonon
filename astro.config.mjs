@@ -41,6 +41,8 @@ export default defineConfig({
       SUPABASE_SERVICE_ROLE_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       RESEND_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       MAIL_FROM: envField.string({ context: 'server', access: 'secret', optional: true }),
+      // 안 읽은 채팅 메시지 메일 (Phase 6): DB 크론이 /api/cron/chat-unread-mail 을 부를 때 확인하는 비밀 값 (16자 이상)
+      CRON_SECRET: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },
   vite: {

@@ -11,7 +11,7 @@ const POLL_MS = 30_000;
 export interface LiveOptions<T extends Record<string, unknown>> {
   /** 채널 이름 (페이지 안에서 겹치지 않게) */
   channel: string;
-  table: 'bookings' | 'notifications';
+  table: 'bookings' | 'notifications' | 'messages' | 'conversations';
   /** 예: 'user_id=eq.<uuid>' */
   filter: string;
   onChange: (payload: RealtimePostgresChangesPayload<T>) => void;

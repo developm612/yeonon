@@ -46,6 +46,8 @@ const st = (statsData ?? null) as Record<string, number | null> | null;
 const decided = st ? (st.accepted ?? 0) + (st.declined ?? 0) + (st.expired ?? 0) : 0;
 const acceptRate = st && decided > 0 ? `${Math.round(((st.accepted ?? 0) / decided) * 100)}%` : '-';
 const avgResponse = st?.avg_response_minutes == null ? '-' : st.avg_response_minutes < 60 ? `${st.avg_response_minutes}분` : `${Math.floor(st.avg_response_minutes / 60)}시간 ${st.avg_response_minutes % 60}분`;
+// 처리 대기 채팅 신고 (Phase 6)
+const { count: openReports } = await supabase.from('message_reports').select('id', { count: 'exact', head: true }).eq('status', 'open');
 const bookingToday = st
   ? [
       { label: '오늘 요청', value: st.today_requests ?? 0, href: '/admin/bookings?status=all' },
@@ -71,6 +73,14 @@ const members = [
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">
       <h1 class="text-3xl font-extrabold">대시보드</h1>
+
+      <a href="/admin/reports?status=open" class:list={['card mt-8 flex items-center justify-between gap-4 p-5 transition-colors hover:border-text', (openReports ?? 0) > 0 && 'border-[#B42318]']}>
+        <span>
+          <span class="block text-sm text-muted">처리 대기 신고</span>
+          <span class:list={['mt-1 block text-3xl font-extrabold tabular-nums', (openReports ?? 0) > 0 && 'text-[#B42318]']}>{openReports ?? 0}</span>
+        </span>
+        <span class="text-sm font-semibold">신고 처리하기 →</span>
+      </a>
 
       <h2 class="mt-10 font-bold">예약 <span class="font-normal text-muted">· 오늘은 한국 시간 기준</span></h2>
       {bookingToday.length === 0 ? (

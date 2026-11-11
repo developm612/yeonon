@@ -1,0 +1,79 @@
+---
+/**
+ * 대화 화면 본문 — 여행자 /app/messages/[id](영문), 지기 /partner/messages/[id](한글)가 같이 쓴다.
+ * 예약 요약 카드(서버) + 대화(Preact 아일랜드 ChatRoom). 당사자가 아니면 '찾을 수 없음' (상태 코드 404는 페이지가 정한다).
+ */
+import ChatRoom from '../islands/ChatRoom';
+import { BOOKING_STATUS, STATUS_TONE_CLASS, kstWhen } from '../../data/bookingOptions';
+import { areaName } from '../../data/routeOptions';
+import { isTranslateEnabled } from '../../lib/ai/translate';
+import type { ConversationInfo, MessageRow } from '../../lib/chat';
+
+interface Props {
+  /** 페이지가 loadConversation()으로 읽은 대화 (없으면 404 화면) */
+  loaded: { info: ConversationInfo; messages: MessageRow[] } | null;
+  userId: string;
+  lang: 'en' | 'ko';
+}
+const { loaded, userId, lang } = Astro.props;
+const ko = lang === 'ko';
+const info = loaded?.info;
+const listHref = ko ? '/partner/messages' : '/app/messages';
+const bookingHref = info ? `${ko ? '/partner' : '/app'}/bookings/${info.booking_id}` : '';
+const otherName = info?.other_name ?? (ko ? '여행자' : 'Your jigi');
+---
+<section class="section pt-6! pb-10! md:pt-10!">
+  <div class="container-page max-w-5xl!">
+    <a href={listHref} class="text-sm font-semibold text-muted hover:text-text">← {ko ? '메시지' : 'Messages'}</a>
+    {!info ? (
+      <div class="mt-8 text-center">
+        <h1 class="text-2xl font-extrabold">{ko ? '대화를 찾을 수 없어요' : "We couldn't find this conversation"}</h1>
+        <p class="mt-2 text-muted">{ko ? '내 예약의 대화만 볼 수 있어요.' : 'You can only open chats for your own bookings.'}</p>
+      </div>
+    ) : (
+      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+        <div class="order-2 min-w-0 lg:order-1">
+          <h1 class="sr-only">{ko ? `${otherName}님과의 대화` : `Chat with ${otherName}`}</h1>
+          <ChatRoom
+            client:load
+            conversationId={info.conversation_id}
+            userId={userId}
+            lang={lang}
+            otherName={otherName}
+            bookingStatus={info.booking_status}
+            canSend={info.can_send}
+            blockedByMe={info.blocked_by_me}
+            initialMessages={loaded!.messages}
+            translateEnabled={isTranslateEnabled()}
+          />
+        </div>
+        <!-- 모바일: 대화 화면을 넓게 쓰도록 한 줄 요약 (누르면 예약 화면) -->
+        <a href={bookingHref} class="card order-1 flex items-center justify-between gap-2 px-4 py-3 lg:hidden" aria-label={ko ? '예약 보기' : 'View booking'}>
+          <span class="min-w-0">
+            <span class="block truncate text-sm font-bold">{info.route_title}</span>
+            <span class="block text-xs text-muted tabular-nums">{kstWhen(info.starts_at, lang)}{ko ? '' : ' KST'} · {ko ? `${info.party_size}명` : `${info.party_size} ${info.party_size === 1 ? 'person' : 'people'}`}</span>
+          </span>
+          <span class:list={['shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold', STATUS_TONE_CLASS[BOOKING_STATUS[info.booking_status].tone]]}>{BOOKING_STATUS[info.booking_status][lang]}</span>
+        </a>
+        <aside class="hidden lg:order-2 lg:block" aria-label={ko ? '예약 정보' : 'Booking summary'}>
+          <div class="card p-5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="min-w-0">
+                <span class="block truncate font-bold">{info.route_title}</span>
+                <span class="block text-sm text-muted tabular-nums">{kstWhen(info.starts_at, lang)}{ko ? '' : ' KST'}</span>
+              </span>
+              <span class:list={['shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold', STATUS_TONE_CLASS[BOOKING_STATUS[info.booking_status].tone]]}>{BOOKING_STATUS[info.booking_status][lang]}</span>
+            </div>
+            <dl class="mt-4 space-y-2 text-sm">
+              <div class="flex justify-between gap-3"><dt class="text-muted">{ko ? '인원' : 'Group'}</dt><dd class="font-semibold">{ko ? `${info.party_size}명` : `${info.party_size} ${info.party_size === 1 ? 'person' : 'people'}`}</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-muted">{ko ? '만나는 곳' : 'Meeting point'}</dt><dd class="text-right font-semibold">{info.meeting_area ? `${areaName(info.meeting_area, lang)} · ` : ''}{info.meeting_point_note ?? '—'}</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-muted">{ko ? '상대' : 'With'}</dt><dd class="font-semibold">{otherName}</dd></div>
+            </dl>
+            <a href={bookingHref} class="mt-4 inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-text">{ko ? '예약 보기' : 'View booking'}</a>
+            <p class="mt-3 text-xs text-muted">{ko ? '연락처·결제는 연온 밖으로 옮기지 말아 주세요. 문제가 있으면 ⋯ 메뉴에서 신고할 수 있어요.' : 'Keep contact details and payments in YEONON. Use the ⋯ menu to report a problem.'}</p>
+          </div>
+        </aside>
+      </div>
+    )}
+  </div>
+</section>

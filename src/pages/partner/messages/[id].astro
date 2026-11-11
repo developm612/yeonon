@@ -1,0 +1,21 @@
+---
+/** 대화 (지기, 한글) — 본문은 components/chat/ChatView.astro. 내 예약의 대화가 아니면 404 */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import ChatView from '../../../components/chat/ChatView.astro';
+import { PARTNER_NAV } from '../../../data/accountNav';
+import { loadConversation } from '../../../lib/chat';
+import { UUID } from '../../../lib/routes';
+
+export const prerender = false;
+
+const { supabase, user } = Astro.locals;
+if (!supabase || !user) return Astro.redirect('/login');
+const id = Astro.params.id ?? '';
+const loaded = UUID.test(id) ? await loadConversation(supabase, id) : null;
+if (!loaded) Astro.response.status = 404;
+---
+<BaseLayout title={loaded ? `대화 · ${loaded.info.route_title} | YEONON` : '대화 | YEONON'} description="연온 지기 대화" lang="ko" sticky="none" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+  <ChatView loaded={loaded} userId={user.id} lang="ko" />
+</BaseLayout>

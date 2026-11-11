@@ -12,6 +12,7 @@ import { TRAVELER_NAV } from '../../../data/accountNav';
 import { kstWhen, priceText } from '../../../data/bookingOptions';
 import { areaName } from '../../../data/routeOptions';
 import { BOOKING_COLUMNS, discoverHrefFor, loadBookingSettings, type BookingRow } from '../../../lib/bookings';
+import { conversationIdForBooking } from '../../../lib/chat';
 import { notice } from '../../../lib/forms';
 import { UUID, type PublicJigi } from '../../../lib/routes';
 
@@ -29,6 +30,7 @@ let host: PublicJigi | null = null;
 let discoverHref = '/app/discover';
 let routeLive = false;
 const settings = await loadBookingSettings(supabase);
+const chatId = booking ? await conversationIdForBooking(supabase, booking.id) : null;
 if (booking) {
   const [{ data: j }, { data: r }, rec] = await Promise.all([
     supabase.from('public_jigis').select('*').eq('user_id', booking.jigi_id).maybeSingle(),
@@ -79,8 +81,11 @@ const jigiName = booking?.jigi_name ?? host?.display_name ?? 'Your jigi';
               <div><dt class="text-xs font-semibold text-muted">Price</dt><dd class="mt-0.5 font-semibold">{priceText(booking.list_price, booking.final_price, booking.promotion_name)}</dd></div>
               {booking.note && <div class="sm:col-span-2"><dt class="text-xs font-semibold text-muted">Your note</dt><dd class="mt-0.5">{booking.note}</dd></div>}
             </dl>
-            <p class="mt-5 text-sm text-muted">Always a public place. Your jigi will share the exact spot in chat once you're matched (chat is coming soon). Contact details stay private.</p>
-            {routeLive && <a href={`/app/routes/${booking.route_id}`} class="mt-4 inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">View the route</a>}
+            <p class="mt-5 text-sm text-muted">Always a public place. Your jigi will share the exact spot in chat once you're matched. Contact details stay private.</p>
+            <div class="mt-4 flex flex-wrap gap-3">
+            {chatId && <a href={`/app/messages/${chatId}`} class="inline-flex min-h-11 items-center rounded-full bg-traveler-strong px-5 font-semibold text-white hover:bg-[#134FB0]">Open chat</a>}
+            {routeLive && <a href={`/app/routes/${booking.route_id}`} class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">View the route</a>}
+            </div>
           </div>
         </>
       )}

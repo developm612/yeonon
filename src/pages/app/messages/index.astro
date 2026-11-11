@@ -1,0 +1,13 @@
+---
+/** 메시지 목록 (여행자, 영문): 상대 표시 이름·마지막 메시지·안 읽은 수 — 본문은 components/chat/InboxView.astro */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import InboxView from '../../../components/chat/InboxView.astro';
+import { TRAVELER_NAV } from '../../../data/accountNav';
+
+export const prerender = false;
+---
+<BaseLayout title="Messages | YEONON" description="Your YEONON chats." sticky="none" noindex>
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
+  <InboxView lang="en" />
+</BaseLayout>

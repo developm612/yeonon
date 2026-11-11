@@ -1,0 +1,24 @@
+---
+/**
+ * 대화 (여행자, 영문): 실시간 수신·읽음 표시·신고·차단·번역, 예약 요약 카드 — 본문은 components/chat/ChatView.astro.
+ * 다른 사람의 대화 id를 넣으면 RLS·함수가 막아 404가 된다.
+ */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import ChatView from '../../../components/chat/ChatView.astro';
+import { TRAVELER_NAV } from '../../../data/accountNav';
+import { loadConversation } from '../../../lib/chat';
+import { UUID } from '../../../lib/routes';
+
+export const prerender = false;
+
+const { supabase, user } = Astro.locals;
+if (!supabase || !user) return Astro.redirect('/login');
+const id = Astro.params.id ?? '';
+const loaded = UUID.test(id) ? await loadConversation(supabase, id) : null;
+if (!loaded) Astro.response.status = 404;
+---
+<BaseLayout title={loaded ? `Chat · ${loaded.info.route_title} | YEONON` : 'Chat | YEONON'} description="Your YEONON chat." sticky="none" noindex>
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
+  <ChatView loaded={loaded} userId={user.id} lang="en" />
+</BaseLayout>
