@@ -24,8 +24,9 @@ export const ADMIN_NAV = [
   { href: '/admin/routes', label: '루트 검수' },
   { href: '/admin/bookings', label: '예약' },
   { href: '/admin/promotions', label: '할인·예약 규칙' },
-  { href: '/admin/reports', label: '신고' },
+  { href: '/admin/reports', label: '신고·안전' },
   { href: '/admin/recommendations', label: '추천 로그' },
+  { href: '/admin/waitlist', label: '대기자 명단' },
 ];
 
 /** 여행자가 고를 수 있는 사용 언어 */

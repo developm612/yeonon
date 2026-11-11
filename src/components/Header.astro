@@ -6,6 +6,7 @@ import ChatBadge from './islands/ChatBadge';
 import NotificationBell from './islands/NotificationBell';
 import { isOnboarded } from '../lib/profile';
 import { isAuthConfigured, isMemberUiPublic } from '../lib/supabase';
+import { TRAVELER_CTA } from '../config/cta';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const links = [
@@ -78,9 +79,9 @@ const bell = isAuthConfigured && signedIn && me && me.status === 'active' && isO
           </form>
         </>
       )}
-      <!-- 앱 미리보기 페이지 안에서는 다시 불러오지 않고 하단 대기자 폼으로 이동 -->
-      <Button href={path === '/app-preview' ? '#waitlist' : '/app-preview'} class="ml-2 whitespace-nowrap">
-        <span lang="en">Join the early list</span>
+      <!-- 사전 등록 중: 앱 미리보기 페이지 안에서는 다시 불러오지 않고 하단 대기자 폼으로 이동. 오픈 후(PUBLIC_MEMBER_UI): 로그인 → 추천 -->
+      <Button href={!isMemberUiPublic && path === '/app-preview' ? '#waitlist' : TRAVELER_CTA.href} class="ml-2 whitespace-nowrap">
+        <span lang="en">{TRAVELER_CTA.label}</span>
       </Button>
     </nav>
 

@@ -1,7 +1,7 @@
 ---
 /**
  * 지기 홈: 신청 전 → 신청 안내, 신청 후 → 심사 상태,
- * 승인 후 → 새 요청(실시간 + 응답 기한 카운트다운, Preact 아일랜드) · 오늘·이번 주 만남 · 내 루트·가능 시간 요약
+ * 승인 후 → 새 요청(실시간 + 응답 기한 카운트다운, Preact 아일랜드) · 오늘·이번 주 만남 · 내 평점·후기 · 내 루트·가능 시간 요약
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
@@ -14,6 +14,7 @@ import { kstToday } from '../../lib/availability';
 import { BOOKING_COLUMNS, type BookingRow } from '../../lib/bookings';
 import { dbError, notice } from '../../lib/forms';
 import { kstDay } from '../../lib/routes';
+import { loadPublicReviews, type PublicReview } from '../../lib/reviews';
 
 export const prerender = false;
 
@@ -22,7 +23,7 @@ if (!profile || !supabase) return Astro.redirect('/onboarding');
 
 const [{ data: application, error: appError }, { data: jigi }] = await Promise.all([
   supabase.from('jigi_applications').select('status, created_at, reviewed_at').eq('user_id', profile.id).maybeSingle(),
-  supabase.from('jigi_profiles').select('is_active, languages').eq('user_id', profile.id).maybeSingle(),
+  supabase.from('jigi_profiles').select('is_active, languages, rating_avg, rating_count, accept_rate, avg_response_minutes, response_count').eq('user_id', profile.id).maybeSingle(),
 ]);
 dbError(appError, 'load own application');
 const status = application?.status as ApplicationStatus | undefined;
@@ -32,16 +33,19 @@ let publishedCount = 0;
 let openSlotCount = 0;
 let pending: RequestItem[] = [];
 let week: BookingRow[] = [];
+let reviews: PublicReview[] = [];
 if (approved) {
   // 이번 주 = 오늘부터 7일
   const weekEnd = new Date(Date.now() + 7 * 864e5).toISOString();
-  const [{ data: routes }, { count }, p, w] = await Promise.all([
+  const [{ data: routes }, { count }, p, w, rv] = await Promise.all([
     supabase.from('routes').select('status').eq('jigi_id', profile.id),
     supabase.from('slots').select('id', { count: 'exact', head: true }).eq('jigi_id', profile.id).eq('status', 'open').gt('starts_at', new Date().toISOString()),
     supabase.from('bookings').select(BOOKING_COLUMNS).eq('jigi_id', profile.id).eq('status', 'pending').order('respond_by').limit(50),
     supabase.from('bookings').select(BOOKING_COLUMNS).eq('jigi_id', profile.id).eq('status', 'confirmed')
       .gt('ends_at', new Date().toISOString()).lt('starts_at', weekEnd).order('starts_at').limit(30),
+    loadPublicReviews(supabase, profile.id, 3),
   ]);
+  reviews = rv;
   routeCount = routes?.length ?? 0;
   publishedCount = routes?.filter((r) => r.status === 'published').length ?? 0;
   openSlotCount = count ?? 0;
@@ -54,6 +58,9 @@ const todays = week.filter((b) => kstDay(b.starts_at) === today);
 const later = week.filter((b) => kstDay(b.starts_at) !== today);
 const applied = notice(Astro.url, { applied: '신청서를 보냈어요. 검토 후 연락드릴게요.' });
 const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+// 품질 지표 (후기·요청 응답으로 자동 갱신 — 마이그레이션 17번). 여행자 추천 순서에도 반영된다
+const m = jigi as { rating_avg: number | null; rating_count: number; accept_rate: number | null; avg_response_minutes: number | null; response_count: number } | null;
+const responseText = m?.avg_response_minutes == null ? '-' : m.avg_response_minutes < 60 ? `${m.avg_response_minutes}분` : `${Math.floor(m.avg_response_minutes / 60)}시간 ${m.avg_response_minutes % 60}분`;
 ---
 <BaseLayout title="지기 홈 | YEONON" description="연온 지기 홈" lang="ko" sticky="none" noindex>
   <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
@@ -82,6 +89,25 @@ const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZo
                     <span>{b.route_title}</span>
                     <span class="text-sm text-muted">{b.party_size}명 · {b.traveler_name || '여행자'}</span>
                   </a>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <h2 class="mt-8 font-bold">내 평점 · 후기</h2>
+          <dl class="mt-3 grid grid-cols-3 gap-3">
+            <div class="card p-4"><dt class="text-xs text-muted">평점</dt><dd class="mt-1 text-xl font-extrabold tabular-nums">{m?.rating_avg != null ? `★ ${Number(m.rating_avg).toFixed(1)}` : '-'}<span class="ml-1 text-xs font-normal text-muted">{m?.rating_count ?? 0}개</span></dd></div>
+            <div class="card p-4"><dt class="text-xs text-muted">수락률</dt><dd class="mt-1 text-xl font-extrabold tabular-nums">{m?.accept_rate != null ? `${Math.round(Number(m.accept_rate))}%` : '-'}</dd></div>
+            <div class="card p-4"><dt class="text-xs text-muted">평균 응답</dt><dd class="mt-1 text-xl font-extrabold tabular-nums">{responseText}</dd></div>
+          </dl>
+          <p class="mt-2 text-xs text-muted">최근 응답한 요청 {m?.response_count ?? 0}건 기준. 평점·수락률·응답 속도는 여행자 AI 추천 순서에 반영돼요.</p>
+          {reviews.length > 0 && (
+            <ul class="mt-3 space-y-2">
+              {reviews.map((r) => (
+                <li class="rounded-xl bg-surface px-4 py-3 text-sm shadow-card">
+                  <span class="text-[#B7791F]" aria-label={`별점 ${r.rating}점`}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                  <span class="ml-2 text-muted">{r.author_initial}. · {r.route_title} · {date(r.created_at)}</span>
+                  {r.comment && <p class="mt-1">{r.comment}</p>}
                 </li>
               ))}
             </ul>

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { MEMBER_OPEN, TRAVELER_CTA } from '../config/cta';
 import Hero from '../components/Hero.astro';
 import Button from '../components/Button.astro';
 import Card from '../components/Card.astro';
@@ -26,24 +27,29 @@ const faq = [
   ...(SITE.showPrice
     ? [{ q: 'How much does it cost?', a: "We're planning around ₩120,000 for 4 hours. Pricing isn't final, and nothing is charged now." }]
     : []),
-  { q: 'When can I book?', a: "We're in pre-launch. Join the early list and we'll contact you first." },
+  {
+    q: 'When can I book?',
+    a: MEMBER_OPEN
+      ? 'Now. Sign in with Google, tell us your taste and dates, and pick a route and time that suit you. Your jigi replies within the deadline shown.'
+      : "We're in pre-launch. Join the early list and we'll contact you first.",
+  },
   { q: 'What happens to my information?', a: 'We only use it to contact you about YEONON. See our <a href="/privacy" class="font-semibold text-brand underline underline-offset-2">Privacy page</a>.' },
 ];
 ---
 <BaseLayout
   title="Find your local friend in Seongsu | YEONON"
-  description="Spend 3–4 hours with a Jigi who shares your interests — coffee, food, fashion, photography, or just wandering Seongsu like a local. Join the early list."
+  description={`Spend 3–4 hours with a Jigi who shares your interests — coffee, food, fashion, photography, or just wandering Seongsu like a local. ${MEMBER_OPEN ? 'Find your route.' : 'Join the early list.'}`}
 >
   <!-- 1. Hero -->
   <Hero
-    eyebrow="For travelers · Pre-launch"
+    eyebrow={MEMBER_OPEN ? 'For travelers' : 'For travelers · Pre-launch'}
     accent="traveler"
     title="Your local friend in Seoul is waiting."
     sub="Spend 3–4 hours with a Jigi who shares your interests — coffee, food, fashion, photography, or just wandering Seongsu like a local."
     slider="en"
   >
     <Fragment slot="actions">
-      <Button href="/app-preview" size="lg">Join the early list</Button>
+      <Button href={TRAVELER_CTA.href} size="lg">{TRAVELER_CTA.label}</Button>
     </Fragment>
   </Hero>
 
@@ -102,7 +108,9 @@ const faq = [
           tone="traveler"
           steps={[
             { title: 'Tell us your taste', body: 'Interests, dates, language, and travel style.' },
-            { title: 'We recommend a Jigi', body: 'Our team recommends a Jigi for you during pre-launch.' },
+            MEMBER_OPEN
+              ? { title: 'Pick your route', body: 'YEONON AI suggests routes made by jigis who share your taste. You choose one and a time.' }
+              : { title: 'We recommend a Jigi', body: 'Our team recommends a Jigi for you during pre-launch.' },
             { title: 'Meet up and explore', body: '3–4 hours in Seongsu, at your pace.' },
           ]}
         />
@@ -148,6 +156,6 @@ const faq = [
 
   <!-- 8. Final CTA -->
   <CTASection title="Coming to Seoul soon? Tell us when.">
-    <Button href="/app-preview" size="lg" class="bg-white! text-brand! hover:bg-bg!">Join the early list</Button>
+    <Button href={TRAVELER_CTA.href} size="lg" class="bg-white! text-brand! hover:bg-bg!">{TRAVELER_CTA.label}</Button>
   </CTASection>
 </BaseLayout>

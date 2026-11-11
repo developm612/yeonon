@@ -1,0 +1,256 @@
+---
+/**
+ * 대기자 명단 이전 (관리자). Google 시트의 Waitlist·Jigi 탭을 CSV로 내려받아 올리면 waitlist_imports에 넣는다.
+ *   - 대기자를 자동으로 회원 가입시키지 않는다. 초대 메일·메시지는 사람이 보내고, 여기서는 [초대 표시]만 한다.
+ *   - 같은 탭 안에서 이메일(없으면 연락처·휴대폰)이 같으면 한 번만 들어간다 → 같은 CSV를 다시 올려도 안전.
+ *   - 같은 이메일로 Google 가입을 하면 자동으로 연결되고 얼리 멤버가 된다 (DB 트리거). 이미 가입한 사람은 올릴 때 연결.
+ *   - 가져오기·초대 표시·삭제는 audit_log에 남는다 (건수만). 보관: 가져온 날부터 12개월 뒤 자동 삭제 (data_retention).
+ * 칸 이름은 시트 머리글(영문 키 또는 한글 이름)을 그대로 쓴다 — 아래 COLUMN_ALIASES. 모르는 칸은 details에 담는다.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import ExportForm from '../../components/admin/ExportForm.astro';
+import Notice from '../../components/account/Notice.astro';
+import { ADMIN_NAV } from '../../data/accountNav';
+import { kstWhen } from '../../data/bookingOptions';
+import { waitlistQuery } from '../../lib/adminExport';
+import { parseCsv } from '../../lib/csv';
+import { dbError, field, fields } from '../../lib/forms';
+import { UUID } from '../../lib/routes';
+import { clean } from '../../scripts/formSafety';
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+if (!supabase) return Astro.redirect('/login');
+
+const MAX_BYTES = 2_000_000;
+const MAX_ROWS = 5000;
+/** 시트 머리글 → 저장 칸. 비교는 소문자·공백 제거 후 */
+const COLUMN_ALIASES: Record<string, string[]> = {
+  submitted_at: ['submitted_at', '제출시각', '제출일시', 'timestamp', '타임스탬프'],
+  email: ['email', 'e-mail', '이메일'],
+  name: ['name', '이름'],
+  contact_method: ['contact_method', '연락방법'],
+  contact: ['contact', '연락처'],
+  phone: ['phone', '휴대폰', '휴대폰번호', '전화번호'],
+  nationality: ['nationality', '국적'],
+  heard_from: ['heard_from', '알게된경로', '유입경로'],
+  referred_by: ['referred_by', '추천인'],
+  interests: ['interests', '관심사', 'taste', '고른취향', '취향'],
+  consent: ['consent', '동의'],
+};
+const norm = (h: string) => h.toLowerCase().replace(/\s+/g, '');
+const aliasOf = new Map(Object.entries(COLUMN_ALIASES).flatMap(([key, list]) => list.map((a) => [norm(a), key] as const)));
+
+const q = Astro.url.searchParams;
+const filters = { source: q.get('source') ?? '', state: q.get('state') ?? '', q: clean(q.get('q') ?? '', 50) };
+const page = Math.max(1, Number(q.get('page')) || 1);
+const PAGE = 50;
+
+let error: string | null = null;
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const action = field(fd, 'action');
+  const back = new URL(Astro.url);
+  if (action === 'import') {
+    const source = field(fd, 'source');
+    const file = fd.get('file');
+    if (source !== 'waitlist' && source !== 'jigi') error = '어느 탭의 CSV인지 골라 주세요.';
+    else if (!(file instanceof File) || file.size === 0) error = 'CSV 파일을 골라 주세요.';
+    else if (file.size > MAX_BYTES) error = '파일이 너무 커요 (2MB까지).';
+    else {
+      const table = parseCsv(await file.text());
+      const headers = (table[0] ?? []).map((h) => h.trim());
+      const keys = headers.map((h) => aliasOf.get(norm(h)) ?? null);
+      if (!keys.some((k) => k === 'email' || k === 'contact' || k === 'phone')) {
+        error = '첫 줄(머리글)에 email·contact·phone(이메일·연락처·휴대폰) 칸이 없어요. 시트에서 [파일 → 다운로드 → CSV]로 받은 파일인지 확인해 주세요.';
+      } else if (table.length - 1 > MAX_ROWS) {
+        error = `한 번에 ${MAX_ROWS}행까지 올릴 수 있어요. 나눠서 올려 주세요.`;
+      } else {
+        const rows = table.slice(1).map((cells) => {
+          const row: Record<string, unknown> = {};
+          const details: Record<string, string> = {};
+          cells.forEach((raw, i) => {
+            const value = raw.trim();
+            if (!value) return;
+            const key = keys[i];
+            if (key) row[key] = value.slice(0, 500);
+            else if (headers[i] && Object.keys(details).length < 30) details[headers[i].slice(0, 40)] = value.slice(0, 500);
+          });
+          row.details = details;
+          return row;
+        });
+        const { data, error: rpcError } = await supabase.rpc('admin_import_waitlist', { p_source: source, p_rows: rows });
+        if (!dbError(rpcError, 'admin_import_waitlist')) {
+          const r = data as Record<string, number>;
+          back.search = '';
+          back.searchParams.set('notice', 'imported');
+          for (const k of ['received', 'inserted', 'duplicates', 'invalid', 'linked']) back.searchParams.set(k, String(r[k] ?? 0));
+          return Astro.redirect(back.pathname + back.search);
+        }
+        error = '가져오지 못했어요. 마이그레이션 18번을 실행했는지 확인하고 다시 시도해 주세요.';
+      }
+    }
+  } else if (action === 'invite' || action === 'uninvite' || action === 'delete') {
+    const ids = fields(fd, 'ids').filter((id) => UUID.test(id)).slice(0, 1000);
+    if (ids.length === 0) error = '먼저 목록에서 항목을 골라 주세요.';
+    else {
+      const { data, error: rpcError } = action === 'delete'
+        ? await supabase.rpc('admin_delete_waitlist', { p_ids: ids })
+        : await supabase.rpc('admin_mark_waitlist_invited', { p_ids: ids, p_invited: action === 'invite' });
+      if (!dbError(rpcError, `waitlist ${action}`)) {
+        back.searchParams.set('notice', action);
+        back.searchParams.set('n', String(data ?? 0));
+        return Astro.redirect(back.pathname + back.search);
+      }
+      error = '저장하지 못했어요. 다시 시도해 주세요.';
+    }
+  } else error = '잘못된 요청이에요.';
+}
+
+interface Entry {
+  id: string; source: 'waitlist' | 'jigi'; email: string | null; name: string | null; contact_method: string | null; contact: string | null;
+  phone: string | null; nationality: string | null; interests: string | null; submitted_at: string | null; imported_at: string;
+  invite_sent_at: string | null; joined_user_id: string | null; joined_at: string | null;
+}
+const [{ data, count, error: listError }, totals] = await Promise.all([
+  waitlistQuery(supabase, filters, { count: 'exact' }).order('imported_at', { ascending: false }).order('id').range((page - 1) * PAGE, page * PAGE - 1),
+  Promise.all([
+    supabase.from('waitlist_imports').select('id', { count: 'exact', head: true }),
+    supabase.from('waitlist_imports').select('id', { count: 'exact', head: true }).not('invite_sent_at', 'is', null),
+    supabase.from('waitlist_imports').select('id', { count: 'exact', head: true }).not('joined_user_id', 'is', null),
+  ]),
+]);
+dbError(listError, 'admin list waitlist');
+const entries = (data ?? []) as Entry[];
+const pages = Math.max(1, Math.ceil((count ?? 0) / PAGE));
+const pageHref = (p: number) => {
+  const u = new URL(Astro.url);
+  u.searchParams.set('page', String(p));
+  u.searchParams.delete('notice');
+  return u.pathname + u.search;
+};
+const n = (k: string) => Number(q.get(k)) || 0;
+const notices: Record<string, string> = {
+  imported: `가져왔어요: ${n('received')}행 중 새로 ${n('inserted')}명 · 중복 ${n('duplicates')} · 연락처 없음 ${n('invalid')} · 이미 가입해 연결 ${n('linked')}`,
+  invite: `${n('n')}명을 초대 보냄으로 표시했어요.`,
+  uninvite: `${n('n')}명의 초대 표시를 지웠어요.`,
+  delete: `${n('n')}명을 명단에서 지웠어요.`,
+};
+const done = notices[q.get('notice') ?? ''] ?? null;
+const input = 'h-11 rounded-xl border border-border bg-surface px-3 text-sm';
+const STATES = { '': '모두', new: '초대 전', invited: '초대함', joined: '가입함' } as const;
+---
+<BaseLayout title="대기자 명단 | 관리자 | YEONON" description="연온 관리자 대기자 명단" lang="ko" sticky="none" noindex>
+  <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <h1 class="text-3xl font-extrabold">대기자 명단 <span class="text-lg font-semibold text-muted tabular-nums">{totals[0].count ?? 0}명</span></h1>
+      <p class="mt-2 text-muted">초대 표시 {totals[1].count ?? 0} · 가입 연결 {totals[2].count ?? 0}. 대기자를 자동으로 가입시키지 않아요 — 초대는 직접 보내고 여기서 표시만 해요. 같은 이메일로 Google 가입을 하면 자동으로 연결되고 얼리 멤버가 돼요.</p>
+      {done && <Notice class="mt-6">{done}</Notice>}
+      {error && <Notice tone="error" class="mt-6">{error}</Notice>}
+
+      <form method="post" enctype="multipart/form-data" class="card mt-6 space-y-3 p-5">
+        <input type="hidden" name="action" value="import" />
+        <h2 class="font-bold">CSV 가져오기</h2>
+        <p class="text-sm text-muted">Google 시트에서 탭을 열고 [파일 → 다운로드 → 쉼표로 구분된 값(.csv)]으로 받은 파일을 올려 주세요. 첫 줄은 머리글이어야 해요 (email·contact·phone 중 하나 필수). 2MB·{MAX_ROWS}행까지.</p>
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="sr-only" for="wl-source">탭</label>
+          <select id="wl-source" name="source" required class={input}>
+            <option value="waitlist">Waitlist 탭 (여행자 대기자)</option>
+            <option value="jigi">Jigi 탭 (지기 사전 신청)</option>
+          </select>
+          <label class="sr-only" for="wl-file">CSV 파일</label>
+          <input id="wl-file" name="file" type="file" accept=".csv,text/csv" required class="min-w-0 max-w-full text-sm" />
+          <button type="submit" class="h-11 rounded-xl bg-text px-4 text-sm font-semibold text-white">가져오기</button>
+        </div>
+      </form>
+
+      <form method="get" class="mt-8 flex flex-wrap gap-2" role="search">
+        <label class="sr-only" for="wl-q">이메일·이름·연락처 검색</label>
+        <input id="wl-q" name="q" type="search" value={filters.q} placeholder="이메일·이름·연락처" class={`${input} min-w-0 flex-1 basis-48`} />
+        <label class="sr-only" for="wl-src">탭</label>
+        <select id="wl-src" name="source" class={input}>
+          <option value="">모든 탭</option>
+          <option value="waitlist" selected={filters.source === 'waitlist' || undefined}>Waitlist</option>
+          <option value="jigi" selected={filters.source === 'jigi' || undefined}>Jigi</option>
+        </select>
+        <label class="sr-only" for="wl-state">상태</label>
+        <select id="wl-state" name="state" class={input}>
+          {Object.entries(STATES).map(([v, l]) => <option value={v} selected={filters.state === v || undefined}>{l}</option>)}
+        </select>
+        <button type="submit" class="h-11 rounded-xl bg-text px-4 text-sm font-semibold text-white">검색</button>
+      </form>
+      <ExportForm list="waitlist" filters={filters} class="mt-3" />
+
+      <form method="post" class="mt-4" data-bulk>
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <span class="text-muted">고른 항목:</span>
+          <button type="submit" name="action" value="invite" class="min-h-10 rounded-full bg-jigi-strong px-4 font-semibold text-white">초대 보냄 표시</button>
+          <button type="submit" name="action" value="uninvite" class="min-h-10 rounded-full border border-border bg-surface px-4 font-semibold hover:border-text">표시 지우기</button>
+          <button type="submit" name="action" value="delete" data-confirm="고른 항목을 명단에서 지울까요? 되돌릴 수 없어요." class="min-h-10 rounded-full px-4 font-semibold text-[#B42318] hover:bg-[#FDECEC]">명단에서 삭제</button>
+        </div>
+        <div class="mt-3 overflow-x-auto rounded-2xl bg-surface shadow-card">
+          <table class="w-full min-w-[760px] text-left text-sm">
+            <thead class="border-b border-border text-xs text-muted">
+              <tr>
+                <th class="w-10 px-3 py-2"><input type="checkbox" aria-label="이 페이지 모두 고르기" data-check-all class="size-4" /></th>
+                <th class="px-3 py-2">연락처</th>
+                <th class="px-3 py-2">이름·국적</th>
+                <th class="px-3 py-2">관심사</th>
+                <th class="px-3 py-2">제출 · 가져옴</th>
+                <th class="px-3 py-2">상태</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              {entries.length === 0 && <tr><td colspan="6" class="px-3 py-6 text-center text-muted">명단이 없어요. 위에서 CSV를 가져와 주세요.</td></tr>}
+              {entries.map((e) => (
+                <tr>
+                  <td class="px-3 py-2"><input type="checkbox" name="ids" value={e.id} aria-label={`${e.email ?? e.contact ?? e.phone} 고르기`} class="size-4" /></td>
+                  <td class="px-3 py-2">
+                    <span class="mr-1 rounded-full bg-bg px-2 py-0.5 text-xs font-semibold">{e.source === 'jigi' ? 'Jigi' : 'Waitlist'}</span>
+                    <span class="break-all">{e.email ?? e.contact ?? e.phone ?? '-'}</span>
+                    {e.contact_method && e.contact_method !== 'email' && <span class="block text-xs text-muted">{e.contact_method}</span>}
+                  </td>
+                  <td class="px-3 py-2">{e.name ?? '-'}<span class="block text-xs text-muted">{e.nationality ?? ''}</span></td>
+                  <td class="max-w-[200px] px-3 py-2 text-xs">{e.interests ?? '-'}</td>
+                  <td class="px-3 py-2 text-xs text-muted tabular-nums">{e.submitted_at ? kstWhen(e.submitted_at, 'ko') : '-'}<span class="block">{kstWhen(e.imported_at, 'ko')}</span></td>
+                  <td class="px-3 py-2 text-xs">
+                    {e.joined_user_id
+                      ? <span class="rounded-full bg-jigi-soft px-2 py-0.5 font-bold text-jigi-strong">가입함</span>
+                      : e.invite_sent_at
+                        ? <span class="rounded-full bg-traveler-soft px-2 py-0.5 font-bold text-traveler-strong">초대함</span>
+                        : <span class="rounded-full bg-text/5 px-2 py-0.5 font-bold text-muted">초대 전</span>}
+                    {e.invite_sent_at && <span class="mt-1 block text-muted tabular-nums">초대 {kstWhen(e.invite_sent_at, 'ko')}</span>}
+                    {e.joined_at && <span class="mt-1 block text-muted tabular-nums">가입 {kstWhen(e.joined_at, 'ko')}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </form>
+
+      {pages > 1 && (
+        <nav aria-label="페이지" class="mt-6 flex items-center justify-center gap-3 text-sm">
+          {page > 1 && <a href={pageHref(page - 1)} class="rounded-full border border-border px-4 py-2 font-semibold">이전</a>}
+          <span class="tabular-nums text-muted">{page} / {pages}</span>
+          {page < pages && <a href={pageHref(page + 1)} class="rounded-full border border-border px-4 py-2 font-semibold">다음</a>}
+        </nav>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-bulk]');
+  form?.querySelector<HTMLInputElement>('[data-check-all]')?.addEventListener('change', (e) => {
+    const on = (e.target as HTMLInputElement).checked;
+    form.querySelectorAll<HTMLInputElement>('input[name="ids"]').forEach((box) => (box.checked = on));
+  });
+  form?.addEventListener('submit', (e) => {
+    const btn = (e as SubmitEvent).submitter as HTMLButtonElement | null;
+    if (btn?.dataset.confirm && !confirm(btn.dataset.confirm)) e.preventDefault();
+  });
+</script>

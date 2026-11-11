@@ -5,6 +5,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import ExportForm from '../../components/admin/ExportForm.astro';
 import Notice from '../../components/account/Notice.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
 import { interestNames } from '../../data/interests';
@@ -84,6 +85,7 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR'
     <div class="container-page">
       <h1 class="text-3xl font-extrabold">루트 검수</h1>
       <p class="mt-2 text-muted">안전(공개 장소에서 만나는지), 품질, 표현(과장·외부 연락 유도 없음)을 확인해 주세요.</p>
+      <ExportForm list="routes" filters={{ status: current }} class="mt-4" />
 
       <nav aria-label="루트 상태" class="mt-6 flex flex-wrap gap-2">
         {ROUTE_STATUSES.map((s, i) => (

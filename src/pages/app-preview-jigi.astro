@@ -3,6 +3,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PhoneStage from '../components/app/PhoneStage.astro';
 import JigiScreens from '../components/app/JigiScreens.astro';
 import JigiApplyForm from '../components/app/JigiApplyForm.astro';
+import Button from '../components/Button.astro';
+import CTASection from '../components/CTASection.astro';
+import { JIGI_CTA, MEMBER_OPEN } from '../config/cta';
 ---
 <BaseLayout
   title="지기 앱 미리보기 — 나만의 성수 코스 만들기 | 연온"
@@ -21,7 +24,14 @@ import JigiApplyForm from '../components/app/JigiApplyForm.astro';
     <JigiScreens />
   </PhoneStage>
 
-  <JigiApplyForm />
+  <!-- 회원 기능 공개 전: 사전 신청 폼 / 공개 후(PUBLIC_MEMBER_UI): Google 로그인 → 지기 신청서 (config/cta.ts) -->
+  {MEMBER_OPEN ? (
+    <CTASection title="나만의 성수 루트를 만들어 보세요" sub="Google 계정으로 시작해 지기 신청서를 보내 주세요. 짧은 인터뷰 후 함께해요." tone="jigi">
+      <Button href={JIGI_CTA.href} size="lg" class="bg-white! text-[#0B4F78]! hover:bg-bg!">{JIGI_CTA.label}</Button>
+    </CTASection>
+  ) : (
+    <JigiApplyForm />
+  )}
 </BaseLayout>
 
 <script>

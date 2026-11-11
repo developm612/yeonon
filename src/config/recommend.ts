@@ -11,8 +11,21 @@ export const RECOMMEND = {
    * floor 이하는 0점, ceil 이상은 만점으로 본다. 모델을 바꾸면 실제 값 분포를 보고 다시 맞춘다.
    */
   similarityRange: { floor: 0.2, ceil: 0.75 },
-  /** 품질: 후기가 minReviews개 이상이면 평점/5, 그 전에는 기본값 */
-  quality: { default: 0.5, minReviews: 3 },
+  /**
+   * 품질 점수 (0~1) — 지기 지표(jigi_profiles, 마이그레이션 17번이 후기·응답 때마다 갱신)로 계산한다.
+   * 데이터가 충분한 항목만 weights 비율로 평균 내고, 하나도 없으면 default.
+   *   rating: 후기 minReviews개 이상이면 평점/5
+   *   accept: 응답한 요청(수락·거절·기한 만료) minRequests개 이상이면 수락률
+   *   speed:  같은 조건에서 평균 응답 시간 fastMinutes 이하 1점 → slowMinutes 이상 0점
+   */
+  quality: {
+    default: 0.5,
+    minReviews: 3,
+    minRequests: 3,
+    weights: { rating: 0.6, accept: 0.25, speed: 0.15 },
+    fastMinutes: 60,
+    slowMinutes: 720,
+  },
 
   /** DB에서 받는 후보 수(LLM에 보내는 수)와 최종 추천 수 */
   candidateCount: 10,

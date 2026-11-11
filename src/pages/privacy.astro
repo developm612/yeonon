@@ -1,96 +1,286 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import { SITE, isTodo } from '../config/site';
+/**
+ * 개인정보처리방침 (한국어 기본 + 영문, 상단 버튼·#en으로 전환 — components/legal/LegalDoc.astro).
+ *
+ * ⚠️ 초안이다. 공개 전에 반드시 법률(개인정보) 전문가 검토를 받는다 (docs/launch-checklist.md). 이 안내는 화면에 표시하지 않는다.
+ *    특히 국외 이전 고지(이전 일시·방법, 거부 방법)와 동의서의 필수 고지 항목은 검토가 필요하다.
+ *
+ * 이 문서는 실제 코드·DB와 맞아야 한다. 칸을 더하거나 보관 기간을 바꾸면 여기도 고치고 시행일(LEGAL.privacyVersion)을 새로 정한다.
+ *   수집 항목: supabase/migrations — profiles(1), jigi_applications·jigi_profiles(2), routes·route_stops(4), availability_*(5),
+ *              recommendation_requests(9), bookings·notifications(10), conversations·messages·message_reports·blocks·translation_requests(13),
+ *              reviews(17), waitlist_imports(18), audit_log·admin_notes(1·2·4)
+ *   보관 기간: LEGAL.retention (= chat_settings.retention_months, data_retention 기본값)
+ *   AI로 보내는 내용: src/lib/recommend/engine.ts(추천), src/lib/ai/routeEmbedding.ts(루트 임베딩), src/lib/ai/translate.ts(번역)
+ *   처리 위탁·국외 이전 표: LEGAL.processors (확인 필요한 칸은 TODO → 화면에 '확인 중')
+ */
+import LegalDoc from '../components/legal/LegalDoc.astro';
+import { LEGAL, legalDate, legalValue } from '../config/legal';
+import { SITE } from '../config/site';
 
+const r = LEGAL.retention;
+const o = LEGAL.privacyOfficer;
 const email = SITE.contactEmail;
+
+type L = { ko: string; en: string };
+const COLLECTED: { cat: L; items: L; purpose: L; keep: L }[] = [
+  {
+    cat: { ko: 'Google 로그인 (필수)', en: 'Google sign-in (required)' },
+    items: { ko: '이름, 이메일 주소, 프로필 사진 주소, Google 계정 식별값', en: 'Name, email address, profile photo URL, Google account ID' },
+    purpose: { ko: '회원 식별·로그인, 표시 이름 기본값, 알림 메일', en: 'Identifying you and signing you in, default display name, notification emails' },
+    keep: { ko: '탈퇴 시 즉시 삭제', en: 'Deleted immediately when you delete your account' },
+  },
+  {
+    cat: { ko: '회원 공통 (필수)', en: 'All members (required)' },
+    items: { ko: '역할(여행자·지기), 표시 이름, 화면 언어, 약관·개인정보처리방침 동의 시각과 버전, 만 18세 확인 시각, 계정 상태, 얼리 멤버 여부 / (선택) 마케팅 메일 수신 동의', en: 'Role (traveler or jigi), display name, site language, when and which version of the Terms and Privacy notice you agreed to, 18+ confirmation time, account status, early member status / (optional) marketing email consent' },
+    purpose: { ko: '서비스 제공, 동의 관리, 얼리 멤버 할인 적용, (선택) 소식 안내', en: 'Providing the Service, managing consent, applying the early member discount, (optional) news' },
+    keep: { ko: '탈퇴 시 즉시 삭제', en: 'Deleted immediately when you delete your account' },
+  },
+  {
+    cat: { ko: '여행자 프로필', en: 'Traveler profile' },
+    items: { ko: '국적(선택), 사용 언어, 관심사. 연온은 여행자에게 휴대폰 번호·메신저 아이디 같은 별도 연락처를 받지 않습니다.', en: 'Nationality (optional), languages, interests. We do not ask travelers for a phone number or messenger ID.' },
+    purpose: { ko: '루트 추천·매칭', en: 'Route recommendations and matching' },
+    keep: { ko: '탈퇴 시 즉시 삭제', en: 'Deleted immediately when you delete your account' },
+  },
+  {
+    cat: { ko: '지기 신청서 (지기만)', en: 'Jigi application (jigis only)' },
+    items: { ko: '이름, 휴대폰 번호, 나이대, 성수동과의 관계, 대화 가능한 외국어, 활동 가능 시간, 자기소개, 고른 취향, 알게 된 경로 / (선택) 인스타그램 계정, 예시 코스, 추천인 / 심사 상태, 신원 확인 여부(인터뷰에서 확인하며 신분증 사본은 받지 않음), 심사 메모', en: 'Name, mobile number, age group, connection to Seongsu, languages, availability, self-introduction, interests, how you heard about us / (optional) Instagram handle, sample course, referrer / review status, identity check result (checked during the interview — we do not collect ID copies), reviewer notes' },
+    purpose: { ko: '지기 심사·인터뷰 연락·승인, 안전 관리', en: 'Reviewing and contacting applicants, approval, safety' },
+    keep: { ko: '탈퇴 시 즉시 삭제', en: 'Deleted immediately when you delete your account' },
+  },
+  {
+    cat: { ko: '지기 공개 정보·루트·가능 시간', en: 'Jigi public profile, routes and availability' },
+    items: { ko: '한 줄 소개, 소개 글, 사용 언어, 확정 방식, 루트(제목·소개·태그·정류장·만나는 곳 메모·정가), 가능한 요일·시간과 예외 날짜, 평점·수락률·평균 응답 시간', en: 'Headline, bio, languages, confirmation mode, routes (title, summary, tags, stops, meeting point note, list price), weekly availability and exceptions, rating, acceptance rate, average reply time' },
+    purpose: { ko: '여행자에게 루트 공개·추천, 서비스 품질 관리', en: 'Showing and recommending routes to travelers, quality' },
+    keep: { ko: '탈퇴 시 즉시 삭제', en: 'Deleted immediately when you delete your account' },
+  },
+  {
+    cat: { ko: '매칭 요청·예약 기록', en: 'Requests and bookings' },
+    items: { ko: '루트·시간, 인원, 요청 메모, 진행 기록(요청·수락·거절·만료·취소·완료 시각과 사유), 가격 기록(정가·할인율·최종 0원), 추천에서 왔는지 여부', en: 'Route and time, group size, request note, status history (request, acceptance, decline, expiry, cancellation and completion times and reasons), price record (list price, discount, final ₩0), whether it came from a recommendation' },
+    purpose: { ko: '매칭 진행·알림, 분쟁 대응, 품질 지표(수락률·응답 시간)', en: 'Running the match and notifications, handling disputes, quality metrics' },
+    keep: { ko: '여행자나 지기 중 한쪽이 탈퇴하면 즉시 삭제', en: 'Deleted immediately when either the traveler or the jigi deletes their account' },
+  },
+  {
+    cat: { ko: '채팅', en: 'Chat' },
+    items: { ko: '메시지 내용, 보낸 사람·받는 사람, 보낸 시각, 읽은 시각, 자동 감지 표시(연락처·외부 결제 유도), 차단 목록, 번역 사용 시각(번역 결과는 저장하지 않음)', en: 'Message text, sender and recipient, sent time, read time, automatic safety flags (contact details or outside payment), block list, translation usage times (translations are not stored)' },
+    purpose: { ko: '만남 준비 대화, 안전한 이용 환경 유지, 신고 처리, 번역 사용 횟수 제한', en: 'Preparing your meetup, keeping the Service safe, handling reports, limiting translation use' },
+    keep: { ko: `만남이 끝나거나 예약이 취소·거절·만료된 날부터 ${r.chatMonths}개월 뒤 자동 삭제. 처리 중인 신고와 관련된 대화는 처리가 끝날 때까지 보관. 번역 사용 기록은 ${r.translationLogDays}일. 탈퇴 시 즉시 삭제`, en: `Deleted automatically ${r.chatMonths} months after the meetup is completed or the booking is cancelled, declined or expires. Chats with an open report are kept until the report is handled. Translation usage: ${r.translationLogDays} days. Deleted immediately when you delete your account` },
+  },
+  {
+    cat: { ko: '후기', en: 'Reviews' },
+    items: { ko: '별점, 후기 내용, 안전 문제 체크 여부, 작성 시각, 운영팀 확인 메모', en: 'Rating, review text, whether you flagged a safety issue, time, our team’s notes' },
+    purpose: { ko: '지기 평점·품질 지표, 다른 여행자의 선택 도움, 안전 확인', en: 'Jigi ratings and quality metrics, helping other travelers choose, safety follow-up' },
+    keep: { ko: '해당 예약 기록과 함께 보관하며, 당사자 중 한쪽이 탈퇴하면 즉시 삭제', en: 'Kept with the booking; deleted immediately when either side deletes their account' },
+  },
+  {
+    cat: { ko: 'AI 추천 요청', en: 'AI recommendation requests' },
+    items: { ko: '관심사, 날짜·시간대, 인원, 사용 언어, 분위기, 자유 문장(이메일·전화번호·링크는 지운 뒤 저장), 추천 결과, 클릭·요청 여부, 사용한 AI 모델·응답 시간', en: 'Interests, dates and time of day, group size, languages, vibe, free-text note (stored after removing emails, phone numbers and links), results, clicks and requests, AI model used and response time' },
+    purpose: { ko: '추천 제공, 같은 조건 30분 재사용, 시간당 이용 제한, 추천 품질 개선', en: 'Providing recommendations, reusing results for 30 minutes, hourly limits, improving recommendations' },
+    keep: { ko: `${r.recommendationMonths}개월 뒤 자동 삭제, 탈퇴 시 즉시 삭제`, en: `Deleted automatically after ${r.recommendationMonths} months, or immediately when you delete your account` },
+  },
+  {
+    cat: { ko: '신고', en: 'Reports' },
+    items: { ko: '신고 사유·내용(연락처는 지운 뒤 저장), 신고한 회원·신고된 회원, 신고된 메시지, 처리 결과·메모', en: 'Reason and details (stored after removing contact details), reporter and reported member, the reported message, outcome and notes' },
+    purpose: { ko: '신고 처리, 재발 방지, 분쟁 대응', en: 'Handling reports, preventing repeat issues, disputes' },
+    keep: { ko: `처리가 끝난 날부터 ${r.resolvedReportMonths / 12}년 뒤 자동 삭제 (처리 중에는 보관). 탈퇴하면 회원과의 연결만 지워집니다`, en: `Deleted automatically ${r.resolvedReportMonths / 12} years after the report is handled (kept while open). If you delete your account, the link to you is removed` },
+  },
+  {
+    cat: { ko: '알림', en: 'Notifications' },
+    items: { ko: '사이트 알림 내용, 읽은 시각, 메일 발송 여부', en: 'In-site notification text, read time, whether it was emailed' },
+    purpose: { ko: '예약·채팅·후기 알림', en: 'Booking, chat and review alerts' },
+    keep: { ko: `${r.notificationMonths}개월 뒤 자동 삭제, 탈퇴 시 즉시 삭제`, en: `Deleted automatically after ${r.notificationMonths} months, or immediately when you delete your account` },
+  },
+  {
+    cat: { ko: '관리 기록', en: 'Admin records' },
+    items: { ko: '관리자 조치 기록(승인·검수·정지·신고 처리·신고 대화 열람·목록 내보내기 등, 누가·언제·무엇을), 회원 탈퇴 기록(개인정보 없이 역할만), 관리자 메모', en: 'Records of admin actions (approvals, reviews, suspensions, report handling, viewing reported chats, list exports — who, when and what), account deletion records (role only, no personal data), admin notes' },
+    purpose: { ko: '운영 투명성, 부정 이용·분쟁 대응', en: 'Accountability, preventing misuse, disputes' },
+    keep: { ko: `관리자 조치 기록 ${r.auditLogMonths / 12}년 뒤 자동 삭제. 관리자 메모는 탈퇴 시 즉시 삭제`, en: `Admin action records deleted after ${r.auditLogMonths / 12} years; admin notes deleted when you delete your account` },
+  },
+  {
+    cat: { ko: '접속 기록·쿠키', en: 'Access logs and cookies' },
+    items: { ko: '로그인 세션 쿠키, 로그인 보안용 임시 쿠키 / 서버 접속 기록(IP 주소, 브라우저 정보, 요청한 주소, 시각)', en: 'Sign-in session cookies and a temporary sign-in security cookie / server access logs (IP address, browser, requested address, time)' },
+    purpose: { ko: '로그인 유지, 보안·장애 대응', en: 'Keeping you signed in, security and troubleshooting' },
+    keep: { ko: '쿠키: 로그아웃하거나 만료되면 삭제 / 접속 기록: 호스팅·데이터베이스 업체의 보관 정책에 따름 (아래 위탁 표)', en: 'Cookies: removed when you sign out or they expire / Access logs: under our hosting and database providers’ policies (see the table below)' },
+  },
+  {
+    cat: { ko: '사전 등록 대기자 명단 (정식 오픈 전 폼)', en: 'Pre-launch waitlist (forms before launch)' },
+    items: { ko: '여행자: 연락 방법·연락처(이메일·WhatsApp·인스타그램), 국적, 알게 된 경로, 추천인(선택), 관심사, 제출 시각, 유입 경로(UTM) / 지기 사전 신청: 이름, 휴대폰, 이메일, 나이대, 성수동과의 관계, 외국어, 활동 가능 시간, 자기소개, 인스타그램·추천인(선택), 취향·코스', en: 'Travelers: contact method and contact (email, WhatsApp or Instagram), nationality, how you heard about us, referrer (optional), interests, time, source (UTM tags) / Jigi pre-applications: name, mobile, email, age group, connection to Seongsu, languages, availability, introduction, Instagram and referrer (optional), interests and course' },
+    purpose: { ko: '출시 안내·가입 초대, 같은 이메일로 가입하면 회원과 연결하고 얼리 멤버 혜택 적용 (자동으로 가입시키지 않음)', en: 'Launch news and invitations; if you sign up with the same email we link it to your account and apply early member benefits (we never sign you up automatically)' },
+    keep: { ko: `연온 데이터베이스로 옮긴 명단은 옮긴 날부터 ${r.waitlistMonths}개월 뒤 자동 삭제 / 원본 Google 시트: ${legalValue('TODO: 시트 삭제 시점 확정')}. 삭제 요청 시 즉시 삭제`, en: `Lists moved into our database are deleted ${r.waitlistMonths} months after the move / The original Google Sheet: to be confirmed. Deleted right away on request` },
+  },
+];
+const officerName = legalValue(o.name);
 ---
-<BaseLayout
-  title="Privacy | YEONON"
-  description="How YEONON collects and uses the information you share in our waitlist and Jigi application forms. 연온 개인정보 안내."
->
-  <section class="section pt-12! md:pt-16!">
-    <div class="container-page max-w-3xl!">
-      <p class="eyebrow">Privacy · 개인정보 안내</p>
-      <h1 class="mt-3 text-4xl font-extrabold md:text-5xl">Privacy</h1>
-      <p class="lead mt-4">Last updated: October 2026</p>
+<LegalDoc titleKo="개인정보처리방침" titleEn="Privacy notice" version={LEGAL.privacyVersion}
+  description="How YEONON collects, uses, keeps and protects your information — sign-in, profiles, matching, chat, reviews and AI. 연온 개인정보처리방침.">
+  <Fragment slot="ko">
+    <p class="mt-6">{LEGAL.business.name}(이하 "회사")는 {LEGAL.business.serviceName}(이하 "서비스")을 이용하는 분의 개인정보를 「개인정보 보호법」 등 관련 법령에 따라 처리합니다. 이 방침은 어떤 정보를 왜 모으고, 얼마나 보관하며, 누구에게 맡기거나 보여 주는지 알려 드립니다.</p>
 
-      <div class="mt-12 grid gap-6">
-        <article class="card p-6 md:p-8">
-          <h2 class="text-xl font-bold">English</h2>
-          <dl class="mt-6 space-y-5 text-[0.9375rem]">
-            <div>
-              <dt class="font-semibold">What we collect</dt>
-              <dd class="mt-1 space-y-1 text-muted">
-                <p><span class="font-medium text-text">Travelers (waitlist):</span> how you'd like us to reach you and your contact (email, WhatsApp number, or Instagram handle), your nationality, how you heard about us, the name of the person who referred you (optional), and the interests you picked in the app preview.</p>
-                <p><span class="font-medium text-text">Jigi applicants:</span> your name, mobile number, email, age group, how you are connected to Seongsu, the languages you speak, when you are available, your self-introduction, how you heard about us, your Instagram handle and the name of the person who referred you (both optional), and the interests and course you made in the Jigi app preview.</p>
-              </dd>
-            </div>
-            <div>
-              <dt class="font-semibold">Why we collect it</dt>
-              <dd class="mt-1 text-muted">To let you know when YEONON launches, to send early-access invitations, to invite you to a short interview, and to improve the service.</dd>
-            </div>
-            <div>
-              <dt class="font-semibold">How long we keep it</dt>
-              <dd class="mt-1 text-muted">{SITE.retentionPeriod}</dd>
-            </div>
-            <div>
-              <dt class="font-semibold">How we collect it</dt>
-              <dd class="mt-1 space-y-1 text-muted">
-                <p><span class="font-medium text-text">Waitlist:</span> you enter it in the waitlist form on our <a class="font-semibold text-brand underline" href="/app-preview#waitlist">App preview page</a>. When you submit, it is sent directly to a spreadsheet that only the YEONON team can access ({SITE.waitlistStorage}), and a copy is sent to the team's email inbox as a new-signup notification. This website itself does not store it. Along with your answers, we record when you submitted and which link brought you here (UTM tags in the web address).</p>
-                <p><span class="font-medium text-text">Jigi applications:</span> through the application form on our <a class="font-semibold text-brand underline" href="/app-preview-jigi#jigi-apply">Jigi app preview page</a>, handled the same way as the waitlist (sent to the team-only spreadsheet with an email notification, not stored on this website), or through an external form tool ({SITE.formTool}).</p>
-              </dd>
-            </div>
-            <div>
-              <dt class="font-semibold">Deletion requests</dt>
-              <dd class="mt-1 text-muted">
-                Email us at {isTodo(email) ? email : <a class="font-semibold text-brand underline" href={`mailto:${email}`}>{email}</a>} and we'll delete your information.
-              </dd>
-            </div>
-            <div>
-              <dt class="font-semibold">This website</dt>
-              <dd class="mt-1 text-muted">This site does not use cookies or analytics tools to collect personal information.</dd>
-            </div>
-          </dl>
-        </article>
-
-        <article class="card p-6 md:p-8" lang="ko">
-          <h2 class="text-xl font-bold">한국어</h2>
-          <dl class="mt-6 space-y-5 text-[0.9375rem]">
-            <div>
-              <dt class="font-semibold">수집 항목</dt>
-              <dd class="mt-1 space-y-1 text-muted">
-                <p><span class="font-medium text-text">여행자(대기자 등록):</span> 연락 방법과 연락처(이메일, WhatsApp 번호 또는 Instagram 계정), 국적, 연온을 알게 된 경로, 추천인 이름(선택), 앱 미리보기에서 고른 관심사</p>
-                <p><span class="font-medium text-text">지기 지원자:</span> 이름, 휴대폰 번호, 이메일, 나이대, 성수동과의 관계, 대화 가능한 외국어, 활동 가능 시간, 자기소개, 알게 된 경로, 인스타그램·추천인(선택), 지기 앱 미리보기에서 고른 취향과 만든 코스</p>
-              </dd>
-            </div>
-            <div>
-              <dt class="font-semibold">이용 목적</dt>
-              <dd class="mt-1 text-muted">출시 안내, 사전 이용 초대, 인터뷰 요청, 서비스 개선</dd>
-            </div>
-            <div>
-              <dt class="font-semibold">보관 기간</dt>
-              <dd class="mt-1 text-muted">{SITE.retentionPeriod}</dd>
-            </div>
-            <div>
-              <dt class="font-semibold">수집 방법</dt>
-              <dd class="mt-1 space-y-1 text-muted">
-                <p><span class="font-medium text-text">대기자 등록:</span> <a class="font-semibold text-brand underline" href="/app-preview#waitlist">앱 미리보기 페이지</a>의 대기자 등록 폼에 직접 입력하시면, 제출 즉시 연온 운영팀만 접근할 수 있는 스프레드시트({SITE.waitlistStorage})로 전송되고, 새 신청 알림으로 운영팀 메일함에도 사본이 전송됩니다. 웹사이트 자체에는 저장되지 않습니다. 응답과 함께 제출 시각과 유입 경로(주소의 UTM 태그)를 기록합니다.</p>
-                <p><span class="font-medium text-text">지기 지원:</span> <a class="font-semibold text-brand underline" href="/app-preview-jigi#jigi-apply">지기 앱 미리보기 페이지</a>의 신청 폼으로 받으며, 대기자 등록과 같은 방식(운영팀 전용 스프레드시트 저장 + 알림 메일, 웹사이트에는 저장하지 않음)으로 처리합니다. 외부 설문 도구({SITE.formTool})로 받는 경우도 있습니다.</p>
-              </dd>
-            </div>
-            <div>
-              <dt class="font-semibold">삭제 요청</dt>
-              <dd class="mt-1 text-muted">
-                {isTodo(email) ? email : <a class="font-semibold text-brand underline" href={`mailto:${email}`}>{email}</a>} 로 요청해 주시면 지체 없이 삭제합니다.
-              </dd>
-            </div>
-            <div>
-              <dt class="font-semibold">웹사이트</dt>
-              <dd class="mt-1 text-muted">이 사이트는 쿠키나 분석 도구로 개인정보를 수집하지 않습니다.</dd>
-            </div>
-          </dl>
-        </article>
-      </div>
+    <h2 id="ko-collect">1. 수집하는 개인정보와 이용 목적, 보관 기간</h2>
+    <p>회사는 아래 정보를 서비스 화면에서 직접 입력받거나 이용 과정에서 만들어 처리합니다. 따로 적지 않은 정보는 수집하지 않습니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구분</th><th>항목</th><th>이용 목적</th><th>보관 기간</th></tr></thead>
+        <tbody>
+          {COLLECTED.map((c) => <tr><td class="font-semibold">{c.cat.ko}</td><td>{c.items.ko}</td><td>{c.purpose.ko}</td><td>{c.keep.ko}</td></tr>)}
+        </tbody>
+      </table>
     </div>
-  </section>
-</BaseLayout>
+    <p class="note">탈퇴하면 위 정보는 즉시 삭제되고, 신고·관리 기록에서는 회원과의 연결이 지워져 누구인지 알 수 없게 됩니다. 다만 관계 법령에 따라 보존해야 하는 정보는 그 법령이 정한 기간 동안 따로 보관한 뒤 삭제합니다 (예: 「통신비밀보호법」에 따른 접속 기록 3개월 — {legalValue('TODO: 적용 여부 법률 검토')}). 현재 결제 기능이 없어 거래·결제 기록은 만들지 않습니다.</p>
+
+    <h2 id="ko-chat">2. 채팅 정보와 관리자 열람</h2>
+    <ul>
+      <li>채팅은 매칭 요청이 생긴 여행자와 지기 두 사람만 읽고 쓸 수 있습니다. 메시지는 보낸 뒤 고치거나 지울 수 없습니다 (신고 증거 보존).</li>
+      <li><b>운영팀(관리자)은 평소에 채팅 내용을 볼 수 없습니다.</b> 회원이 대화를 신고한 경우에만, 신고 처리에 필요한 범위에서 그 대화를 열람합니다. 열람할 때마다 열람한 사람과 시각이 관리 기록에 남습니다.</li>
+      <li>연락처·외부 결제 유도로 보이는 표현은 자동으로 감지해 안내 문구를 보여 줍니다. 감지 결과는 메시지에 표시만 하며 메시지를 막거나 지우지 않습니다.</li>
+      <li>메시지를 일정 시간(기본 10분) 읽지 않으면 가입 이메일로 알림을 보낼 수 있습니다. 메일에는 메시지 내용을 넣지 않습니다.</li>
+      <li>보관 기간: 만남이 끝나거나 예약이 취소·거절·만료된 날부터 {r.chatMonths}개월 뒤 자동 삭제합니다. 처리 중인 신고가 있는 대화는 처리가 끝날 때까지 보관합니다.</li>
+    </ul>
+
+    <h2 id="ko-admin">3. 관리자가 보는 정보</h2>
+    <p>관리자는 서비스 운영을 위해 필요한 정보만 봅니다: 회원 목록(이름·이메일·역할·상태), 지기 신청서(심사·인터뷰 연락), 루트 검수, 예약 현황(강제 취소 등 개입), 신고 목록과 신고된 대화, 안전 문제가 체크된 후기, 추천 기록(누가 요청했는지는 화면에 표시하지 않음), 대기자 명단. 정지·심사·신고 처리·신고 대화 열람·목록 내보내기(CSV) 같은 관리자 조치는 모두 관리 기록에 남습니다. 연락처 같은 민감 항목은 관리자가 따로 선택해야만 내보낼 수 있습니다.</p>
+
+    <h2 id="ko-ai">4. AI 처리에 관한 안내</h2>
+    <ul>
+      <li><b>추천</b>: 루트 추천 순서와 "Why this fits you" 추천 이유를 만들 때 AI를 씁니다. AI 업체에는 <b>취향 조건(관심사·날짜·시간대·인원·언어·분위기·자유 문장 — 이메일·전화번호·링크를 지운 뒤)과 루트 공개 정보(제목·소개·태그·정류장 설명)만</b> 보냅니다.</li>
+      <li><b>의미 유사도</b>: 취향 문장과 루트 설명이 얼마나 비슷한지 계산하려고 같은 범위의 글을 숫자 벡터(임베딩)로 바꿉니다.</li>
+      <li><b>번역</b>: 채팅 메시지 아래 [번역]을 <b>직접 누를 때만</b> 그 메시지 내용을 AI 업체로 보내 번역합니다. 번역 결과는 저장하지 않습니다.</li>
+      <li>AI 업체에는 <b>이름·이메일·휴대폰·국적 같은 개인 식별 정보를 보내지 않습니다.</b> AI 결과는 참고용이며 정확하지 않을 수 있습니다. AI가 실패하면 AI 없이 점수 순서로 추천합니다.</li>
+    </ul>
+
+    <h2 id="ko-processors">5. 개인정보 처리 위탁과 국외 이전</h2>
+    <p>회사는 서비스 운영을 위해 아래 업체에 개인정보 처리를 맡깁니다. 업체들은 국외(주로 미국)에 있어, 서비스를 이용할 때 개인정보가 네트워크로 국외에 전송될 수 있습니다. 국외 이전을 원하지 않으면 서비스 이용을 멈추고 탈퇴할 수 있으나, 이 경우 서비스를 이용할 수 없습니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>업체</th><th>국가</th><th>이전 항목</th><th>목적</th><th>보관 기간</th><th>이전 일시·방법</th></tr></thead>
+        <tbody>
+          {LEGAL.processors.map((p) => <tr><td class="font-semibold">{p.name}</td><td>{p.country}</td><td>{p.items}</td><td>{p.purpose}</td><td>{legalValue(p.retention)}</td><td>{legalValue(p.transfer)}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+    <p>메일 업체(Resend)는 알림 메일 기능을 켠 경우에만 이용합니다. 임베딩 업체는 설정에 따라 바뀔 수 있으며, 바뀌면 이 표를 고칩니다.</p>
+
+    <h2 id="ko-share">6. 상대 회원에게 보이는 정보와 제3자 제공</h2>
+    <p>회사는 회원의 개인정보를 제3자에게 팔거나 제공하지 않습니다 (법령에 따른 요청이 있는 경우 제외). 서비스 특성상 매칭된 상대에게는 아래 정보만 보입니다.</p>
+    <ul>
+      <li><b>여행자 → 지기에게</b>: 표시 이름, 요청한 루트·시간·인원, 요청 메모, 채팅 메시지, (지기 → 여행자 후기는 공개하지 않음)</li>
+      <li><b>지기 → 여행자·방문자에게</b>: 확정 전에는 표시 이름 일부(예: 김**), 한 줄 소개·소개 글·사용 언어·평점·후기, 루트 정보와 가능 시간 / 만남이 확정되면 표시 이름 전체</li>
+      <li><b>공개 후기</b>: 여행자가 지기에게 쓴 후기의 별점·내용·작성 월, 쓴 사람 이름은 첫 글자만. 안전 문제 체크는 공개하지 않음</li>
+      <li><b>보이지 않는 정보</b>: 이메일, 휴대폰 번호, 지기 신청서 내용, 여행자의 국적·관심사, 프로필 사진, 상대의 차단 여부</li>
+    </ul>
+
+    <h2 id="ko-rights">7. 이용자의 권리와 행사 방법</h2>
+    <ul>
+      <li>언제든 자기 개인정보를 열람·정정·삭제하거나 처리 정지를 요구할 수 있습니다. 프로필은 내 정보 화면에서 직접 고칠 수 있고, 마케팅 메일 동의는 언제든 철회할 수 있습니다.</li>
+      <li><b>탈퇴</b>: 계정 화면의 [회원 탈퇴]를 누르면 바로 처리됩니다 (진행 중인 예약은 자동 취소).</li>
+      <li>그 밖의 요청은 개인정보 보호책임자에게 메일로 보내 주시면 지체 없이({legalValue('TODO: 처리 기한 확정 (예: 10일 이내)')}) 처리하고 결과를 알려 드립니다.</li>
+    </ul>
+
+    <h2 id="ko-age">8. 만 18세 미만</h2>
+    <p>서비스는 만 18세 이상만 가입할 수 있으며, 만 14세 미만 아동의 개인정보는 수집하지 않습니다. 만 18세 미만이 가입한 사실을 알게 되면 계정을 정지하고 정보를 삭제합니다.</p>
+
+    <h2 id="ko-cookies">9. 쿠키</h2>
+    <p>로그인을 유지하기 위한 세션 쿠키와 로그인 과정의 보안용 임시 쿠키만 씁니다. 광고·분석용 쿠키나 분석 도구는 쓰지 않습니다. 브라우저 설정에서 쿠키를 막을 수 있지만, 그러면 로그인이 필요한 기능을 쓸 수 없습니다.</p>
+
+    <h2 id="ko-security">10. 안전성 확보 조치</h2>
+    <p>모든 통신은 암호화(HTTPS)하고, 데이터베이스의 모든 표에 접근 권한 규칙(행 수준 보안)을 적용해 본인과 권한 있는 사람만 읽을 수 있게 합니다. 서버 전용 키는 브라우저에 노출하지 않고, 관리자 권한은 최소한으로 부여하며 조치 기록을 남깁니다.</p>
+
+    <h2 id="ko-officer">11. 개인정보 보호책임자와 문의</h2>
+    <ul>
+      <li>개인정보 보호책임자: {officerName} ({legalValue(o.title)})</li>
+      <li>메일: <a href={`mailto:${o.email}`}>{o.email}</a> · 전화: {legalValue(o.phone)}</li>
+    </ul>
+    <p>개인정보 침해에 대한 상담이 필요하면 개인정보분쟁조정위원회(1833-6972, www.kopico.go.kr), 개인정보침해신고센터(118, privacy.kisa.or.kr), 대검찰청(1301), 경찰청(182)에 문의할 수 있습니다.</p>
+
+    <h2 id="ko-history">12. 시행일과 변경 이력</h2>
+    <p>이 방침은 {legalDate(LEGAL.privacyVersion, 'ko')}부터 시행합니다. 내용이 바뀌면 시행 7일 전(중요한 변경은 30일 전)부터 알리고, 로그인한 회원에게 다시 동의를 받습니다.</p>
+    <ul>
+      {LEGAL.history.map((h) => <li>{legalDate(h.date, 'ko')}: {h.ko}</li>)}
+    </ul>
+  </Fragment>
+
+  <Fragment slot="en">
+    <p class="mt-6">{LEGAL.business.name} (the "Company", "we") handles the personal information of people who use {LEGAL.business.serviceName} (the "Service") under Korea's Personal Information Protection Act and related laws. This notice explains what we collect and why, how long we keep it, and who we share it with or show it to.</p>
+
+    <h2 id="en-collect">1. What we collect, why, and how long we keep it</h2>
+    <p>We collect the following directly from you in the Service or as you use it. We don't collect anything not listed here.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Category</th><th>Information</th><th>Purpose</th><th>Retention</th></tr></thead>
+        <tbody>
+          {COLLECTED.map((c) => <tr><td class="font-semibold">{c.cat.en}</td><td>{c.items.en}</td><td>{c.purpose.en}</td><td>{c.keep.en}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+    <p class="note">When you delete your account, the information above is deleted immediately, and reports and admin records are unlinked from you so you can't be identified. Where a law requires us to keep something, we keep it separately for that period and then delete it. We have no payment feature, so we don't create transaction or payment records.</p>
+
+    <h2 id="en-chat">2. Chats and when our team can see them</h2>
+    <ul>
+      <li>Only the traveler and the jigi in a request can read and write in its chat. Messages can't be edited or deleted after sending (to preserve evidence for reports).</li>
+      <li><b>Our team (admins) can't read chats in general.</b> We open a conversation only when someone reports it, only as far as needed to handle the report, and every view is logged with who viewed it and when.</li>
+      <li>Messages that look like they share contact details or push payment outside YEONON are detected automatically and a safety notice is shown. The message is only marked, not blocked or deleted.</li>
+      <li>If you don't read a message for a while (10 minutes by default), we may email you a reminder. The email never includes the message text.</li>
+      <li>Retention: deleted automatically {r.chatMonths} months after the meetup is completed or the booking is cancelled, declined or expires. Chats with an open report are kept until it's handled.</li>
+    </ul>
+
+    <h2 id="en-admin">3. What admins can see</h2>
+    <p>Admins see only what's needed to run the Service: the member list (name, email, role, status), jigi applications (for review and interviews), route reviews, bookings (to step in, e.g. force-cancel), reports and reported chats, reviews flagged for safety, recommendation logs (without showing who made them) and the waitlist. Admin actions — suspensions, reviews, report handling, viewing reported chats and exporting lists — are all logged. Sensitive fields like contact details are only exported when an admin explicitly chooses to include them.</p>
+
+    <h2 id="en-ai">4. How we use AI</h2>
+    <ul>
+      <li><b>Recommendations</b>: AI helps rank routes and write the "Why this fits you" text. We send the AI provider <b>only your preferences (interests, dates, time of day, group size, languages, vibe and your note, with emails, phone numbers and links removed) and public route information</b> (title, summary, tags, stop descriptions).</li>
+      <li><b>Similarity</b>: the same kind of text is turned into number vectors (embeddings) to measure how close a route is to your taste.</li>
+      <li><b>Translation</b>: only when <b>you tap Translate</b> under a chat message do we send that message to the AI provider. Translations are not stored.</li>
+      <li>We <b>never send AI providers personal identifiers</b> such as your name, email, phone number or nationality. AI output is for reference only and may be wrong. If AI fails, we recommend routes by score without it.</li>
+    </ul>
+
+    <h2 id="en-processors">5. Service providers and international transfers</h2>
+    <p>We use the providers below to run the Service. They are located outside Korea (mostly in the USA), so your information may be transferred abroad over the network when you use the Service. If you don't want this, you can stop using the Service and delete your account, but you won't be able to use the Service.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Provider</th><th>Country</th><th>Information</th><th>Purpose</th><th>Retention</th></tr></thead>
+        <tbody>
+          {LEGAL.processors.map((p) => <tr><td class="font-semibold">{p.name}</td><td>{p.countryEn}</td><td>{p.itemsEn}</td><td>{p.purposeEn}</td><td>{legalValue(p.retentionEn, 'en')}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+    <p>We use the email provider (Resend) only when email notifications are turned on. The embedding provider may change with our settings; we'll update this table if it does.</p>
+
+    <h2 id="en-share">6. What other members see, and third parties</h2>
+    <p>We don't sell or give your personal information to third parties, except when required by law. Because of how the Service works, the person you're matched with sees only the following.</p>
+    <ul>
+      <li><b>Travelers → their jigi</b>: display name, requested route, time and group size, request note, chat messages (jigis' reviews of travelers are not shown)</li>
+      <li><b>Jigis → travelers and visitors</b>: before confirmation, part of the display name (e.g. K**), headline, bio, languages, rating and reviews, routes and open times / once confirmed, the full display name</li>
+      <li><b>Public reviews</b>: travelers' reviews of jigis show the rating, text and month, with the writer's first initial only. Safety flags are never public</li>
+      <li><b>Never shown</b>: email, phone number, jigi application details, a traveler's nationality and interests, profile photos, and whether someone blocked you</li>
+    </ul>
+
+    <h2 id="en-rights">7. Your rights</h2>
+    <ul>
+      <li>You can ask to see, correct or delete your information, or stop its processing, at any time. You can edit your profile yourself and withdraw marketing email consent at any time.</li>
+      <li><b>Delete your account</b> from your account page — it takes effect immediately and cancels open bookings.</li>
+      <li>For anything else, email our privacy officer and we'll handle it without delay and let you know.</li>
+    </ul>
+
+    <h2 id="en-age">8. Under 18s</h2>
+    <p>You must be 18 or older to use the Service, and we don't collect information from children under 14. If we learn that someone under 18 has signed up, we'll suspend the account and delete their information.</p>
+
+    <h2 id="en-cookies">9. Cookies</h2>
+    <p>We use only a session cookie to keep you signed in and a temporary security cookie during sign-in. We don't use advertising or analytics cookies or tools. You can block cookies in your browser, but then you can't use features that need sign-in.</p>
+
+    <h2 id="en-security">10. How we protect your information</h2>
+    <p>All traffic is encrypted (HTTPS). Every database table has access rules (row-level security) so only you and authorized people can read it. Server keys are never exposed to browsers, admin access is kept to a minimum, and admin actions are logged.</p>
+
+    <h2 id="en-officer">11. Privacy officer and contact</h2>
+    <ul>
+      <li>Privacy officer: {legalValue(o.name, 'en')} ({legalValue(o.title, 'en')})</li>
+      <li>Email: <a href={`mailto:${o.email}`}>{o.email}</a> · Phone: {legalValue(o.phone, 'en')}</li>
+    </ul>
+    <p>For help with a privacy concern you can also contact the Personal Information Dispute Mediation Committee (+82-1833-6972, www.kopico.go.kr) or the Personal Information Infringement Report Center (118, privacy.kisa.or.kr).</p>
+
+    <h2 id="en-history">12. Effective date and changes</h2>
+    <p>This notice takes effect on {legalDate(LEGAL.privacyVersion, 'en')}. If it changes, we'll announce it at least 7 days in advance (30 days for important changes) and ask signed-in members to agree again.</p>
+    <ul>
+      {LEGAL.history.map((h) => <li>{legalDate(h.date, 'en')}: {h.en}</li>)}
+    </ul>
+  </Fragment>
+</LegalDoc>

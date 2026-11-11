@@ -9,6 +9,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import ExportForm from '../../components/admin/ExportForm.astro';
 import Notice from '../../components/account/Notice.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
 import { SETTINGS_COLUMNS, fmtMinutes, type BookingSettings } from '../../lib/bookings';
@@ -117,6 +118,7 @@ const input = 'mt-1 block h-11 w-full rounded-xl border border-border bg-surface
     <div class="container-page max-w-3xl!">
       <h1 class="text-3xl font-extrabold">할인·예약 규칙</h1>
       <p class="mt-2 text-muted">결제 단계는 없어요. 요청 = 이용 확정이고, 예약에는 정가·할인율·최종 가격이 기록으로만 남아요. 정가는 실제로 받을 계획이 있는 가격이어야 해요.</p>
+      <ExportForm list="promotions" class="mt-4" />
       {done && <Notice class="mt-6">{done}</Notice>}
       {error && <Notice tone="error" class="mt-6">{error}</Notice>}
 

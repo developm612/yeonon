@@ -12,9 +12,13 @@ const PREVIEW_HOST = /^yeonon-[a-z0-9-]+-developm612s-projects\.vercel\.app$/;
 const previewHosts = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL].filter(
   (host) => typeof host === 'string' && PREVIEW_HOST.test(host),
 );
+// 도메인을 연결하면 SITE_URL(Vercel 환경 변수, 예: https://yeonon.xyz)의 주소도 믿는 주소에 넣는다
+const SITE_URL = process.env.SITE_URL || 'https://yeonon.vercel.app';
+const siteHost = new URL(SITE_URL).hostname;
 const allowedDomains = [
   { protocol: 'http', hostname: 'localhost', port: '4321' },
   { protocol: 'https', hostname: 'yeonon.vercel.app' },
+  ...(siteHost !== 'yeonon.vercel.app' ? [{ protocol: 'https', hostname: siteHost }] : []),
   ...[...new Set(previewHosts)].map((hostname) => ({ protocol: 'https', hostname })),
 ];
 
@@ -25,8 +29,9 @@ export default defineConfig({
   adapter: vercel({ maxDuration: 30 }),
   // 실시간 구독 화면(알림 종·예약 상태·새 요청)은 Preact 아일랜드 — src/components/islands/
   integrations: [preact()],
-  // TODO: 도메인 확정 후 교체 (canonical / OG URL에 사용)
-  site: 'https://yeonon.xyz',
+  // canonical·OG 이미지 주소의 기준. 도메인을 연결하면 Vercel 환경 변수 SITE_URL(예: https://yeonon.xyz)을 넣고 다시 배포한다
+  // (docs/launch-checklist.md '도메인 연결 시 바꿀 곳'). 비어 있으면 지금 공개 주소를 쓴다.
+  site: SITE_URL,
   trailingSlash: 'ignore',
   // checkOrigin(다른 사이트의 폼 전송 차단)은 기본값 그대로 켜 둔다
   security: { checkOrigin: true, allowedDomains },

@@ -5,6 +5,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import ExportForm from '../../components/admin/ExportForm.astro';
 import Notice from '../../components/account/Notice.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
 import { interestNames } from '../../data/interests';
@@ -86,6 +87,7 @@ const input = 'h-11 rounded-xl border border-border bg-surface px-3 text-sm';
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">
       <h1 class="text-3xl font-extrabold">회원 <span class="text-lg font-semibold text-muted tabular-nums">{count ?? 0}명</span></h1>
+      <ExportForm list="users" filters={{ q, role, status }} class="mt-4" />
 
       <form method="get" class="mt-6 flex flex-wrap gap-2" role="search">
         <label class="sr-only" for="u-q">이름·이메일 검색</label>

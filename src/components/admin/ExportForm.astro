@@ -1,0 +1,30 @@
+---
+/**
+ * 관리자 목록의 [CSV 내보내기] 버튼. /api/admin/export로 POST → 파일 내려받기 (화면은 그대로).
+ * 지금 화면의 필터를 그대로 넘긴다. 민감 항목(이메일·휴대폰·연락처·자유 입력 글)이 있는 목록은 체크해야만 포함된다.
+ * 내보낼 때마다 관리 기록(audit_log 'export.csv')에 남는다.
+ */
+import { EXPORTS } from '../../lib/adminExport';
+
+interface Props {
+  list: keyof typeof EXPORTS;
+  filters?: Record<string, string | null | undefined>;
+  class?: string;
+}
+const { list, filters = {}, class: className = '' } = Astro.props;
+const def = EXPORTS[list];
+const sensitive = def.columns.filter((c) => c.sensitive).map((c) => c.header);
+const hidden = Object.entries(filters).filter(([k, val]) => val && def.filters.includes(k)) as [string, string][];
+---
+<form method="post" action="/api/admin/export" class:list={['flex flex-wrap items-center gap-x-3 gap-y-2 text-sm', className]}>
+  <input type="hidden" name="list" value={list} />
+  {hidden.map(([k, val]) => <input type="hidden" name={k} value={val} />)}
+  {sensitive.length > 0 && (
+    <label class="flex cursor-pointer items-center gap-2">
+      <input type="checkbox" name="sensitive" value="yes" class="size-4 accent-[#B42318]" />
+      <span>민감 항목 포함 <span class="text-muted">({sensitive.join('·')})</span></span>
+    </label>
+  )}
+  <button type="submit" class="min-h-10 rounded-full border border-border bg-surface px-4 font-semibold hover:border-text">CSV 내보내기</button>
+  <span class="text-xs text-muted">{def.label} 목록 · 최대 1만 행 · 내보내기는 관리 기록에 남아요</span>
+</form>

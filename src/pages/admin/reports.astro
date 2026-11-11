@@ -4,10 +4,14 @@
  * 관리자는 대화를 일반 조회할 수 없다. 신고 건의 대화만 admin_view_report_conversation()으로 열람하고,
  * 열람할 때마다 audit_log('report.view_conversation')에 남는다. 처리는 admin_resolve_report() — audit_log('report.resolve').
  * 정지는 신고된 회원 계정을 정지한다 (/admin/users에서 해제 가능).
+ *
+ * 위쪽에는 '안전 문제'가 체크된 후기(Phase 7)를 먼저 보여 준다: 확인 대기 목록 → 확인 메모와 함께 [확인 완료]
+ * (admin_resolve_safety_review → audit_log 'review.safety_resolve'). 필요하면 /admin/users에서 정지, /admin/bookings에서 예약 확인.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
 import Notice from '../../components/account/Notice.astro';
+import ExportForm from '../../components/admin/ExportForm.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
 import { kstWhen } from '../../data/bookingOptions';
 import { REPORT_REASONS, REPORT_STATUS } from '../../data/chatOptions';
@@ -44,6 +48,17 @@ let error: string | null = null;
 if (Astro.request.method === 'POST') {
   const fd = await Astro.request.formData();
   const rid = field(fd, 'id');
+  if (field(fd, 'kind') === 'safety') {
+    // 안전 체크 후기 확인 완료
+    const note = clean(field(fd, 'note'), 500);
+    if (!UUID.test(rid)) error = '잘못된 요청이에요.';
+    else if (!note) error = '확인 메모를 적어 주세요 (어떻게 확인·조치했는지). 관리 기록에 남아요.';
+    else {
+      const { error: rpcError } = await supabase.rpc('admin_resolve_safety_review', { p_review: rid, p_note: note });
+      if (!dbError(rpcError, 'resolve safety review')) return Astro.redirect('/admin/reports?notice=safety#safety');
+      error = /already handled/.test(rpcError!.message) ? '이미 확인 완료된 후기예요.' : '저장하지 못했어요. 다시 시도해 주세요.';
+    }
+  } else {
   const action = field(fd, 'action');
   const note = clean(field(fd, 'note'), 500);
   if (!UUID.test(rid) || !(action in ACTIONS)) error = '잘못된 요청이에요.';
@@ -55,7 +70,39 @@ if (Astro.request.method === 'POST') {
       : /another admin|your own/.test(rpcError!.message) ? '관리자 계정은 정지할 수 없어요.'
       : '처리하지 못했어요. 다시 시도해 주세요.';
   }
+  }
 }
+
+// 안전 체크 후기 (확인 대기 / ?safety_status=resolved 확인 완료). 알림 링크 ?safety=<id>는 그 후기를 펼친다
+interface SafetyReview {
+  id: string;
+  booking_id: string;
+  author_id: string;
+  target_id: string;
+  author_role: 'traveler' | 'jigi';
+  route_title: string;
+  rating: number;
+  comment: string | null;
+  safety_status: 'open' | 'resolved';
+  safety_handled_at: string | null;
+  safety_note: string | null;
+  created_at: string;
+}
+const safetyTab = Astro.url.searchParams.get('safety_status') === 'resolved' ? 'resolved' : 'open';
+const openSafetyId = Astro.url.searchParams.get('safety') ?? '';
+const [{ data: safetyData, error: safetyError }, { count: safetyOpenCount }] = await Promise.all([
+  supabase.from('reviews')
+    .select('id, booking_id, author_id, target_id, author_role, route_title, rating, comment, safety_status, safety_handled_at, safety_note, created_at')
+    .eq('safety_issue', true).eq('safety_status', safetyTab).order('created_at', { ascending: safetyTab === 'open' }).limit(50),
+  supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('safety_issue', true).eq('safety_status', 'open'),
+]);
+dbError(safetyError, 'admin list safety reviews');
+const safety = (safetyData ?? []) as SafetyReview[];
+const safetyBookingIds = [...new Set(safety.map((r) => r.booking_id))];
+const { data: safetyBookings } = safetyBookingIds.length
+  ? await supabase.from('bookings').select('id, starts_at').in('id', safetyBookingIds)
+  : { data: [] };
+const meetAt = new Map((safetyBookings ?? []).map((b) => [b.id as string, b.starts_at as string]));
 
 const [{ data: listData, error: listError }, ...counts] = await Promise.all([
   (current === 'all' ? supabase.from('message_reports').select(COLUMNS) : supabase.from('message_reports').select(COLUMNS).eq('status', current))
@@ -79,7 +126,10 @@ if (viewing && report) {
   threadMissing = !viewError && thread.length === 0 && !report.conversation_id;
 }
 
-const peopleIds = [...new Set([...reports, ...(report ? [report] : [])].flatMap((r) => [r.reporter_id, r.reported_id]).filter(Boolean))] as string[];
+const peopleIds = [...new Set([
+  ...[...reports, ...(report ? [report] : [])].flatMap((r) => [r.reporter_id, r.reported_id]),
+  ...safety.flatMap((r) => [r.author_id, r.target_id]),
+].filter(Boolean))] as string[];
 const { data: people } = peopleIds.length ? await supabase.from('profiles').select('id, display_name, role, status').in('id', peopleIds) : { data: [] };
 const personOf = new Map((people ?? []).map((p) => [p.id as string, p as { display_name: string; role: string | null; status: string }]));
 const who = (uid: string | null) => {
@@ -90,18 +140,72 @@ const who = (uid: string | null) => {
 };
 const reasonKo = (r: string) => REPORT_REASONS.find((x) => x.id === r)?.ko ?? r;
 const reportedRole = report?.reported_id ? personOf.get(report.reported_id)?.role : null;
-const notices: Record<string, string> = { dismiss: '문제없음으로 처리했어요.', warn: '경고 알림을 보냈어요.', suspend: '신고된 회원을 정지했어요. /admin/users에서 해제할 수 있어요.' };
+const notices: Record<string, string> = { safety: '안전 체크 후기를 확인 완료로 바꿨어요. 관리 기록에 남겼어요.', dismiss: '문제없음으로 처리했어요.', warn: '경고 알림을 보냈어요.', suspend: '신고된 회원을 정지했어요. /admin/users에서 해제할 수 있어요.' };
 const done = notices[Astro.url.searchParams.get('notice') ?? ''] ?? null;
 const statusClass = (s: string) => (s === 'open' ? 'bg-[#FFF4D6] text-[#7A5200]' : s === 'dismissed' ? 'bg-text/5 text-muted' : 'bg-[#FDECEC] text-[#8A1C1C]');
 ---
-<BaseLayout title="신고 | 관리자 | YEONON" description="연온 관리자 채팅 신고" lang="ko" sticky="none" noindex>
+<BaseLayout title="신고·안전 | 관리자 | YEONON" description="연온 관리자 채팅 신고·안전 후기" lang="ko" sticky="none" noindex>
   <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">
-      <h1 class="text-3xl font-extrabold">채팅 신고</h1>
+      <h1 class="text-3xl font-extrabold">신고 · 안전</h1>
       <p class="mt-2 text-sm text-muted">대화 내용은 신고된 건만, [대화 열람]을 누를 때만 볼 수 있어요. 열람할 때마다 관리 기록(audit_log)에 남아요.</p>
       {done && <Notice class="mt-6">{done}</Notice>}
       {error && <Notice tone="error" class="mt-6">{error}</Notice>}
+
+      <section id="safety" class="mt-8 scroll-mt-24" aria-labelledby="safety-title">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 id="safety-title" class="text-xl font-bold">안전 문제가 체크된 후기</h2>
+          <a href="/admin/reports?safety_status=open#safety" aria-current={safetyTab === 'open' ? 'page' : undefined}
+            class:list={['inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold', safetyTab === 'open' ? 'bg-[#B42318] text-white' : 'bg-surface text-muted shadow-card']}>
+            확인 대기 <span class="tabular-nums">{safetyOpenCount ?? 0}</span>
+          </a>
+          <a href="/admin/reports?safety_status=resolved#safety" aria-current={safetyTab === 'resolved' ? 'page' : undefined}
+            class:list={['inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-semibold', safetyTab === 'resolved' ? 'bg-text text-white' : 'bg-surface text-muted shadow-card']}>확인 완료</a>
+        </div>
+        <p class="mt-1 text-sm text-muted">만남 뒤 후기에서 "안전 문제가 있었어요"를 체크한 건이에요. 공개 후기에는 나오지 않아요. 당사자에게 연락해 확인하고, 필요하면 회원 정지·예약 확인 후 메모를 남겨 확인 완료로 바꿔 주세요.</p>
+        <ExportForm list="safety_reviews" filters={{ safety: safetyTab }} class="mt-3" />
+        {safety.length === 0 ? (
+          <p class="mt-4 text-sm text-muted">{safetyTab === 'open' ? '확인 대기 중인 안전 후기가 없어요.' : '확인 완료된 안전 후기가 없어요.'}</p>
+        ) : (
+          <ul class="mt-4 space-y-3">
+            {safety.map((r) => (
+              <li id={`safety-${r.id}`} class:list={['card scroll-mt-24 p-5', r.safety_status === 'open' && 'border-[#B42318]']}>
+                <details open={r.id === openSafetyId || safety.length <= 3 || undefined}>
+                  <summary class="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1">
+                    <span class:list={['rounded-full px-2.5 py-0.5 text-xs font-bold', r.safety_status === 'open' ? 'bg-[#FDECEC] text-[#8A1C1C]' : 'bg-text/5 text-muted']}>{r.safety_status === 'open' ? '확인 대기' : '확인 완료'}</span>
+                    <span class="font-semibold">{r.author_role === 'traveler' ? '여행자 → 지기' : '지기 → 여행자'}</span>
+                    <span class="text-sm text-muted">{r.route_title}{meetAt.get(r.booking_id) && ` · 만남 ${kstWhen(meetAt.get(r.booking_id)!, 'ko')}`}</span>
+                    <span class="ml-auto text-xs text-muted tabular-nums">작성 {kstWhen(r.created_at, 'ko')}</span>
+                  </summary>
+                  <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                    <div><dt class="text-xs font-semibold text-muted">작성한 사람</dt><dd class="mt-0.5 font-semibold">{who(r.author_id)}</dd></div>
+                    <div><dt class="text-xs font-semibold text-muted">상대</dt><dd class="mt-0.5 font-semibold">{who(r.target_id)}</dd></div>
+                    <div><dt class="text-xs font-semibold text-muted">별점</dt><dd class="mt-0.5">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</dd></div>
+                    <div><dt class="text-xs font-semibold text-muted">예약 id</dt><dd class="mt-0.5 break-all tabular-nums">{r.booking_id}</dd></div>
+                    <div class="sm:col-span-2"><dt class="text-xs font-semibold text-muted">후기 내용</dt><dd class="mt-0.5 whitespace-pre-wrap">{r.comment ?? '(내용 없음)'}</dd></div>
+                    {r.safety_handled_at && <div class="sm:col-span-2"><dt class="text-xs font-semibold text-muted">확인</dt><dd class="mt-0.5">{kstWhen(r.safety_handled_at, 'ko')} · {r.safety_note}</dd></div>}
+                  </dl>
+                  {r.safety_status === 'open' && (
+                    <form method="post" class="mt-4 space-y-2 border-t border-border pt-4">
+                      <input type="hidden" name="kind" value="safety" />
+                      <input type="hidden" name="id" value={r.id} />
+                      <label class="block text-sm font-semibold">확인 메모 (필수, 관리 기록에 남음)
+                        <textarea name="note" rows="2" maxlength="500" required placeholder="예) 작성자에게 연락해 확인, 상대 지기에게 경고"
+                          class="mt-1 block w-full rounded-xl border border-border bg-surface px-3 py-2 font-normal"></textarea>
+                      </label>
+                      <button type="submit" class="min-h-11 rounded-full bg-text px-5 text-sm font-semibold text-white">확인 완료</button>
+                    </form>
+                  )}
+                </details>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <h2 class="mt-12 text-xl font-bold">채팅 신고</h2>
+      <ExportForm list="reports" filters={{ status: current === 'all' ? null : current }} class="mt-3" />
 
       {report && (
         <div class="card mt-8 p-5 md:p-7" id="detail">

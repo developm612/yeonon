@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { JIGI_CTA } from '../config/cta';
 import Hero from '../components/Hero.astro';
 import Button from '../components/Button.astro';
 import Card from '../components/Card.astro';
@@ -34,7 +35,7 @@ const faq = [
     slider="ko"
   >
     <Fragment slot="actions">
-      <Button href="/app-preview-jigi" variant="jigi" size="lg">지기 지원하기</Button>
+      <Button href={JIGI_CTA.href} variant="jigi" size="lg">{JIGI_CTA.label}</Button>
       <Button href="#process" variant="secondary" size="lg">선발 과정 보기</Button>
     </Fragment>
   </Hero>
@@ -145,6 +146,6 @@ const faq = [
 
   <!-- 8. 마지막 CTA -->
   <CTASection title="당신의 성수동을 소개해 주세요." tone="jigi">
-    <Button href="/app-preview-jigi" size="lg" class="bg-white! text-[#0B4F78]! hover:bg-bg!">지기 지원하기</Button>
+    <Button href={JIGI_CTA.href} size="lg" class="bg-white! text-[#0B4F78]! hover:bg-bg!">{JIGI_CTA.label}</Button>
   </CTASection>
 </BaseLayout>

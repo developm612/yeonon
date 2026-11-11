@@ -1,16 +1,17 @@
 ---
 import Button from './Button.astro';
+import { JIGI_CTA, TRAVELER_CTA } from '../config/cta';
 interface Props { variant: 'traveler' | 'jigi'; }
 const { variant } = Astro.props;
 ---
 <div class="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg/95 px-5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-md md:hidden">
   {variant === 'jigi' ? (
-    <Button href="/app-preview-jigi" variant="jigi" class="w-full">
-      <span lang="ko">지기 지원하기</span>
+    <Button href={JIGI_CTA.href} variant="jigi" class="w-full">
+      <span lang="ko">{JIGI_CTA.label}</span>
     </Button>
   ) : (
-    <Button href="/app-preview" class="w-full">
-      <span lang="en">Join the early list</span>
+    <Button href={TRAVELER_CTA.href} class="w-full">
+      <span lang="en">{TRAVELER_CTA.label}</span>
     </Button>
   )}
 </div>

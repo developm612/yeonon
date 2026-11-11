@@ -3,9 +3,12 @@
 외국인 여행자와 성수동 현지 친구 '지기'를 연결하는 연온의 사전 등록(Pre-launch) 랜딩사이트입니다.
 Astro + Tailwind CSS v4 사이트입니다 (공개 페이지는 정적, 로그인 영역은 Vercel 서버 렌더링). 신청은 앱 미리보기 페이지 하단 폼(여행자 `/app-preview`, 지기 `/app-preview-jigi`)으로 받아 Google Apps Script로 스프레드시트에 저장합니다. (로그인·DB는 실서비스 전환 작업 중 — 아래 '로그인 · 회원 영역')
 
-**신청 버튼 연결**
-- 여행자 `Join the early list` / `Join as a traveler` → `/app-preview`: 헤더, 홈(히어로·하단), `/travelers`(히어로·하단), `/how-it-works` 하단, 모바일 하단 고정 버튼
-- 지기 `지기 지원하기` / `지기로 지원하기` → `/app-preview-jigi`: `/jigi`(히어로·하단), `/how-it-works` 하단, `/jigi` 모바일 하단 고정 버튼
+**신청 버튼 연결** (`src/config/cta.ts` 한 곳 — 회원 기능 공개 스위치 `PUBLIC_MEMBER_UI`에 따라 바뀜)
+- 여행자: 사전 등록 중 `Join the early list` → `/app-preview` / 공개 후 `Find my route` → Google 로그인 → `/app/discover`
+  (헤더, 홈(히어로·하단), `/travelers`(히어로·하단), `/how-it-works` 하단, 모바일 하단 고정 버튼, 앱 미리보기 결과 화면)
+- 지기: 사전 등록 중 `지기 지원하기` → `/app-preview-jigi` / 공개 후 `Google로 시작하고 지원하기` → Google 로그인 → `/partner/apply`
+  (`/jigi`(히어로·하단), `/how-it-works` 하단, `/jigi` 모바일 하단 고정 버튼, 지기 앱 미리보기 완료 화면)
+- 공개 후에는 앱 미리보기 하단의 대기자·지기 사전 신청 폼 대신 로그인 안내가 보이고, 푸터의 '사전 등록 단계' 문구가 바뀐다.
 
 ## 페이지
 
@@ -15,7 +18,9 @@ Astro + Tailwind CSS v4 사이트입니다 (공개 페이지는 정적, 로그�
 | `/travelers` | 여행자 페이지 | 영문 |
 | `/jigi` | 지기 모집 페이지 | 한글 |
 | `/how-it-works` | 진행 방식 (탭, 매칭 다이어그램) | 영문 + 한국어 요약 |
-| `/privacy` | 개인정보 안내 | 영문 + 한글 |
+| `/privacy` | 개인정보처리방침 (초안 — 법률 검토 필요) | 한글 기본 + 영문 전환 |
+| `/terms` | 이용약관 (초안 — 법률 검토 필요) | 한글 기본 + 영문 전환 |
+| `/404`, `/500` | 없는 주소 / 서버 오류 화면 | 영문 + 한글 |
 
 ## 로컬 실행 · 빌드
 
@@ -31,7 +36,7 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 
 ## 로그인 · 회원 영역 (실서비스 전환, 진행 중)
 
-계획: `../yeonon-service-plan-v2.md`. Phase 6(채팅)까지 구현됨.
+계획: `../yeonon-service-plan-v2.md`. Phase 7(후기·관리자 완성·약관·대기자 이전)까지 구현됨. 오픈 전 할 일: [`docs/launch-checklist.md`](docs/launch-checklist.md)
 
 | 경로 | 내용 |
 |---|---|
@@ -41,10 +46,11 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 | `/onboarding` | 첫 로그인 후 한 번: 역할(여행자/지기) + 필수 동의(약관·개인정보·만 18세) + 선택 동의(마케팅) |
 | `/account` | 헤더 `My page` → 역할별 홈으로 이동 |
 | `/account/delete` | 회원 탈퇴 (프로필·지기 신청·지기 프로필 함께 삭제) |
+| `/account/consent` | 약관·개인정보처리방침 다시 동의 — 동의한 시행일이 `src/config/legal.ts`와 다르면 미들웨어가 이리로 보낸다 |
 | `/app`, `/app/profile` | 여행자 홈(다가오는 만남·진행 중 요청·Find my route)·프로필 (영문) |
 | `/app/discover` → `/app/discover/results` | AI 추천 입력(관심사 3~5개·날짜·시간대·인원·언어·분위기·자유 문장) → 결과(Perfect match / Closest matches, 일치율·추천 이유·가능 시간) |
 | `/app/routes/[id]` | 여행자 영역 루트 상세. 추천 카드에서 오면 클릭 기록. 시간 칩 선택 → 인원·메모 → `Request this route`, 가격 `₩45,000 → ₩0 · Early member` |
-| `/app/bookings`, `/app/bookings/[id]` | 내 예약 목록 / 상태 타임라인(실시간)·응답 기한·만남 안내·취소·만료·거절 시 `See other routes`(같은 조건의 /app/discover) |
+| `/app/bookings`, `/app/bookings/[id]` | 내 예약 목록 / 상태 타임라인(실시간)·응답 기한·만남 안내·취소·만료·거절 시 `See other routes`(같은 조건의 /app/discover)·완료 후 후기(별점·코멘트·안전 문제 체크, 24시간 안 수정·삭제) |
 | `/api/bookings/request`·`respond`·`cancel` | 예약 API (POST, JSON 또는 폼). 입력 검증 → DB 함수 → 오류 코드를 여행자 영문·지기 한글 문구로 |
 | `/account/notifications` | 알림 목록·읽음 처리 (헤더 알림 종의 전체 보기) |
 | `/app/messages`, `/app/messages/[id]` | 메시지 목록(상대 이름·마지막 메시지·안 읽은 수) / 대화(실시간·읽음 표시·번역·신고·차단, 예약 요약) (영문) |
@@ -53,16 +59,18 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 | `/api/cron/chat-unread-mail` | 안 읽은 메시지 메일 (GET, `CRON_SECRET` 필요 — DB 크론이 부름) |
 | `/api/recommend` | 추천 API (POST, 로그인한 여행자만) |
 | `/partner`, `/partner/apply` | 지기 홈(신청 상태 / 승인 후 새 요청 실시간·응답 기한 카운트다운·이번 주 만남)·지기 신청서 (한글) |
-| `/partner/bookings`, `/partner/bookings/[id]` | 예약 목록 / 상세(수락·거절 사유·취소, 실시간) |
+| `/partner/bookings`, `/partner/bookings/[id]` | 예약 목록 / 상세(수락·거절 사유·취소, 실시간)·완료 후 여행자 후기 (비공개) |
 | `/partner/routes`, `/partner/routes/new`, `/partner/routes/[id]/edit` | 내 루트 목록·루트 빌더(기본 정보 → 코스 → 미리보기 → 검수 요청). 승인된 지기만 |
 | `/partner/availability` | 주간 반복 시간·날짜별 예외·확정 방식(수락 후 확정/즉시 확정) → 앞으로 4주 슬롯 자동 생성 |
-| `/admin`, `/admin/users`, `/admin/jigi-applications`, `/admin/routes` | 관리자 대시보드·회원 관리(정지·메모)·지기 신청 심사·루트 검수(공개/수정 요청/비공개) (한글) |
+| `/admin` | 대시보드(기간: 오늘·7일·30일): 처리 대기 신고·안전 후기, 가입 수, 역할별 회원, 공개 루트, 요청·확정·완료·만료·취소·거절, 수락률·평균 응답 시간, AI 추천 → 요청 전환율, 후기, 대기자 명단 |
+| `/admin/users`, `/admin/jigi-applications`, `/admin/routes` | 회원 관리(정지·메모)·지기 신청 심사·루트 검수(공개/수정 요청/비공개) (한글) |
 | `/admin/recommendations` | 추천 로그(조건·결과·모델·지연·대체 여부·클릭·요청), 대체 비율, 임베딩 백필 |
 | `/admin/bookings` | 상태별 예약 현황, 강제 취소(사유 → audit_log), 기한 만료·완료 [지금 처리] |
 | `/admin/promotions` | 할인(할인율·대상·기간·사용 한도·켜고 끄기) + 예약 규칙(응답 기한·대기 요청 수 등) |
-| `/admin/reports` | 채팅 신고 목록 → 상세 → [대화 열람](열람마다 audit_log) → 처리(문제없음·경고·정지) |
-| `/routes`, `/routes/[id]` | 공개 루트 둘러보기·상세 (누구나, 영문). 공개 전 루트는 주인 지기·관리자에게만 미리보기로 보임 |
-| `/terms` | 이용약관 자리 — **공개 전 실제 약관으로 교체 필요** |
+| `/admin/reports` | 안전 문제가 체크된 후기(확인 메모 → 확인 완료) + 채팅 신고 목록 → 상세 → [대화 열람](열람마다 audit_log) → 처리(문제없음·경고·정지) |
+| `/admin/waitlist` | 대기자 명단: Google 시트 CSV 가져오기(중복 제거), 같은 이메일 가입 시 자동 연결·얼리 멤버, 초대 보냄 표시·삭제 |
+| `/api/admin/export` | 관리자 목록 CSV 내보내기 (POST, 각 목록 화면의 [CSV 내보내기]). 민감 항목은 체크해야만 포함, 내보낼 때마다 audit_log |
+| `/routes`, `/routes/[id]` | 공개 루트 둘러보기·상세 (누구나, 영문)·지기 평점·최근 후기(여행자 이름 첫 글자만). 공개 전 루트는 주인 지기·관리자에게만 미리보기로 보임 |
 
 - **접근 규칙** (`src/middleware.ts`): 로그인 전 → `/login`, 온보딩 전 → `/onboarding`, 정지 → `/suspended`, 다른 역할의 영역 → 자기 홈. 관리자는 모든 영역에 들어갈 수 있다. 다른 사이트에서 보낸 폼 전송(POST)은 모두 거절한다.
 - **키 설정**: `.env.example`을 `.env`로 복사해 Supabase 값을 채운다. 값이 비어 있으면 로그인 기능이 꺼지고 헤더의 Sign in도 보이지 않는다 (기존 사이트와 같은 화면).
@@ -87,6 +95,11 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 14. `20261110000014_chat_safety.sql` — 연락처·외부 결제 유도 감지 규칙 `chat_safety_flags()` (규칙은 이 파일 한 곳)
 15. `20261110000015_chat_functions.sql` — `request_booking()`(대화방 자동 생성), `send_message()`·`mark_read()`·`my_conversations()`·`conversation_info()`, 신고·차단, 관리자 열람·처리, 번역 사용량, 안 읽은 메일 후보, `purge_old_conversations()`
 16. `20261110000016_chat_cron_realtime.sql` — pg_net, 보관 기간 삭제(매일), 안 읽은 메일 호출(5분), Realtime publication에 messages·conversations 추가
+17. `20261110000017_reviews.sql` — review_settings, reviews, `save_review()`·`delete_review()`·`public_jigi_reviews()`·`admin_resolve_safety_review()`, 지기 지표 갱신(`refresh_jigi_metrics()` + 트리거 + 매일 크론), `match_routes()` 품질 점수 연결, 후기 요청 알림 문구
+18. `20261110000018_waitlist.sql` — waitlist_imports, 가입 시 같은 이메일 연결·얼리 멤버 트리거, `admin_import_waitlist()`·초대 표시·삭제
+19. `20261110000019_admin_legal_retention.sql` — 동의 버전(profiles.terms_version·privacy_version), `complete_onboarding()` 새 버전·`accept_legal_update()`, `admin_dashboard_stats()`, `admin_log_export()`, data_retention(보관 기간) + `purge_expired_records()` 매일 크론
+
+⚠️ 17~19번은 **새 코드를 배포하기 전에** 실행한다 (새 코드는 profiles의 동의 버전 칸을 읽는다). 19번을 먼저 실행해도 지금 배포된 화면은 그대로 동작한다.
 
 추천 테스트용 샘플(선택, 마이그레이션 뒤): `supabase/seed/recommend_sample.sql` → 테스트 후 `supabase/seed/recommend_sample_cleanup.sql`로 한 번에 삭제.
 
@@ -112,6 +125,9 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
   - 보관: 만남 완료·취소 후 6개월(`chat_settings.retention_months`)이 지나면 매일 크론이 지운다 (처리 대기 신고가 있으면 남김).
   - 번역: `LLM_API_KEY`가 있을 때만 버튼이 보인다. 결과는 저장하지 않고, 사용자당 시간당 30회(`src/config/chat.ts`).
   - 안 읽은 메시지 메일: 10분 넘게 안 읽으면 대화당 1회(읽은 뒤 다시 쌓이면 다시 1회). 메일 키 + `CRON_SECRET` + cron_hooks 설정이 모두 있어야 동작한다. 메일에는 메시지 내용을 넣지 않는다.
+- **후기·품질 지표** (Phase 7): 만남이 끝난(completed) 예약의 당사자만 예약당 1회, 작성 후 24시간(`review_settings.edit_hours`)까지 수정·삭제. 여행자 → 지기 후기만 공개(`public_jigi_reviews()`, 이름 첫 글자, 안전 체크 후기 제외). 안전 체크는 관리자 알림 + /admin/reports. 지기 평점·수락률·평균 응답 시간은 후기·응답·만료 때 트리거가 바로 갱신하고 매일 크론이 다시 계산한다. 추천 품질 점수 = 평점(후기 3개↑)·수락률·응답 속도(응답 3건↑) 가중 평균, 데이터가 없으면 0.5 (`src/config/recommend.ts`의 quality).
+- **약관·동의 버전**: `src/config/legal.ts`의 `termsVersion`·`privacyVersion`(시행일)을 바꾸면 회원은 다음 접속 때 `/account/consent`에서 다시 동의한다. 사업자 정보 TODO도 이 파일에 모여 있다(화면에는 "확인 중").
+- **보관 기간**: 채팅 6개월(`chat_settings`), 관리 기록·처리된 신고 3년, 추천 기록·알림·대기자 명단 12개월, 번역 사용 기록 2일(`data_retention`). 값을 바꾸면 `LEGAL.retention`과 개인정보처리방침도 같이 바꾼다.
 - **렌더링**: 공개 페이지는 지금처럼 빌드 때 정적 HTML로 만들고, `export const prerender = false`인 페이지만 요청마다 서버에서 렌더링한다.
 - **헤더 로그인 표시**: 정적 페이지는 브라우저의 Supabase 세션 쿠키 유무로 `Sign in` ↔ `My page`를 바꿔 보여 줄 뿐이고, 실제 접근 확인은 서버가 한다.
 
@@ -121,7 +137,7 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 2. vercel.com → **Add New Project** → 저장소 선택. Framework Preset은 **Astro**로 자동 인식된다.
    (Build Command `npm run build`. Vercel 어댑터가 `.vercel/output`을 만들므로 Output Directory는 따로 지정하지 않는다)
 3. 배포 후 **Settings → Domains**에서 도메인 연결.
-4. 도메인이 정해지면 `astro.config.mjs`의 `site`와 `src/config/site.ts`의 `url`을 바꾸고 다시 배포한다. (canonical·OG URL에 쓰임)
+4. 도메인이 정해지면 Vercel 환경 변수 `SITE_URL`(예: `https://yeonon.xyz`)을 넣고 `src/config/site.ts`의 `url`을 바꾼 뒤 다시 배포한다. (canonical·OG URL, 폼 보안 검사 허용 주소에 쓰임. 비어 있으면 `https://yeonon.vercel.app`) — 바꿀 곳 전체 목록은 `docs/launch-checklist.md` 5번
 
 CLI로 배포하려면: `npx vercel` (미리보기) → `npx vercel --prod` (프로덕션)
 
@@ -196,8 +212,8 @@ JS는 모바일 메뉴(Header), 탭 토글(how-it-works)에만 사용합니다. 
 3. 가격 기준(1인/팀) 확정 또는 `showPrice: false`
 4. 지기에게 요구할 영어 수준 (`src/pages/jigi.astro`)
 5. 통계 수치 출처 링크 (`STAT_SOURCES`)
-6. 로고 파일, 히어로 이미지, OG 이미지
-7. 개인정보 보관 기간
+6. 로고 파일, 히어로 이미지 (OG 이미지 `public/images/og-image.png`는 Phase 7에서 만듦)
+7. 사업자 정보·개인정보 보호책임자 등 `src/config/legal.ts`의 TODO (`docs/launch-checklist.md` 2번)
 8. 신고·보험 절차 확정 후 `/travelers` Safety 문구 추가
 
 ## 참고: 외부 설문 질문 제안

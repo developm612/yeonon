@@ -6,6 +6,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import ExportForm from '../../components/admin/ExportForm.astro';
 import Notice from '../../components/account/Notice.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
 import { BOOKING_STATUS, BOOKING_STATUSES, STATUS_TONE_CLASS, kstWhen, priceText, type BookingStatus } from '../../data/bookingOptions';
@@ -83,6 +84,7 @@ const tabs: (BookingStatus | 'all')[] = [...BOOKING_STATUSES, 'all'];
         </form>
       </div>
       <p class="mt-2 text-sm text-muted">pg_cron이 5분마다 응답 기한이 지난 요청을 만료하고, 끝난 만남을 완료로 바꿔요. 응답 기한 등 규칙은 <a href="/admin/promotions" class="underline underline-offset-2">할인·예약 규칙</a>에서 바꿔요.</p>
+      <ExportForm list="bookings" filters={{ status: current === 'all' ? null : current }} class="mt-4" />
 
       {done && <Notice class="mt-6">{done}</Notice>}
       {ran && <Notice class="mt-6">처리했어요: 만료 {ran.expired}건 · 완료 {ran.completed}건</Notice>}

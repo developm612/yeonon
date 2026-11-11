@@ -1,0 +1,21 @@
+---
+/** 없는 주소 (정적 페이지). 검색엔진에는 노출하지 않는다. 회원 영역의 '찾을 수 없음'은 각 페이지가 따로 보여 준다 */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { TRAVELER_CTA } from '../config/cta';
+---
+<BaseLayout title="Page not found | YEONON" description="This page doesn't exist. 페이지를 찾을 수 없어요." sticky="none" noindex>
+  <section class="section">
+    <div class="container-page max-w-xl! text-center">
+      <p class="text-5xl" aria-hidden="true">🧭</p>
+      <p class="eyebrow mt-4">404</p>
+      <h1 class="mt-2 text-3xl font-extrabold">We couldn't find that page</h1>
+      <p class="mt-2 text-muted">The link may be broken, or the page was moved.</p>
+      <p lang="ko" class="mt-4 font-semibold">페이지를 찾을 수 없어요</p>
+      <p lang="ko" class="text-sm text-muted">주소가 바뀌었거나 잘못 입력되었을 수 있어요.</p>
+      <div class="mt-8 flex flex-wrap justify-center gap-3">
+        <a href="/" class="inline-flex min-h-11 items-center rounded-full bg-brand px-5 font-semibold text-white hover:bg-[#082D6B]">Home · 홈으로</a>
+        <a href={TRAVELER_CTA.href} class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">{TRAVELER_CTA.label}</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

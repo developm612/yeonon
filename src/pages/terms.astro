@@ -1,21 +1,298 @@
 ---
 /**
- * 이용약관 — 자리만 잡아 둔 페이지.
- * TODO(Phase 7, 계획서 10장 2번): 실제 약관을 작성·법률 검토 후 교체. 공개 전에 반드시 채워야 한다 (온보딩에서 동의를 받는다).
+ * 이용약관 (한국어 기본 + 영문, 상단 버튼·#en으로 전환 — components/legal/LegalDoc.astro).
+ *
+ * ⚠️ 초안이다. 공개 전에 반드시 법률 전문가 검토를 받는다 (docs/launch-checklist.md).
+ *    특히 관광진흥법상 '여행업(여행 상품 판매·알선)' 해당 여부 검토 결과에 따라 제1·2조 서비스 성격, 매칭 관련 표현,
+ *    지기 역할 범위를 고쳐야 할 수 있다. 이 안내는 화면에 표시하지 않는다.
+ * 확정되지 않은 사업자 정보(대표자·사업자등록번호·주소·관할 법원 등)는 src/config/legal.ts에 TODO로 모여 있고,
+ * 화면에는 "확인 중"으로 보인다. 시행일(버전)을 바꾸면 기존 회원에게 다시 동의를 받는다 (/account/consent).
+ * 숫자(응답 기한·대기 요청 수·늦은 취소 기준)는 예약 규칙 기본값(booking_settings)과 같다 — 관리자 화면에서 바꾸면 여기도 고친다.
  */
-import BaseLayout from '../layouts/BaseLayout.astro';
-import { SITE } from '../config/site';
+import LegalDoc from '../components/legal/LegalDoc.astro';
+import { LEGAL, legalDate, legalValue } from '../config/legal';
+
+const b = LEGAL.business;
 ---
-<BaseLayout title="Terms of Service | YEONON" description="YEONON Terms of Service. 연온 이용약관." noindex>
-  <section class="section pt-12! md:pt-16!">
-    <div class="container-page max-w-3xl!">
-      <p class="eyebrow">Terms · 이용약관</p>
-      <h1 class="mt-3 text-4xl font-extrabold md:text-5xl">Terms of Service</h1>
-      <div class="card mt-10 space-y-4 p-6 md:p-8">
-        <p>Our Terms of Service are being prepared and will be published here before public launch.</p>
-        <p lang="ko" class="text-muted">이용약관은 정식 공개 전에 이 페이지에 게시됩니다.</p>
-        <p class="text-sm text-muted">Questions · 문의: <a class="font-semibold text-brand underline" href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a></p>
-      </div>
-    </div>
-  </section>
-</BaseLayout>
+<LegalDoc titleKo="이용약관" titleEn="Terms of Service" version={LEGAL.termsVersion}
+  description="YEONON Terms of Service — how the service works, member duties, matching, cancellations, and safety. 연온 이용약관.">
+  <Fragment slot="ko">
+    <p class="mt-6">{b.name}(이하 "회사")가 운영하는 {b.serviceName}(이하 "서비스")을 이용해 주셔서 고마워요. 이 약관은 회사와 회원 사이의 권리·의무와 서비스 이용 방법을 정합니다.</p>
+
+    <h2 id="ko-1">제1조 (서비스의 성격)</h2>
+    <ol>
+      <li>연온은 외국인 여행자와 취향이 맞는 한국인 현지 친구('지기')가 서로를 찾고 만남을 약속할 수 있도록 <b>연결해 주는 플랫폼</b>입니다.</li>
+      <li>회사는 여행 상품을 기획·판매하거나 여행을 알선하지 않으며, 지기는 회사의 직원·대리인이나 전문 관광 가이드가 아닙니다. 지기가 올리는 '루트'는 함께 걸으며 나누고 싶은 동네 코스를 소개하는 것이고, 여행자는 그중 마음에 드는 루트와 시간을 골라 만남을 요청합니다.</li>
+      <li>만남에서 이루어지는 대화·이동·식음료 구매 등은 회원이 스스로 정하고 각자 비용을 부담합니다. 회사는 회원 사이의 금전 거래를 중개하지 않습니다.</li>
+    </ol>
+
+    <h2 id="ko-2">제2조 (용어)</h2>
+    <ul>
+      <li>회원: 이 약관에 동의하고 Google 계정으로 가입한 사람. 역할에 따라 여행자·지기·관리자로 나뉩니다.</li>
+      <li>여행자: 지기의 루트를 보고 만남을 요청하는 회원.</li>
+      <li>지기: 회사의 심사(신청서·인터뷰·신원 확인)를 거쳐 승인받아 루트와 가능 시간을 올리는 회원.</li>
+      <li>관리자: 서비스 운영을 위해 회사가 지정한 사람.</li>
+      <li>매칭 요청·예약: 여행자가 특정 루트와 시간을 골라 지기에게 만남을 요청한 것과 그 진행 상태.</li>
+    </ul>
+
+    <h2 id="ko-3">제3조 (약관의 효력과 변경)</h2>
+    <ol>
+      <li>이 약관은 서비스 화면에 게시하고, 가입할 때 동의를 받아 효력이 생깁니다.</li>
+      <li>회사는 관련 법령을 어기지 않는 범위에서 약관을 바꿀 수 있습니다. 바꿀 때는 시행일과 바뀌는 내용을 시행일 7일 전(회원에게 불리하거나 중요한 변경은 30일 전)부터 서비스 화면에 알리고, 로그인한 회원에게 다시 동의를 받습니다.</li>
+      <li>바뀐 약관에 동의하지 않으면 탈퇴할 수 있습니다.</li>
+    </ol>
+
+    <h2 id="ko-4">제4조 (가입 자격과 계정)</h2>
+    <ol>
+      <li><b>만 18세 이상</b>만 가입할 수 있습니다. 가입할 때 만 18세 이상임을 확인받으며, 사실과 다르면 이용을 제한할 수 있습니다.</li>
+      <li>가입은 Google 계정 로그인으로만 하며, 처음 로그인할 때 역할(여행자 또는 지기)을 고릅니다. 역할은 나중에 직접 바꿀 수 없습니다. 관리자 역할은 회사만 부여합니다.</li>
+      <li>회원은 자기 계정을 다른 사람에게 빌려주거나 넘길 수 없고, 계정 관리 책임은 회원에게 있습니다. 계정이 도용된 것 같으면 바로 회사에 알려 주세요.</li>
+      <li>표시 이름은 만나는 상대에게 보입니다. 다른 사람을 사칭하거나 불쾌감을 주는 이름은 쓸 수 없습니다.</li>
+    </ol>
+
+    <h2 id="ko-5">제5조 (지기의 의무)</h2>
+    <ol>
+      <li>지기는 신청서에 사실대로 적고, 회사의 인터뷰와 신원 확인(신분증을 제출받지 않고 인터뷰에서 확인)을 거쳐 승인받아야 활동할 수 있습니다.</li>
+      <li>만남은 반드시 카페·공원 입구 등 <b>누구나 드나드는 공개 장소</b>에서 시작하고, 개인 주거 공간이나 외진 곳으로 이끌지 않습니다.</li>
+      <li>루트·소개는 실제 경험에 맞게 쓰고, 과장하거나 다른 사람의 사진·글을 쓰지 않습니다. 루트는 회사의 검수를 거쳐 공개되며, 회사는 수정을 요청하거나 공개를 멈출 수 있습니다.</li>
+      <li>요청에는 정해진 응답 기한 안에 수락하거나 거절하고, 확정한 만남은 지킵니다. 부득이하게 취소할 때는 되도록 빨리 서비스에서 취소합니다.</li>
+      <li>여행자의 개인정보(채팅 내용 포함)를 만남 준비 외의 목적으로 쓰거나 다른 사람에게 알리지 않습니다.</li>
+      <li>회사가 안내하는 활동 기준(안전·표현·음주 등)을 지킵니다.</li>
+    </ol>
+
+    <h2 id="ko-6">제6조 (여행자의 의무)</h2>
+    <ol>
+      <li>요청할 때 인원·메모 등을 사실대로 적고, 확정된 만남 시간을 지킵니다.</li>
+      <li>지기를 여행 가이드나 회사 직원처럼 대하며 서비스 범위를 넘는 일(운전, 숙박 제공, 대리 구매 등)을 요구하지 않습니다.</li>
+      <li>만남 중 각자의 안전에 주의하고, 위급하면 112(경찰)·119(소방·구급)에 먼저 연락합니다.</li>
+    </ol>
+
+    <h2 id="ko-7">제7조 (금지 행위)</h2>
+    <p>회원은 다음 행위를 해서는 안 됩니다.</p>
+    <ul>
+      <li>서비스 밖 결제·송금을 요구하거나 유도하는 행위, 만남을 대가로 돈이나 물품을 요구하는 행위</li>
+      <li>연락처 수집·영업·홍보 등 만남 준비가 아닌 목적으로 상대의 연락처를 묻거나 외부 메신저로 옮기도록 유도하는 행위</li>
+      <li>괴롭힘, 성적인 언행, 차별·혐오 표현, 위협, 스토킹 등 상대에게 불쾌감이나 두려움을 주는 행위</li>
+      <li>허위 정보로 가입·신청하거나 다른 사람을 사칭하는 행위</li>
+      <li>상업적 홍보·광고·다단계 권유, 특정 가게로의 유인 대가를 받는 행위</li>
+      <li>불법 행위나 미성년자 동반 음주 등 법령·공공질서에 어긋나는 행위</li>
+      <li>서비스나 다른 회원의 정보를 자동화 도구로 수집하거나 시스템을 방해하는 행위</li>
+    </ul>
+    <p>채팅에서 연락처·외부 결제로 보이는 표현이 감지되면 안내 문구가 표시됩니다. 메시지는 그대로 전달되지만 반복되면 이용이 제한될 수 있습니다.</p>
+
+    <h2 id="ko-8">제8조 (매칭 요청·수락·응답 기한)</h2>
+    <ol>
+      <li>여행자는 루트 화면에서 열린 시간을 골라 매칭을 요청합니다. 요청하는 순간 그 시간은 다른 사람이 요청할 수 없도록 잠깁니다.</li>
+      <li>지기가 '수락 후 확정'을 쓰면 지기가 수락해야 확정되고, '즉시 확정'을 쓰면 요청과 동시에 확정됩니다.</li>
+      <li>응답 기한은 기본 12시간이며, 만남까지 24시간이 남지 않은 요청은 2시간입니다. 실제 기한은 요청 화면에 표시됩니다. 기한 안에 응답이 없으면 요청은 <b>자동으로 만료</b>되고 그 시간은 다시 열립니다.</li>
+      <li>시작 2시간 전까지만 요청할 수 있고, 여행자 1명이 동시에 응답을 기다리는 요청은 최대 3건입니다.</li>
+      <li>요청이 생기면 두 회원 사이에 채팅방이 열립니다. 확정 전에는 루트에 관한 질문만 하고, 확정 후 자유롭게 대화합니다.</li>
+      <li>위 숫자는 서비스 운영에 따라 바뀔 수 있으며, 바뀌면 화면에 안내합니다.</li>
+    </ol>
+
+    <h2 id="ko-9">제9조 (취소와 노쇼)</h2>
+    <ol>
+      <li>여행자와 지기 모두 만남 전까지 서비스에서 사유를 골라 취소할 수 있습니다. 상대방에게는 알림이 갑니다.</li>
+      <li>만남 시작 24시간 안에 한 취소는 '늦은 취소'로 기록되고, 지기의 품질 지표와 이용 제한 판단에 반영될 수 있습니다.</li>
+      <li>연락 없이 나타나지 않는 노쇼는 상대에게 큰 피해가 됩니다. 노쇼는 후기·신고로 알릴 수 있고, 반복되면 이용이 제한될 수 있습니다.</li>
+      <li>결제가 없으므로 취소·노쇼에 따른 환불이나 위약금은 없습니다.</li>
+    </ol>
+
+    <h2 id="ko-10">제10조 (얼리 멤버 할인과 요금)</h2>
+    <ol>
+      <li>루트에는 정가가 표시됩니다. 현재는 <b>얼리 멤버 할인 100%</b>가 적용되어 이용 요금은 0원이며, 서비스에는 결제 기능이 없습니다.</li>
+      <li>얼리 멤버 대상·할인율·기간·인원 한도는 회사가 정해 화면에 안내하며, 회사는 이를 바꾸거나 할인을 끝낼 수 있습니다. 할인이 끝나거나 유료로 바뀌기 전에는 최소 30일 전에 알리고, 이미 확정된 예약에는 확정 당시 조건을 적용합니다.</li>
+      <li>앞으로 결제 기능을 도입하면 결제·환불 조건을 이 약관에 추가하고 다시 동의를 받습니다.</li>
+    </ol>
+
+    <h2 id="ko-11">제11조 (AI 추천과 번역)</h2>
+    <ol>
+      <li>루트 추천과 추천 이유, 채팅 번역에는 AI가 쓰입니다. AI 결과는 <b>참고용</b>이며 정확성·완전성을 보장하지 않습니다. 루트 정보와 만남 결정은 회원이 직접 확인해 주세요.</li>
+      <li>AI 업체에는 이름·이메일·연락처 같은 개인 식별 정보를 보내지 않습니다. 자세한 내용은 <a href="/privacy">개인정보처리방침</a>을 확인해 주세요.</li>
+    </ol>
+
+    <h2 id="ko-12">제12조 (후기)</h2>
+    <ol>
+      <li>만남이 끝난 예약의 당사자는 예약마다 한 번 후기를 쓸 수 있고, 쓴 뒤 24시간 안에만 고치거나 지울 수 있습니다.</li>
+      <li>여행자가 지기에게 쓴 후기는 별점·내용과 함께 이름 첫 글자로 공개될 수 있습니다. '안전 문제' 체크는 공개되지 않고 운영팀에만 전달됩니다.</li>
+      <li>허위·비방·개인정보가 담긴 후기는 회사가 숨기거나 지울 수 있습니다.</li>
+    </ol>
+
+    <h2 id="ko-13">제13조 (신고·차단·이용 제한·정지)</h2>
+    <ol>
+      <li>회원은 채팅의 신고 메뉴로 상대를 신고하고, 차단할 수 있습니다. 차단하면 양쪽 모두 그 대화에서 메시지를 보낼 수 없습니다.</li>
+      <li>회사는 신고된 대화만 신고 처리를 위해 열람하며, 열람 기록을 남깁니다.</li>
+      <li>회원이 이 약관(특히 제7조)을 어기면 회사는 사안에 따라 경고, 루트 비공개, 이용 정지를 할 수 있고, 안전을 위해 급할 때는 먼저 정지한 뒤 알릴 수 있습니다. 정지된 회원은 운영팀 메일로 이의를 제기할 수 있습니다.</li>
+    </ol>
+
+    <h2 id="ko-14">제14조 (탈퇴)</h2>
+    <ol>
+      <li>회원은 언제든 계정 화면의 [회원 탈퇴]로 탈퇴할 수 있습니다. 진행 중인 요청·예약은 자동으로 취소되고 상대방에게 알립니다.</li>
+      <li>탈퇴하면 개인정보처리방침에 따라 정보가 즉시 삭제되거나 익명화되며, 되돌릴 수 없습니다.</li>
+    </ol>
+
+    <h2 id="ko-15">제15조 (책임의 범위)</h2>
+    <ol>
+      <li>회사는 회원이 서로를 찾고 약속할 수 있는 수단을 제공하며, 회원 사이의 만남 자체의 당사자가 아닙니다. 만남 중 회원 사이에 생긴 다툼·손해에 대해 회사는 고의나 중대한 과실이 없는 한 책임지지 않습니다.</li>
+      <li>회사는 지기 승인 전 인터뷰와 신원 확인, 루트 검수, 신고 처리 등 안전을 위한 조치를 하지만, 회원의 행동이나 회원이 올린 정보의 정확성을 모두 보증하지는 않습니다.</li>
+      <li>천재지변, 통신 장애, 외부 서비스(로그인·호스팅·AI 등)의 장애처럼 회사가 막을 수 없는 사유로 서비스를 제공하지 못한 경우 회사는 책임지지 않습니다.</li>
+      <li>위 조항은 관련 법령상 회사가 질 수밖에 없는 책임까지 없애지는 않습니다.</li>
+    </ol>
+
+    <h2 id="ko-16">제16조 (분쟁 처리)</h2>
+    <ol>
+      <li>회원 사이의 분쟁은 당사자가 먼저 해결하도록 노력하며, 회사는 신고·기록 확인 등 필요한 범위에서 도울 수 있습니다.</li>
+      <li>서비스에 관한 문의·불만은 <a href={`mailto:${b.email}`}>{b.email}</a>로 보내 주시면 확인 후 답변드립니다.</li>
+      <li>회사와 회원 사이의 분쟁은 대한민국 법을 따르며, 소송은 {legalValue(LEGAL.court)}에 제기합니다.</li>
+    </ol>
+
+    <h2 id="ko-17">부칙</h2>
+    <p>이 약관은 {legalDate(LEGAL.termsVersion, 'ko')}부터 시행합니다.</p>
+    <h3>사업자 정보</h3>
+    <ul>
+      <li>상호: {b.name} · 서비스: {b.serviceName}</li>
+      <li>대표자: {legalValue(b.representative)} · 사업자등록번호: {legalValue(b.registrationNumber)}</li>
+      <li>주소: {legalValue(b.address)}</li>
+      <li>문의: <a href={`mailto:${b.email}`}>{b.email}</a> · 전화: {legalValue(b.phone)}</li>
+    </ul>
+  </Fragment>
+
+  <Fragment slot="en">
+    <p class="mt-6">Thanks for using {b.serviceName} (the "Service"), operated by {b.name} (the "Company", "we"). These terms set out how the Service works and the rights and duties between you and us.</p>
+
+    <h2 id="en-1">1. What YEONON is</h2>
+    <ol>
+      <li>YEONON is a <b>platform that connects</b> international travelers with Korean local friends ("jigis") who share their taste, so they can find each other and arrange a meetup.</li>
+      <li>We do not plan, sell or arrange travel products. Jigis are not our employees, agents or professional tour guides. A jigi's "route" is a neighborhood walk they'd like to share; travelers pick a route and time they like and send a meetup request.</li>
+      <li>Members decide for themselves what happens during a meetup (conversation, walking, buying food or drinks) and pay their own costs. We do not handle money between members.</li>
+    </ol>
+
+    <h2 id="en-2">2. Definitions</h2>
+    <ul>
+      <li>Member: anyone who agrees to these terms and signs up with a Google account — a traveler, jigi or admin.</li>
+      <li>Traveler: a member who browses routes and requests meetups.</li>
+      <li>Jigi: a member approved after our review (application, interview and identity check) who posts routes and available times.</li>
+      <li>Admin: a person we appoint to run the Service.</li>
+      <li>Request / booking: a traveler's request for a specific route and time, and its status.</li>
+    </ul>
+
+    <h2 id="en-3">3. These terms and changes</h2>
+    <ol>
+      <li>These terms are posted in the Service and apply once you agree to them when you sign up.</li>
+      <li>We may change these terms within the law. We'll post the change and its effective date at least 7 days in advance (30 days for changes that are important or less favorable to you) and ask signed-in members to agree again.</li>
+      <li>If you don't agree to the changes, you can delete your account.</li>
+    </ol>
+
+    <h2 id="en-4">4. Eligibility and accounts</h2>
+    <ol>
+      <li>You must be <b>18 or older</b>. We ask you to confirm this when you sign up and may restrict accounts where it isn't true.</li>
+      <li>You sign up with Google only and choose your role (traveler or jigi) the first time. You can't change your role yourself later. Only we can grant the admin role.</li>
+      <li>Don't lend or transfer your account. You're responsible for it — tell us right away if you think someone else is using it.</li>
+      <li>Your display name is shown to the people you meet. Don't impersonate others or use offensive names.</li>
+    </ol>
+
+    <h2 id="en-5">5. Jigi responsibilities</h2>
+    <ol>
+      <li>Jigis must apply truthfully and pass our interview and identity check (done during the interview; we don't collect ID copies) before hosting.</li>
+      <li>Meetups always start in a <b>public place</b> such as a café or park entrance. Jigis must not lead travelers to private homes or isolated places.</li>
+      <li>Routes and profiles must reflect real experience, without exaggeration or other people's photos or text. Routes are reviewed before they go public, and we may ask for changes or take them down.</li>
+      <li>Jigis reply to requests within the deadline and keep confirmed meetups. If they must cancel, they do so in the Service as early as possible.</li>
+      <li>Jigis must not use a traveler's information (including chats) for anything other than preparing the meetup, or share it with others.</li>
+      <li>Jigis follow our activity guidelines on safety, language and alcohol.</li>
+    </ol>
+
+    <h2 id="en-6">6. Traveler responsibilities</h2>
+    <ol>
+      <li>Give accurate details (group size, notes) when you request, and be on time for confirmed meetups.</li>
+      <li>Don't treat your jigi as a tour guide or staff member, or ask for things outside the Service (driving, accommodation, buying things for you).</li>
+      <li>Look after your own safety. In an emergency, call 112 (police) or 119 (fire and ambulance) first.</li>
+    </ol>
+
+    <h2 id="en-7">7. What's not allowed</h2>
+    <ul>
+      <li>Asking for or pushing payment outside YEONON, or asking for money or goods in return for a meetup</li>
+      <li>Collecting contact details or moving people to outside messengers for sales, promotion or anything other than preparing the meetup</li>
+      <li>Harassment, sexual remarks, discrimination or hate speech, threats, stalking or anything that makes the other person feel unsafe</li>
+      <li>Signing up or applying with false information, or impersonating someone</li>
+      <li>Commercial promotion, advertising, pyramid schemes, or taking money to bring people to a business</li>
+      <li>Illegal acts or anything against public order</li>
+      <li>Scraping the Service or members' information, or interfering with our systems</li>
+    </ul>
+    <p>If a chat message looks like it shares contact details or asks for outside payment, a safety notice is shown. The message is still delivered, but repeated cases can lead to restrictions.</p>
+
+    <h2 id="en-8">8. Requests, confirmation and reply deadlines</h2>
+    <ol>
+      <li>Travelers request an open time on a route. The time is held as soon as you request it, so no one else can take it.</li>
+      <li>If the jigi uses "confirm after accepting", the meetup is confirmed when they accept. With "instant confirm", it's confirmed right away.</li>
+      <li>The reply deadline is 12 hours by default, or 2 hours if the meetup is less than 24 hours away. The actual deadline is shown on your request. With no reply in time, the request <b>expires automatically</b> and the time opens up again.</li>
+      <li>You can request up to 2 hours before the start, and have up to 3 requests waiting for a reply at once.</li>
+      <li>A chat opens between you as soon as a request is made. Before confirmation, please keep to questions about the route.</li>
+      <li>These numbers may change as we run the Service; we'll show any change in the Service.</li>
+    </ol>
+
+    <h2 id="en-9">9. Cancellations and no-shows</h2>
+    <ol>
+      <li>Both travelers and jigis can cancel in the Service before the meetup by choosing a reason. The other person is notified.</li>
+      <li>Cancellations within 24 hours of the start are recorded as "late" and may count toward a jigi's quality score and decisions about restrictions.</li>
+      <li>Not showing up without notice hurts the other person. You can report no-shows through reviews or reports, and repeated no-shows can lead to restrictions.</li>
+      <li>Because there is no payment, there are no refunds or cancellation fees.</li>
+    </ol>
+
+    <h2 id="en-10">10. Early member discount and fees</h2>
+    <ol>
+      <li>Routes show a list price. Right now an <b>early member discount of 100%</b> applies, so meetups cost ₩0, and the Service has no payment feature.</li>
+      <li>We set and show who qualifies, the discount rate, period and limits, and we may change or end the discount. We'll give at least 30 days' notice before the discount ends or fees start, and confirmed bookings keep the terms they were confirmed under.</li>
+      <li>If we add payments, we'll add payment and refund terms here and ask you to agree again.</li>
+    </ol>
+
+    <h2 id="en-11">11. AI recommendations and translation</h2>
+    <ol>
+      <li>Route recommendations, the "why this fits you" text and chat translation use AI. AI output is <b>for reference only</b> and may be inaccurate or incomplete — please check route details yourself before deciding.</li>
+      <li>We don't send AI providers personal identifiers like your name, email or contact details. See the <a href="/privacy#en">Privacy notice</a>.</li>
+    </ol>
+
+    <h2 id="en-12">12. Reviews</h2>
+    <ol>
+      <li>After a meetup ends, each side can leave one review per booking and edit or delete it within 24 hours of posting.</li>
+      <li>Travelers' reviews of jigis may be shown publicly with the rating, text and your first initial. The "something felt unsafe" check is never public and goes only to our team.</li>
+      <li>We may hide or remove reviews that are false, defamatory or include personal information.</li>
+    </ol>
+
+    <h2 id="en-13">13. Reports, blocking, restrictions and suspension</h2>
+    <ol>
+      <li>You can report or block the other person from the chat menu. A block stops both sides from messaging in that chat.</li>
+      <li>We only open a chat when it has been reported, only to handle the report, and every view is logged.</li>
+      <li>If a member breaks these terms (especially section 7), we may warn them, hide their routes or suspend the account depending on the case. Where safety is at risk, we may suspend first and explain afterwards. Suspended members can appeal by emailing us.</li>
+    </ol>
+
+    <h2 id="en-14">14. Deleting your account</h2>
+    <ol>
+      <li>You can delete your account at any time from your account page. Open requests and bookings are cancelled automatically and the other person is notified.</li>
+      <li>Your information is then deleted or anonymized as described in the Privacy notice. This can't be undone.</li>
+    </ol>
+
+    <h2 id="en-15">15. Our responsibility</h2>
+    <ol>
+      <li>We provide a way for members to find each other and arrange meetups; we are not a party to the meetup itself. We're not responsible for disputes or losses between members during a meetup unless caused by our intent or gross negligence.</li>
+      <li>We take safety steps — interviews and identity checks before approving jigis, route reviews and report handling — but we can't guarantee every member's behavior or the accuracy of everything members post.</li>
+      <li>We're not responsible when we can't provide the Service for reasons outside our control, such as natural disasters, network failures, or outages at sign-in, hosting or AI providers.</li>
+      <li>Nothing here limits responsibility we can't exclude under applicable law.</li>
+    </ol>
+
+    <h2 id="en-16">16. Disputes</h2>
+    <ol>
+      <li>Members should first try to resolve disputes between themselves. We can help where needed, for example by checking reports and records.</li>
+      <li>Send questions or complaints to <a href={`mailto:${b.email}`}>{b.email}</a> and we'll get back to you.</li>
+      <li>These terms are governed by the laws of the Republic of Korea. Court: {legalValue(LEGAL.court, 'en')}.</li>
+    </ol>
+
+    <h2 id="en-17">Effective date and company details</h2>
+    <p>These terms take effect on {legalDate(LEGAL.termsVersion, 'en')}.</p>
+    <ul>
+      <li>Company: {b.name} · Service: {b.serviceName}</li>
+      <li>Representative: {legalValue(b.representative, 'en')} · Business registration no.: {legalValue(b.registrationNumber, 'en')}</li>
+      <li>Address: {legalValue(b.address, 'en')}</li>
+      <li>Contact: <a href={`mailto:${b.email}`}>{b.email}</a> · Phone: {legalValue(b.phone, 'en')}</li>
+    </ul>
+  </Fragment>
+</LegalDoc>

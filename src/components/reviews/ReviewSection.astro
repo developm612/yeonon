@@ -1,0 +1,95 @@
+---
+/**
+ * 예약 상세의 후기 칸 — 여행자 /app/bookings/[id](영어), 지기 /partner/bookings/[id](한국어)가 같이 쓴다.
+ * 만남이 끝난(completed) 예약에서만 보인다. 폼은 같은 페이지로 POST → lib/reviews.ts handleReviewPost → save_review/delete_review.
+ * 수정·삭제는 작성 후 24시간까지. '안전 문제' 체크는 운영팀에만 전달되고 공개 후기에는 나오지 않는다.
+ */
+import Notice from '../account/Notice.astro';
+import { kstWhen, type Lang } from '../../data/bookingOptions';
+import { REVIEW_COMMENT_MAX, type MyReview } from '../../lib/reviews';
+
+interface Props {
+  lang: Lang;
+  /** 후기를 받는 사람 이름 (지기 표시 이름 / 여행자 표시 이름) */
+  targetName: string;
+  review: MyReview | null;
+  editable: boolean;
+  editableUntil: Date | null;
+  error?: string | null;
+  notice?: string | null;
+}
+const { lang, targetName, review, editable, editableUntil, error, notice } = Astro.props;
+const ko = lang === 'ko';
+const RATINGS = ko
+  ? [[5, '최고예요'], [4, '좋았어요'], [3, '보통이에요'], [2, '아쉬웠어요'], [1, '별로였어요']]
+  : [[5, 'Excellent'], [4, 'Good'], [3, 'Okay'], [2, 'Not great'], [1, 'Bad']];
+const accent = ko ? 'has-checked:border-jigi-strong has-checked:bg-jigi-soft' : 'has-checked:border-traveler-strong has-checked:bg-traveler-soft';
+const button = ko ? 'bg-jigi-strong hover:bg-[#08566F]' : 'bg-traveler-strong hover:bg-[#134FB0]';
+const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
+---
+<div class="card mt-5 scroll-mt-24 p-5 md:p-7" id="review">
+  <h2 class="text-lg font-bold">{ko ? '후기' : 'Your review'}</h2>
+  {notice && <Notice class="mt-4">{notice}</Notice>}
+  {error && <Notice tone="error" class="mt-4">{error}</Notice>}
+
+  {review && !editable ? (
+    <div class="mt-3">
+      <p class="text-lg tracking-wide text-[#B7791F]" aria-label={ko ? `별점 ${review.rating}점` : `${review.rating} out of 5 stars`}>{stars(review.rating)}</p>
+      {review.comment && <p class="mt-2">{review.comment}</p>}
+      {review.safety_issue && <p class="mt-2 text-sm font-semibold text-[#8A1C1C]">{ko ? '안전 문제를 운영팀에 알렸어요.' : 'You told our team about a safety issue.'}</p>}
+      <p class="mt-3 text-xs text-muted tabular-nums">{ko ? `${kstWhen(review.created_at, 'ko')}에 작성 · 24시간이 지나 고칠 수 없어요` : `Posted ${kstWhen(review.created_at, 'en')} KST · reviews can't be changed after 24 hours`}</p>
+    </div>
+  ) : (
+    <>
+      <p class="mt-1 text-sm text-muted">
+        {ko ? `${targetName}님과의 만남은 어땠나요? 후기는 쓴 뒤 24시간 안에 고치거나 지울 수 있어요.`
+            : `How was your time with ${targetName}? You can edit or delete your review for 24 hours after posting.`}
+      </p>
+      <form method="post" class="mt-4 space-y-4">
+        <fieldset>
+          <legend class="text-sm font-semibold">{ko ? '별점 (필수)' : 'Rating (required)'}</legend>
+          <div class="mt-2 flex flex-wrap gap-2">
+            {RATINGS.map(([n, label]) => (
+              <label class:list={['flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-border bg-surface px-3.5 text-sm font-semibold has-focus-visible:ring-2 has-focus-visible:ring-text/30', accent]}>
+                <input type="radio" name="rating" value={n} required class="sr-only" checked={review?.rating === n || undefined} />
+                <span class="text-[#B7791F]" aria-hidden="true">{'★'.repeat(n as number)}</span>
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label class="block text-sm font-semibold">
+          {ko ? '한 줄 후기 (선택)' : 'Comment (optional)'}
+          <textarea name="comment" rows="3" maxlength={REVIEW_COMMENT_MAX}
+            placeholder={ko ? '예) 약속 시간을 잘 지키고 대화가 즐거웠어요.' : 'e.g. Great coffee spots and a really easy-going chat.'}
+            class="mt-1 block w-full rounded-xl border border-border bg-surface px-3 py-2 font-normal">{review?.comment ?? ''}</textarea>
+          <span class="mt-1 block text-xs font-normal text-muted">
+            {ko ? `${REVIEW_COMMENT_MAX}자 이내. 여행자에 대한 후기는 공개되지 않고, 운영팀이 품질·안전 확인에만 써요. 연락처는 적지 마세요.`
+                : `Up to ${REVIEW_COMMENT_MAX} characters. Shown on your jigi's profile with your first initial only. Please don't include contact details.`}
+          </span>
+        </label>
+        <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface p-3.5 has-checked:border-[#B42318] has-checked:bg-[#FDECEC]">
+          <input type="checkbox" name="safety_issue" value="yes" class="mt-0.5 size-[18px] shrink-0 accent-[#B42318]" checked={review?.safety_issue || undefined} />
+          <span class="text-sm">
+            <span class="block font-semibold">{ko ? '안전 문제가 있었어요' : 'Something felt unsafe'}</span>
+            <span class="block text-muted">{ko ? '체크하면 운영팀에 바로 알려져요. 급한 위험이 있으면 112(경찰)에 먼저 연락해 주세요.'
+                                             : "Only our team will see this, and the review won't be shown publicly. If you're in danger now, call 112 (Korean police) first."}</span>
+          </span>
+        </label>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="submit" name="review_action" value="save" class:list={['min-h-11 rounded-full px-6 font-semibold text-white', button]}>
+            {review ? (ko ? '후기 고치기' : 'Update review') : (ko ? '후기 남기기' : 'Post review')}
+          </button>
+          {review && (
+            <button type="submit" name="review_action" value="delete" formnovalidate class="min-h-11 rounded-full border border-border bg-surface px-5 text-sm font-semibold text-[#8A1C1C] hover:border-[#B42318]">
+              {ko ? '후기 지우기' : 'Delete review'}
+            </button>
+          )}
+          {review && editableUntil && (
+            <span class="text-xs text-muted tabular-nums">{ko ? `${kstWhen(editableUntil.toISOString(), 'ko')}까지 고칠 수 있어요` : `Editable until ${kstWhen(editableUntil.toISOString(), 'en')} KST`}</span>
+          )}
+        </div>
+      </form>
+    </>
+  )}
+</div>

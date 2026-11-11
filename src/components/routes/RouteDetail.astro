@@ -1,7 +1,7 @@
 ---
 /**
  * 루트 상세 본문 — 공개 /routes/[id]와 여행자 /app/routes/[id]가 같이 쓴다.
- * 코스 타임라인, 만나는 곳, 지기 공개 프로필(이름 일부만), 앞으로 4주 가능 시간 칩(KST).
+ * 코스 타임라인, 만나는 곳, 지기 공개 프로필(이름 일부만)·평점·최근 후기(여행자 이름은 첫 글자만), 앞으로 4주 가능 시간 칩(KST).
  * 요청 버튼 자리는 slot="cta"로 각 페이지가 채운다.
  * pickForm을 주면 시간 칩이 그 폼(id)의 라디오 버튼(slot_id)이 된다 — 여행자 요청 화면.
  */
@@ -10,6 +10,7 @@ import { interestNames } from '../../data/interests';
 import { WALK_MIN, areaName, languageName, vibeName } from '../../data/routeOptions';
 import { courseMinutes, courseTimeline, fmtDuration, stopEmoji } from '../../lib/course';
 import { kstDate, kstDay, kstTime, won, type PublicJigi, type RouteRow, type SlotRow, type StopRow } from '../../lib/routes';
+import type { PublicReview } from '../../lib/reviews';
 
 interface Props {
   route: RouteRow;
@@ -22,8 +23,12 @@ interface Props {
   pickForm?: string;
   /** 가격 칸 문구 (할인 적용 예: "₩45,000 → ₩0 · Early member"). 없으면 정가 */
   priceLabel?: string;
+  /** 이 지기의 최근 공개 후기 (lib/reviews.ts loadPublicReviews) */
+  reviews?: PublicReview[];
 }
-const { route, stops, host, slots, backHref, backLabel, pickForm, priceLabel } = Astro.props;
+const { route, stops, host, slots, backHref, backLabel, pickForm, priceLabel, reviews = [] } = Astro.props;
+const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
+const monthYear = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'Asia/Seoul', month: 'short', year: 'numeric' });
 
 const course = stops.map((s) => ({ emoji: stopEmoji(s.tags), name: s.place_name, min: s.stay_minutes }));
 const timeline = courseTimeline(course, 0, WALK_MIN);
@@ -84,6 +89,32 @@ const hostInitial = host?.display_name?.slice(0, 1) ?? '';
         <p class="mt-2">{areaName(route.area, 'en')} · {route.meeting_point_note}</p>
         <p class="mt-1 text-sm text-muted">Always a public place. Your jigi will share the exact spot once you're matched.</p>
       </div>
+
+      <div id="reviews">
+        <h2 class="text-xl font-extrabold">
+          Reviews
+          {host && host.rating_count > 0 && host.rating_avg !== null && (
+            <span class="ml-1 text-base font-semibold text-muted">★ {Number(host.rating_avg).toFixed(1)} · {host.rating_count} {host.rating_count === 1 ? 'review' : 'reviews'}</span>
+          )}
+        </h2>
+        {reviews.length === 0 ? (
+          <p class="mt-2 text-sm text-muted">No reviews yet — this jigi is new to YEONON.</p>
+        ) : (
+          <ul class="mt-4 space-y-3">
+            {reviews.map((r) => (
+              <li class="rounded-xl bg-surface p-4 shadow-card">
+                <p class="flex flex-wrap items-center gap-x-2 text-sm">
+                  <span class="tracking-wide text-[#B7791F]" aria-label={`${r.rating} out of 5 stars`}>{stars(r.rating)}</span>
+                  <span class="font-semibold">{r.author_initial}.</span>
+                  <span class="text-muted">· {monthYear(r.created_at)}{r.route_id !== route.id && r.route_title ? ` · ${r.route_title}` : ''}</span>
+                </p>
+                {r.comment && <p class="mt-1.5">{r.comment}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p class="mt-2 text-xs text-muted">Reviews come from travelers who met this jigi through YEONON. Names show the first initial only.</p>
+      </div>
     </div>
 
     <aside class="space-y-5 lg:sticky lg:top-24">
@@ -99,7 +130,7 @@ const hostInitial = host?.display_name?.slice(0, 1) ?? '';
         {host?.bio && <p class="mt-1 text-sm text-muted">{host.bio}</p>}
         {host && host.languages.length > 0 && <p class="mt-2 text-sm text-muted">Speaks {host.languages.map((l) => languageName(l, 'en')).join(', ')}</p>}
         {host && host.rating_count > 0 && host.rating_avg !== null && (
-          <p class="mt-1 text-sm font-semibold">★ {Number(host.rating_avg).toFixed(1)} <span class="font-normal text-muted">({host.rating_count} reviews)</span></p>
+          <p class="mt-1 text-sm font-semibold">★ {Number(host.rating_avg).toFixed(1)} <a href="#reviews" class="font-normal text-muted underline underline-offset-2">({host.rating_count} {host.rating_count === 1 ? 'review' : 'reviews'})</a></p>
         )}
         <p class="mt-3 text-xs text-muted">Contact details stay private. You'll chat in YEONON once matched.</p>
       </div>

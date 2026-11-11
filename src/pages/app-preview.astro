@@ -3,6 +3,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PhoneStage from '../components/app/PhoneStage.astro';
 import AppScreens from '../components/app/AppScreens.astro';
 import WaitlistForm from '../components/app/WaitlistForm.astro';
+import Button from '../components/Button.astro';
+import CTASection from '../components/CTASection.astro';
+import { MEMBER_OPEN, TRAVELER_CTA } from '../config/cta';
 ---
 <BaseLayout
   title="YEONON App Preview — Find your Jigi"
@@ -20,7 +23,14 @@ import WaitlistForm from '../components/app/WaitlistForm.astro';
     <AppScreens />
   </PhoneStage>
 
-  <WaitlistForm />
+  <!-- 회원 기능 공개 전: 대기자 등록 폼 / 공개 후(PUBLIC_MEMBER_UI): 로그인 → 실제 추천 (config/cta.ts) -->
+  {MEMBER_OPEN ? (
+    <CTASection title="Ready to meet your jigi for real?" sub="Sign in with Google, tell us your taste and dates, and pick a route that fits you.">
+      <Button href={TRAVELER_CTA.href} size="lg" class="bg-white! text-brand! hover:bg-bg!">{TRAVELER_CTA.label}</Button>
+    </CTASection>
+  ) : (
+    <WaitlistForm />
+  )}
 </BaseLayout>
 
 <script>

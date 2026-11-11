@@ -10,6 +10,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import AreaNav from '../../../components/account/AreaNav.astro';
 import Notice from '../../../components/account/Notice.astro';
 import RouteDetail from '../../../components/routes/RouteDetail.astro';
+import { loadPublicReviews, type PublicReview } from '../../../lib/reviews';
 import { TRAVELER_NAV } from '../../../data/accountNav';
 import { priceText } from '../../../data/bookingOptions';
 import { BOOKING_ERRORS, BOOKING_NOTE_MAX, bookingMessage, fmtMinutes, loadBookingSettings, type BookingErrorCode } from '../../../lib/bookings';
@@ -30,6 +31,7 @@ if (!route) Astro.response.status = 404;
 const rec = Astro.url.searchParams.get('rec') ?? '';
 let host: PublicJigi | null = null;
 let slots: SlotRow[] = [];
+let reviews: PublicReview[] = [];
 let backHref = '/app/discover';
 let backLabel = 'Discover';
 interface Quote { list_price: number; discount_rate: number; final_price: number; promotion_name: string | null }
@@ -39,7 +41,7 @@ const settings = await loadBookingSettings(supabase);
 if (route) {
   // 시작 N분(설정값) 전까지만 요청할 수 있으므로 그보다 이른 시간은 보여 주지 않는다
   const earliest = new Date(Date.now() + settings.min_lead_minutes * 60_000).toISOString();
-  const [{ data: j }, { data: s }, recRow, q, pend] = await Promise.all([
+  const [{ data: j }, { data: s }, recRow, q, pend, rv] = await Promise.all([
     supabase.from('public_jigis').select('*').eq('user_id', route.jigi_id).maybeSingle(),
     supabase.from('slots').select('id, route_id, starts_at, ends_at, status').eq('route_id', route.id).eq('status', 'open')
       .gt('starts_at', earliest).order('starts_at').limit(200),
@@ -48,7 +50,9 @@ if (route) {
       : Promise.resolve({ data: null }),
     supabase.rpc('booking_quote', { p_route: route.id }),
     profile ? supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('traveler_id', profile.id).eq('status', 'pending') : Promise.resolve({ count: 0 }),
+    loadPublicReviews(supabase, route.jigi_id),
   ]);
+  reviews = rv;
   host = (j as PublicJigi | null) ?? null;
   slots = (s ?? []) as SlotRow[];
   dbError(q.error, 'booking quote');
@@ -89,7 +93,7 @@ const partyMax = route?.max_party_size ?? 1;
       </div>
     </section>
   ) : (
-    <RouteDetail route={route} stops={loaded!.stops} host={host} slots={slots} backHref={backHref} backLabel={backLabel}
+    <RouteDetail route={route} stops={loaded!.stops} host={host} slots={slots} reviews={reviews} backHref={backHref} backLabel={backLabel}
       pickForm={slots.length ? 'request-form' : undefined} priceLabel={price ?? undefined}>
       <Fragment slot="cta">
         {slots.length > 0 && (

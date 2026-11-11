@@ -313,6 +313,12 @@ export async function recommend(supabase: SupabaseClient, userId: string, input:
       sim_ceil: RECOMMEND.similarityRange.ceil,
       quality_default: RECOMMEND.quality.default,
       quality_min_reviews: RECOMMEND.quality.minReviews,
+      quality_min_requests: RECOMMEND.quality.minRequests,
+      qw_rating: RECOMMEND.quality.weights.rating,
+      qw_accept: RECOMMEND.quality.weights.accept,
+      qw_speed: RECOMMEND.quality.weights.speed,
+      speed_fast: RECOMMEND.quality.fastMinutes,
+      speed_slow: RECOMMEND.quality.slowMinutes,
       slot_limit: RECOMMEND.slotLimit,
     },
   });

@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { createSupabaseServerClient, isAuthConfigured, isMemberUiPublic } from './lib/supabase';
 import { AREAS, PROFILE_COLUMNS, homeFor, inArea, isOnboarded, type Profile } from './lib/profile';
+import { needsLegalConsent } from './config/legal';
 
 /** 로그인해야 들어갈 수 있는 곳. /app-preview 같은 공개 페이지는 해당하지 않는다 */
 const LOGIN_REQUIRED = [...AREAS.map((a) => a.base), '/onboarding', '/account'];
@@ -45,6 +46,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
       return context.redirect('/suspended');
     } else if (!isOnboarded(profile)) {
       if (path !== '/onboarding' && !inArea(path, '/account')) return context.redirect('/onboarding?next=' + encodeURIComponent(here));
+    } else if (profile.role !== 'admin' && needsLegalConsent(profile) && !inArea(path, '/account')) {
+      // 약관·개인정보처리방침이 개정되었으면(동의한 시행일이 다르면) 먼저 다시 동의를 받는다 (/account/consent)
+      return context.redirect('/account/consent?next=' + encodeURIComponent(here));
     } else {
       const area = AREAS.find((a) => inArea(path, a.base));
       // 다른 역할의 영역에 들어오면 자기 홈으로 보낸다 (예: 여행자가 /partner, 지기가 /app)

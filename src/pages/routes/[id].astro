@@ -6,6 +6,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import RouteDetail from '../../components/routes/RouteDetail.astro';
+import { loadPublicReviews, type PublicReview } from '../../lib/reviews';
 import { ROUTE_STATUS } from '../../data/routeOptions';
 import { loadRoute, type PublicJigi, type SlotRow } from '../../lib/routes';
 import { isOnboarded } from '../../lib/profile';
@@ -20,12 +21,15 @@ if (!loaded) Astro.response.status = 404;
 
 let host: PublicJigi | null = null;
 let slots: SlotRow[] = [];
+let reviews: PublicReview[] = [];
 if (loaded && supabase) {
-  const [{ data: j }, { data: s }] = await Promise.all([
+  const [{ data: j }, { data: s }, rv] = await Promise.all([
     supabase.from('public_jigis').select('*').eq('user_id', loaded.route.jigi_id).maybeSingle(),
     supabase.from('slots').select('id, route_id, starts_at, ends_at, status').eq('route_id', loaded.route.id).eq('status', 'open')
       .gt('starts_at', new Date().toISOString()).order('starts_at').limit(200),
+    loadPublicReviews(supabase, loaded.route.jigi_id),
   ]);
+  reviews = rv;
   host = (j as PublicJigi | null) ?? null;
   slots = (s ?? []) as SlotRow[];
 }
@@ -60,7 +64,7 @@ const cta = 'mt-5 flex h-[52px] items-center justify-center rounded-full bg-trav
           {profile?.role === 'admin' && <a href={`/admin/routes?status=${route.status}#route-${route.id}`} class="ml-2 underline underline-offset-4">검수 화면으로</a>}
         </p>
       )}
-      <RouteDetail route={route} stops={loaded!.stops} host={host} slots={slots} backHref="/routes" backLabel="All routes">
+      <RouteDetail route={route} stops={loaded!.stops} host={host} slots={slots} reviews={reviews} backHref="/routes" backLabel="All routes">
         <Fragment slot="cta">
           {!isPreview && (
             !user ? (

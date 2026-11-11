@@ -1,0 +1,24 @@
+---
+/**
+ * 서버 오류 (서버 렌더링 페이지에서 처리하지 못한 오류가 나면 Astro가 이 화면을 500으로 보여 준다).
+ * 오류 내용은 화면에 보여 주지 않는다 (서버 로그에만). 여기서는 DB·세션을 읽지 않는다.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE } from '../config/site';
+---
+<BaseLayout title="Something went wrong | YEONON" description="Something went wrong. 잠시 후 다시 시도해 주세요." sticky="none" noindex>
+  <section class="section">
+    <div class="container-page max-w-xl! text-center">
+      <p class="text-5xl" aria-hidden="true">🛠️</p>
+      <p class="eyebrow mt-4">500</p>
+      <h1 class="mt-2 text-3xl font-extrabold">Something went wrong on our side</h1>
+      <p class="mt-2 text-muted">Please try again in a moment. If it keeps happening, email us at <a class="font-semibold text-brand underline" href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>.</p>
+      <p lang="ko" class="mt-4 font-semibold">일시적인 오류가 생겼어요</p>
+      <p lang="ko" class="text-sm text-muted">잠시 후 다시 시도해 주세요. 계속되면 위 메일로 알려 주세요.</p>
+      <div class="mt-8 flex flex-wrap justify-center gap-3">
+        <button type="button" onclick="location.reload()" class="inline-flex min-h-11 items-center rounded-full bg-brand px-5 font-semibold text-white hover:bg-[#082D6B]">Try again · 다시 시도</button>
+        <a href="/" class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">Home · 홈으로</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

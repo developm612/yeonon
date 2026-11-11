@@ -5,6 +5,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import ExportForm from '../../components/admin/ExportForm.astro';
 import Notice from '../../components/account/Notice.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
 import { interestNames } from '../../data/interests';
@@ -69,6 +70,7 @@ const date = (iso: string) => new Date(iso).toLocaleString('ko-KR', { timeZone: 
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">
       <h1 class="text-3xl font-extrabold">지기 신청 심사</h1>
+      <ExportForm list="jigi_applications" filters={{ status: current }} class="mt-4" />
 
       <nav aria-label="신청 상태" class="mt-6 flex flex-wrap gap-2">
         {APPLICATION_STATUSES.map((s, i) => (

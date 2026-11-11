@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { MEMBER_OPEN, TRAVELER_CTA } from '../config/cta';
 import Hero from '../components/Hero.astro';
 import Button from '../components/Button.astro';
 import Card from '../components/Card.astro';
@@ -13,13 +14,13 @@ import CTASection from '../components/CTASection.astro';
 >
   <!-- 1. Hero -->
   <Hero
-    eyebrow="Seongsu, Seoul · Pre-launch"
+    eyebrow={MEMBER_OPEN ? 'Seongsu, Seoul' : 'Seongsu, Seoul · Pre-launch'}
     title="Don't just visit Seoul. Meet someone who lives it."
     sub="Tell us what you love. We'll match you with a Jigi — a local friend in Seongsu who shares your taste — for 3–4 hours of hidden cafés, neighborhood eats, and places you'd never find on a map."
     slider="en"
   >
     <Fragment slot="actions">
-      <Button href="/app-preview" size="lg">Join the early list</Button>
+      <Button href={TRAVELER_CTA.href} size="lg">{TRAVELER_CTA.label}</Button>
       <Button href="/how-it-works" variant="secondary" size="lg">See how it works</Button>
     </Fragment>
     <p slot="after" class="mt-6">
@@ -128,6 +129,6 @@ import CTASection from '../components/CTASection.astro';
 
   <!-- 6. Final CTA -->
   <CTASection title="Be one of our first travelers in Seongsu.">
-    <Button href="/app-preview" size="lg" class="bg-white! text-brand! hover:bg-bg!">Join the early list</Button>
+    <Button href={TRAVELER_CTA.href} size="lg" class="bg-white! text-brand! hover:bg-bg!">{TRAVELER_CTA.label}</Button>
   </CTASection>
 </BaseLayout>

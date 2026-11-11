@@ -1,6 +1,7 @@
 ---
 import Logo from './Logo.astro';
 import { SITE, isTodo } from '../config/site';
+import { MEMBER_OPEN } from '../config/cta';
 const email = SITE.contactEmail;
 ---
 <footer class="border-t border-border bg-surface">
@@ -16,7 +17,8 @@ const email = SITE.contactEmail;
         <li><a lang="en" class="hover:text-text" href="/how-it-works">How it works</a></li>
         <li><a lang="en" class="hover:text-text" href="/travelers">For Travelers</a></li>
         <li><a lang="ko" class="hover:text-text" href="/jigi">지기 지원</a></li>
-        <li><a lang="en" class="hover:text-text" href="/privacy">Privacy</a></li>
+        <li><a lang="en" class="hover:text-text" href="/terms">Terms</a> · <a lang="ko" class="hover:text-text" href="/terms">이용약관</a></li>
+        <li><a lang="en" class="hover:text-text" href="/privacy">Privacy</a> · <a lang="ko" class="font-semibold hover:text-text" href="/privacy">개인정보처리방침</a></li>
       </ul>
     </nav>
 
@@ -33,10 +35,17 @@ const email = SITE.contactEmail;
 
   <div class="border-t border-border">
     <div class="container-page flex flex-col gap-2 py-6 text-[0.8125rem] text-muted md:flex-row md:items-center md:justify-between">
-      <p>
-        <span lang="en">YEONON is in pre-launch. Matching and booking are not yet open.</span>
-        <span lang="ko" class="block md:ml-1 md:inline">연온은 현재 사전 등록 단계입니다.</span>
-      </p>
+      {MEMBER_OPEN ? (
+        <p>
+          <span lang="en">YEONON connects travelers with local friends. It is not a tour operator.</span>
+          <span lang="ko" class="block md:ml-1 md:inline">연온은 여행 상품을 판매하지 않고, 취향이 맞는 현지 친구와의 만남을 연결해요.</span>
+        </p>
+      ) : (
+        <p>
+          <span lang="en">YEONON is in pre-launch. Matching and booking are not yet open.</span>
+          <span lang="ko" class="block md:ml-1 md:inline">연온은 현재 사전 등록 단계입니다.</span>
+        </p>
+      )}
       <p>© 2026 YEONON</p>
     </div>
   </div>

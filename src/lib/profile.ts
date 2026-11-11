@@ -16,12 +16,15 @@ export interface Profile {
   interests: string[];
   marketing_opt_in: boolean;
   terms_agreed_at: string | null;
+  /** 동의한 약관·개인정보처리방침 시행일 (src/config/legal.ts와 다르면 다시 동의) */
+  terms_version: string | null;
+  privacy_version: string | null;
   status: 'active' | 'suspended' | 'deleted';
   created_at: string;
 }
 
 export const PROFILE_COLUMNS =
-  'id, role, display_name, email, avatar_url, locale, nationality, languages, interests, marketing_opt_in, terms_agreed_at, status, created_at';
+  'id, role, display_name, email, avatar_url, locale, nationality, languages, interests, marketing_opt_in, terms_agreed_at, terms_version, privacy_version, status, created_at';
 
 /** 관리자는 온보딩 없이 들어올 수 있다 (역할을 SQL로 부여하므로) */
 export const isOnboarded = (p: Profile) => p.role === 'admin' || (p.role !== null && p.terms_agreed_at !== null);

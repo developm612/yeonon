@@ -16,7 +16,7 @@ interface Props {
 
 const { title, description, lang = 'en', sticky = 'traveler', noindex = false } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
-// TODO: og-image.png (1200×630)을 public/images/에 추가
+// 공유 미리보기 이미지 1200×630 (public/images/og-image.png). 주소는 astro.config.mjs의 site 기준
 const ogImage = new URL('/images/og-image.png', Astro.site);
 ---
 
@@ -48,6 +48,7 @@ const ogImage = new URL('/images/og-image.png', Astro.site);
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="YEONON — Meet a local friend in Seoul who shares your taste." />
     <meta property="og:locale" content={lang === 'ko' ? 'ko_KR' : 'en_US'} />
     <meta name="twitter:card" content="summary_large_image" />
 

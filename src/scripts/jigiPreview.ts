@@ -233,7 +233,8 @@ function resetAll() {
 }
 
 // 완료 화면 '지기 사전 신청하기' → 페이지 하단 신청 폼으로 이동 (고른 취향·코스를 폼에 함께 담음)
-$<HTMLElement>('[data-to-apply]', app).addEventListener('click', (e) => {
+// 회원 기능 공개 후(PUBLIC_MEMBER_UI)에는 버튼이 로그인 링크라 이 표시가 없다 (config/cta.ts)
+app.querySelector<HTMLElement>('[data-to-apply]')?.addEventListener('click', (e) => {
   e.preventDefault();
   const taste = document.querySelector<HTMLInputElement>('[data-ja-taste]');
   const courseField = document.querySelector<HTMLInputElement>('[data-ja-course]');

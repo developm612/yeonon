@@ -1,0 +1,90 @@
+---
+/**
+ * 약관·개인정보처리방침 공통 틀. 한국어가 기본이고, 맨 위 버튼(또는 주소 끝 #en)으로 영문으로 바꾼다.
+ * 자바스크립트가 없으면 두 언어가 모두 차례로 보인다. 본문은 slot="ko", slot="en".
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { legalDate } from '../../config/legal';
+
+interface Props {
+  titleKo: string;
+  titleEn: string;
+  description: string;
+  /** 시행일 (YYYY-MM-DD) */
+  version: string;
+}
+const { titleKo, titleEn, description, version } = Astro.props;
+const tab = 'inline-flex min-h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors aria-pressed:bg-text aria-pressed:text-white';
+---
+<BaseLayout title={`${titleKo} · ${titleEn} | YEONON`} description={description} lang="ko" sticky="none">
+  <section class="section pt-12! md:pt-16!" data-legal>
+    <div class="container-page max-w-3xl!">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="eyebrow">YEONON 연온</p>
+        <div class="flex gap-1 rounded-full bg-surface p-1 shadow-card" role="group" aria-label="언어 · Language" data-legal-switch hidden>
+          <button type="button" class={tab} data-lang="ko" aria-pressed="true">한국어</button>
+          <button type="button" class={tab} data-lang="en" aria-pressed="false" lang="en">English</button>
+        </div>
+      </div>
+
+      <article id="ko" lang="ko" class="legal mt-6" data-legal-doc="ko">
+        <h1 class="text-4xl font-extrabold md:text-5xl">{titleKo}</h1>
+        <p class="mt-3 text-muted">시행일: {legalDate(version, 'ko')}</p>
+        <slot name="ko" />
+      </article>
+
+      <article id="en" lang="en" class="legal mt-16 border-t border-border pt-12" data-legal-doc="en">
+        <h1 class="text-4xl font-extrabold md:text-5xl">{titleEn}</h1>
+        <p class="mt-3 text-muted">Effective date: {legalDate(version, 'en')}. If the Korean and English versions differ, the Korean version applies.</p>
+        <slot name="en" />
+      </article>
+    </div>
+  </section>
+</BaseLayout>
+
+<style is:global>
+  .legal h2 { margin-top: 2.5rem; font-size: 1.25rem; font-weight: 800; scroll-margin-top: 6rem; }
+  .legal h3 { margin-top: 1.5rem; font-weight: 700; }
+  .legal p, .legal li { margin-top: 0.5rem; line-height: 1.75; }
+  .legal ol, .legal ul { margin-top: 0.5rem; padding-left: 1.25rem; }
+  .legal ol { list-style: decimal; }
+  .legal ul { list-style: disc; }
+  .legal a { color: var(--color-brand); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+  .legal .table-wrap { margin-top: 1rem; overflow-x: auto; border-radius: 1rem; background: var(--color-surface); box-shadow: var(--shadow-card); }
+  .legal table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 0.875rem; }
+  .legal th, .legal td { padding: 0.625rem 0.75rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--color-border); line-height: 1.6; }
+  .legal th { font-size: 0.75rem; color: var(--color-muted); font-weight: 600; white-space: nowrap; }
+  .legal tr:last-child td { border-bottom: 0; }
+  .legal .note { margin-top: 1rem; border-radius: 0.75rem; background: var(--color-brand-soft); padding: 0.75rem 1rem; font-size: 0.875rem; }
+</style>
+
+<script>
+  // 언어 전환: 버튼 또는 주소의 #en / #ko. 자바스크립트가 없으면 두 언어가 모두 보인다
+  const root = document.querySelector<HTMLElement>('[data-legal]');
+  const sw = root?.querySelector<HTMLElement>('[data-legal-switch]');
+  const docs = root ? [...root.querySelectorAll<HTMLElement>('[data-legal-doc]')] : [];
+  const show = (lang: string, scroll = false) => {
+    docs.forEach((d) => {
+      const on = d.dataset.legalDoc === lang;
+      d.hidden = !on;
+      d.classList.toggle('mt-16', false);
+      d.classList.toggle('border-t', false);
+      d.classList.toggle('pt-12', false);
+      d.classList.toggle('mt-6', on);
+    });
+    sw?.querySelectorAll<HTMLButtonElement>('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    document.documentElement.lang = lang;
+    if (scroll) window.scrollTo({ top: 0 });
+  };
+  if (sw && docs.length) {
+    sw.hidden = false;
+    show(location.hash === '#en' ? 'en' : 'ko');
+    sw.addEventListener('click', (e) => {
+      const lang = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-lang]')?.dataset.lang;
+      if (!lang) return;
+      history.replaceState(null, '', lang === 'en' ? '#en' : location.pathname + location.search);
+      show(lang);
+    });
+    window.addEventListener('hashchange', () => show(location.hash === '#en' ? 'en' : 'ko', true));
+  }
+</script>

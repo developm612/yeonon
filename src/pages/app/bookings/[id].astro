@@ -3,28 +3,40 @@
  * 예약 상세 (여행자). 상태·응답 기한·타임라인·취소·"See other routes"는 Preact 아일랜드(BookingPanel)가
  * Realtime으로 바로 갱신한다. 만남 안내(시간·만나는 곳·지기 이름)와 가격 스냅샷은 여기서 그린다.
  * 다른 사람의 예약 id를 넣으면 RLS 때문에 행이 없으므로 '찾을 수 없음'이 된다.
+ * 만남이 끝나면(completed) 아래에 후기 칸(components/reviews/ReviewSection) — 폼은 이 페이지로 POST.
  */
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import AreaNav from '../../../components/account/AreaNav.astro';
 import Notice from '../../../components/account/Notice.astro';
 import BookingPanel from '../../../components/islands/BookingPanel';
+import ReviewSection from '../../../components/reviews/ReviewSection.astro';
 import { TRAVELER_NAV } from '../../../data/accountNav';
 import { kstWhen, priceText } from '../../../data/bookingOptions';
 import { areaName } from '../../../data/routeOptions';
 import { BOOKING_COLUMNS, discoverHrefFor, loadBookingSettings, type BookingRow } from '../../../lib/bookings';
 import { conversationIdForBooking } from '../../../lib/chat';
 import { notice } from '../../../lib/forms';
+import { handleReviewPost, loadMyReview } from '../../../lib/reviews';
 import { UUID, type PublicJigi } from '../../../lib/routes';
 
 export const prerender = false;
 
-const { supabase } = Astro.locals;
-if (!supabase) return Astro.redirect('/login');
+const { supabase, profile } = Astro.locals;
+if (!supabase || !profile) return Astro.redirect('/login');
 
 const id = Astro.params.id ?? '';
 const { data } = UUID.test(id) ? await supabase.from('bookings').select(BOOKING_COLUMNS).eq('id', id).maybeSingle() : { data: null };
 const booking = data as BookingRow | null;
 if (!booking) Astro.response.status = 404;
+
+// 후기 쓰기·고치기·지우기 (만남이 끝난 예약의 여행자만 — DB 함수가 다시 확인한다)
+let reviewError: string | null = null;
+if (Astro.request.method === 'POST' && booking) {
+  const result = await handleReviewPost(supabase, await Astro.request.formData(), booking.id, 'en');
+  if (result && 'redirect' in result) return Astro.redirect(Astro.url.pathname + result.redirect);
+  reviewError = result?.error ?? 'Something went wrong. Please try again.';
+}
+const myReview = booking?.status === 'completed' && booking.traveler_id === profile.id ? await loadMyReview(supabase, booking.id, profile.id) : null;
 
 let host: PublicJigi | null = null;
 let discoverHref = '/app/discover';
@@ -48,6 +60,7 @@ const done = notice(Astro.url, {
   requested: "Request sent! We'll let you know as soon as your jigi replies.",
   cancelled: 'Your booking was cancelled.',
 });
+const reviewNotice = notice(Astro.url, { review_saved: 'Thanks! Your review is saved.', review_deleted: 'Your review was deleted.' });
 const jigiName = booking?.jigi_name ?? host?.display_name ?? 'Your jigi';
 ---
 <BaseLayout title="Booking | YEONON" description="Your YEONON booking." sticky="none" noindex>
@@ -87,6 +100,9 @@ const jigiName = booking?.jigi_name ?? host?.display_name ?? 'Your jigi';
             {routeLive && <a href={`/app/routes/${booking.route_id}`} class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">View the route</a>}
             </div>
           </div>
+          {myReview && (
+            <ReviewSection lang="en" targetName={jigiName} review={myReview.review} editable={myReview.editable} editableUntil={myReview.editableUntil} error={reviewError} notice={reviewNotice} />
+          )}
         </>
       )}
     </div>

@@ -1,7 +1,7 @@
 ---
 /**
  * 첫 로그인 후 한 번: 역할 선택(여행자/지기) + 필수 동의 + 만 18세 확인 + 선택 동의(마케팅).
- * 저장은 DB 함수 complete_onboarding (역할은 한 번 정하면 직접 바꿀 수 없다).
+ * 저장은 DB 함수 complete_onboarding (역할은 한 번 정하면 직접 바꿀 수 없다). 동의한 약관·방침 시행일(src/config/legal.ts)도 함께 남긴다.
  * 아직 역할을 모르므로 영어·한국어를 같이 쓴다.
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
@@ -10,6 +10,7 @@ import { safeNext } from '../lib/supabase';
 import { AREAS, homeFor, inArea, isOnboarded, type Role } from '../lib/profile';
 import { dbError, field } from '../lib/forms';
 import { clean } from '../scripts/formSafety';
+import { LEGAL } from '../config/legal';
 
 export const prerender = false;
 
@@ -46,6 +47,9 @@ if (Astro.request.method === 'POST' && profile && supabase) {
       p_privacy: agreed.privacy,
       p_adult: agreed.adult,
       p_marketing: form.marketing,
+      // 동의한 문서의 시행일 — 문서가 바뀌면 /account/consent에서 다시 동의를 받는다
+      p_terms_version: LEGAL.termsVersion,
+      p_privacy_version: LEGAL.privacyVersion,
     });
     if (!dbError(rpcError, 'complete_onboarding')) return Astro.redirect(destination(role));
     error = /already/.test(rpcError!.message) ? 'You have already completed this step. · 이미 완료했어요.' : 'Something went wrong. Please try again. · 저장하지 못했어요. 다시 시도해 주세요.';
@@ -96,15 +100,15 @@ const checkbox = 'mt-1 size-[18px] shrink-0 cursor-pointer accent-brand';
             <legend class="text-lg font-bold">Agreements <span lang="ko" class="text-sm font-normal text-muted">동의</span></legend>
             <label class={box}>
               <input type="checkbox" name="terms" value="yes" class={checkbox} required />
-              <span>(Required) I agree to the <a href="/terms" target="_blank" rel="noopener" class="font-semibold underline">Terms of Service</a>. <span lang="ko" class="block text-sm text-muted">(필수) 이용약관에 동의합니다.</span></span>
+              <span>(Required) I agree to the <a href="/terms#en" target="_blank" rel="noopener" class="font-semibold underline">Terms of Service</a>. <span lang="ko" class="block text-sm text-muted">(필수) <a href="/terms" target="_blank" rel="noopener" class="underline">이용약관</a>에 동의합니다.</span></span>
             </label>
             <label class={box}>
               <input type="checkbox" name="privacy" value="yes" class={checkbox} required />
-              <span>(Required) I agree to the collection and use of my personal information as described in the <a href="/privacy" target="_blank" rel="noopener" class="font-semibold underline">Privacy notice</a>. <span lang="ko" class="block text-sm text-muted">(필수) 개인정보 수집·이용에 동의합니다.</span></span>
+              <span>(Required) I agree to the collection and use of my personal information as described in the <a href="/privacy#en" target="_blank" rel="noopener" class="font-semibold underline">Privacy notice</a>. <span lang="ko" class="block text-sm text-muted">(필수) <a href="/privacy" target="_blank" rel="noopener" class="underline">개인정보처리방침</a>에 따른 개인정보 수집·이용에 동의합니다.</span></span>
             </label>
             <label class={box}>
               <input type="checkbox" name="adult" value="yes" class={checkbox} required />
-              <span>(Required) I am 18 or older. <span lang="ko" class="block text-sm text-muted">(필수) 만 18세 이상입니다.</span></span>
+              <span>(Required) I am 18 or older. Members under 18 cannot join. <span lang="ko" class="block text-sm text-muted">(필수) 만 18세 이상입니다. 만 18세 미만은 가입할 수 없어요.</span></span>
             </label>
             <label class={box}>
               <input type="checkbox" name="marketing" value="yes" class={checkbox} checked={form.marketing || undefined} />

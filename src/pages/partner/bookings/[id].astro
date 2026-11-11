@@ -2,17 +2,20 @@
 /**
  * 예약 상세 (지기). 수락/거절(사유)·취소·응답 기한 카운트다운·상태 타임라인은 Preact 아일랜드(BookingPanel)가
  * Realtime으로 바로 갱신한다. 여행자 정보는 표시 이름·인원·메모만 (이메일·연락처는 보이지 않는다).
+ * 만남이 끝나면(completed) 아래에 후기 칸(components/reviews/ReviewSection) — 폼은 이 페이지로 POST.
  */
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import AreaNav from '../../../components/account/AreaNav.astro';
 import Notice from '../../../components/account/Notice.astro';
 import BookingPanel from '../../../components/islands/BookingPanel';
+import ReviewSection from '../../../components/reviews/ReviewSection.astro';
 import { PARTNER_NAV } from '../../../data/accountNav';
 import { TRAVELER_CANCEL_REASONS, kstWhen, priceText, reasonLabel } from '../../../data/bookingOptions';
 import { areaName } from '../../../data/routeOptions';
 import { BOOKING_COLUMNS, loadBookingSettings, type BookingRow } from '../../../lib/bookings';
 import { conversationIdForBooking } from '../../../lib/chat';
 import { notice } from '../../../lib/forms';
+import { handleReviewPost, loadMyReview } from '../../../lib/reviews';
 import { UUID } from '../../../lib/routes';
 
 export const prerender = false;
@@ -25,6 +28,14 @@ const { data } = UUID.test(id) ? await supabase.from('bookings').select(BOOKING_
 // 관리자도 RLS로 읽을 수 있지만, 이 화면은 그 예약의 지기용이다 (관리자는 /admin/bookings)
 const booking = (data as BookingRow | null)?.jigi_id === profile.id ? (data as BookingRow) : null;
 if (!booking) Astro.response.status = 404;
+
+let reviewError: string | null = null;
+if (Astro.request.method === 'POST' && booking) {
+  const result = await handleReviewPost(supabase, await Astro.request.formData(), booking.id, 'ko');
+  if (result && 'redirect' in result) return Astro.redirect(Astro.url.pathname + result.redirect);
+  reviewError = result?.error ?? '저장하지 못했어요. 다시 시도해 주세요.';
+}
+const myReview = booking?.status === 'completed' ? await loadMyReview(supabase, booking.id, profile.id) : null;
 const settings = await loadBookingSettings(supabase);
 const chatId = booking ? await conversationIdForBooking(supabase, booking.id) : null;
 
@@ -33,6 +44,7 @@ const done = notice(Astro.url, {
   declined: '거절했어요. 그 시간은 다시 열렸어요.',
   cancelled: '예약을 취소했어요. 여행자에게 알렸어요.',
 });
+const reviewNotice = notice(Astro.url, { review_saved: '후기를 저장했어요. 고마워요!', review_deleted: '후기를 지웠어요.' });
 const travelerCancel = booking?.status === 'cancelled' && booking.cancelled_role === 'traveler'
   ? reasonLabel(booking.cancel_reason, TRAVELER_CANCEL_REASONS, 'ko') : null;
 ---
@@ -71,6 +83,9 @@ const travelerCancel = booking?.status === 'cancelled' && booking.cancelled_role
             <p class="mt-5 text-sm text-muted">연락처는 서로 보이지 않아요. 만남 확정 후 연온 채팅으로 정확한 장소를 알려 주세요.</p>
             {chatId && <a href={`/partner/messages/${chatId}`} class="mt-4 inline-flex min-h-11 items-center rounded-full bg-jigi-strong px-5 font-semibold text-white hover:bg-[#08566F]">채팅 열기</a>}
           </div>
+          {myReview && (
+            <ReviewSection lang="ko" targetName={booking.traveler_name || '여행자'} review={myReview.review} editable={myReview.editable} editableUntil={myReview.editableUntil} error={reviewError} notice={reviewNotice} />
+          )}
         </>
       )}
     </div>

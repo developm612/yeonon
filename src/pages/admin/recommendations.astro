@@ -6,6 +6,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import ExportForm from '../../components/admin/ExportForm.astro';
 import Notice from '../../components/account/Notice.astro';
 import { DISCOVER_VIBES, RECOMMEND, TIMES_OF_DAY } from '../../config/recommend';
 import { ADMIN_NAV } from '../../data/accountNav';
@@ -141,6 +142,7 @@ const llm = llmModel();
     <div class="container-page">
       <h1 class="text-3xl font-extrabold">추천 로그</h1>
       <p class="mt-2 text-muted">여행자가 받은 AI 추천의 조건과 결과예요. 누가 요청했는지는 표시하지 않아요.</p>
+      <ExportForm list="recommendations" filters={{ days: period.id }} class="mt-4" />
 
       {noticeText && <Notice tone={noticeTone} class="mt-6">{noticeText}</Notice>}
 
@@ -154,6 +156,8 @@ const llm = llmModel();
             <dd class="font-semibold break-all">{emb.model ?? <span class="text-[#B42318]">없음 — 유사도 없이 태그·품질 점수만</span>}</dd>
             <dt class="text-muted">가중치</dt>
             <dd>태그 {RECOMMEND.weights.tag} · 유사도 {RECOMMEND.weights.similarity} · 품질 {RECOMMEND.weights.quality} <span class="text-muted">(src/config/recommend.ts)</span></dd>
+            <dt class="text-muted">품질 점수</dt>
+            <dd>평점 {RECOMMEND.quality.weights.rating} (후기 {RECOMMEND.quality.minReviews}개↑) · 수락률 {RECOMMEND.quality.weights.accept} · 응답 속도 {RECOMMEND.quality.weights.speed} (응답 {RECOMMEND.quality.minRequests}건↑) <span class="text-muted">· 데이터가 없으면 {RECOMMEND.quality.default}</span></dd>
           </dl>
         </div>
         <div class="card p-5">

@@ -7,10 +7,13 @@ import SectionHeading from '../components/SectionHeading.astro';
 import StepTimeline from '../components/StepTimeline.astro';
 import MatchDiagram from '../components/MatchDiagram.astro';
 import CTASection from '../components/CTASection.astro';
+import { JIGI_CTA, MEMBER_OPEN, TRAVELER_CTA } from '../config/cta';
 
 const travelerSteps = [
   { title: 'Tell us your taste', body: 'Interests, dates, language, and travel style. Takes about 3 minutes.' },
-  { title: 'We match you with a Jigi', body: 'During pre-launch, our team recommends a Jigi based on your answers.' },
+  MEMBER_OPEN
+    ? { title: 'Pick a route that fits you', body: 'YEONON AI suggests routes made by jigis who share your taste. Choose one and a time — your jigi confirms it.' }
+    : { title: 'We match you with a Jigi', body: 'During pre-launch, our team recommends a Jigi based on your answers.' },
   { title: 'Plan together', body: "Share what you'd like to try. Your Jigi suggests places only locals know." },
   { title: 'Meet & explore', body: '3–4 hours in Seongsu, at your pace.' },
   { title: 'Share your experience', body: 'Your feedback helps us match better next time.' },
@@ -166,8 +169,8 @@ const compare = [
 
   <!-- 7. Final CTA -->
   <CTASection title="Ready when you are.">
-    <Button href="/app-preview" size="lg" class="bg-white! text-brand! hover:bg-bg!">Join as a traveler</Button>
-    <Button href="/app-preview-jigi" size="lg" class="border border-white/40 bg-transparent! hover:bg-white/10!"><span lang="ko">지기로 지원하기</span></Button>
+    <Button href={TRAVELER_CTA.href} size="lg" class="bg-white! text-brand! hover:bg-bg!">{MEMBER_OPEN ? TRAVELER_CTA.label : 'Join as a traveler'}</Button>
+    <Button href={JIGI_CTA.href} size="lg" class="border border-white/40 bg-transparent! hover:bg-white/10!"><span lang="ko">{MEMBER_OPEN ? JIGI_CTA.label : '지기로 지원하기'}</span></Button>
   </CTASection>
 </BaseLayout>
 
