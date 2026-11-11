@@ -26,17 +26,19 @@ const list = (v: unknown): string[] =>
   Array.isArray(v) ? v.map(String) : typeof v === 'string' && v ? v.split(',') : [];
 const unique = (a: string[]) => [...new Set(a.map((s) => s.trim()).filter(Boolean))];
 
-/** 자유 문장에서 연락처처럼 보이는 것(이메일·전화번호·링크·SNS 아이디)을 지운다 */
-export function redactNote(text: string): string {
+/** 연락처처럼 보이는 것(이메일·전화번호·링크·SNS 아이디)을 지운다 — 예약 메모도 같이 쓴다 */
+export function redactContacts(text: string): string {
   return text
     .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[removed]')
     .replace(/(https?:\/\/|www\.)\S+/gi, '[removed]')
     .replace(/\+?\d[\d\s().-]{7,}\d/g, '[removed]')
     .replace(/(^|\s)@[\w.]{2,}/g, '$1[removed]')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, DISCOVER.noteMax);
+    .trim();
 }
+
+/** 추천 자유 문장: 연락처를 지우고 200자까지 */
+export const redactNote = (text: string) => redactContacts(text).slice(0, DISCOVER.noteMax);
 
 /** 처음 열었을 때 기본값: 오늘~2주 뒤, 시간 무관, 2명, 영어 */
 export function defaultInput(profile?: { interests: string[]; languages: string[] } | null): DiscoverInput {

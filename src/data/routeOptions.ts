@@ -77,6 +77,6 @@ export const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 export const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const AVAILABILITY_RULE_MAX = 28;
 export const CONFIRM_MODES = [
-  { id: 'manual', label: '수락 후 확정', desc: '요청이 오면 내가 수락해야 확정돼요. (추천)' },
-  { id: 'instant', label: '즉시 확정', desc: '열어 둔 시간에 요청이 오면 바로 확정돼요.' },
+  { id: 'manual', label: '수락 후 확정', desc: '요청이 오면 응답 기한(기본 12시간, 만남이 24시간 안이면 2시간) 안에 내가 수락해야 확정돼요. 기한이 지나면 자동으로 만료돼요. (추천)' },
+  { id: 'instant', label: '즉시 확정', desc: '열어 둔 시간에 요청이 오면 바로 확정돼요. 확정 후 취소하면 기록이 남으니 꼭 지킬 수 있는 시간만 열어 주세요.' },
 ] as const;

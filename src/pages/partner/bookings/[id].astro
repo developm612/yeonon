@@ -1,0 +1,75 @@
+---
+/**
+ * 예약 상세 (지기). 수락/거절(사유)·취소·응답 기한 카운트다운·상태 타임라인은 Preact 아일랜드(BookingPanel)가
+ * Realtime으로 바로 갱신한다. 여행자 정보는 표시 이름·인원·메모만 (이메일·연락처는 보이지 않는다).
+ */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import Notice from '../../../components/account/Notice.astro';
+import BookingPanel from '../../../components/islands/BookingPanel';
+import { PARTNER_NAV } from '../../../data/accountNav';
+import { TRAVELER_CANCEL_REASONS, kstWhen, priceText, reasonLabel } from '../../../data/bookingOptions';
+import { areaName } from '../../../data/routeOptions';
+import { BOOKING_COLUMNS, loadBookingSettings, type BookingRow } from '../../../lib/bookings';
+import { notice } from '../../../lib/forms';
+import { UUID } from '../../../lib/routes';
+
+export const prerender = false;
+
+const { supabase, profile } = Astro.locals;
+if (!supabase || !profile) return Astro.redirect('/login');
+
+const id = Astro.params.id ?? '';
+const { data } = UUID.test(id) ? await supabase.from('bookings').select(BOOKING_COLUMNS).eq('id', id).maybeSingle() : { data: null };
+// 관리자도 RLS로 읽을 수 있지만, 이 화면은 그 예약의 지기용이다 (관리자는 /admin/bookings)
+const booking = (data as BookingRow | null)?.jigi_id === profile.id ? (data as BookingRow) : null;
+if (!booking) Astro.response.status = 404;
+const settings = await loadBookingSettings(supabase);
+
+const done = notice(Astro.url, {
+  accepted: '수락했어요. 여행자에게 확정 알림을 보냈어요.',
+  declined: '거절했어요. 그 시간은 다시 열렸어요.',
+  cancelled: '예약을 취소했어요. 여행자에게 알렸어요.',
+});
+const travelerCancel = booking?.status === 'cancelled' && booking.cancelled_role === 'traveler'
+  ? reasonLabel(booking.cancel_reason, TRAVELER_CANCEL_REASONS, 'ko') : null;
+---
+<BaseLayout title="예약 상세 | YEONON" description="연온 지기 예약 상세" lang="ko" sticky="none" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-2xl!">
+      <a href="/partner/bookings" class="text-sm font-semibold text-muted hover:text-text">← 예약</a>
+      {!booking ? (
+        <div class="mt-8 text-center">
+          <h1 class="text-2xl font-extrabold">예약을 찾을 수 없어요</h1>
+          <p class="mt-2 text-muted">내 루트의 예약만 볼 수 있어요.</p>
+        </div>
+      ) : (
+        <>
+          <h1 class="mt-4 text-3xl font-extrabold">{booking.route_title}</h1>
+          <p class="mt-1 text-muted tabular-nums">{kstWhen(booking.starts_at, 'ko')}</p>
+          {done && <Notice class="mt-6">{done}</Notice>}
+
+          <div class="card mt-6 p-5 md:p-7">
+            <BookingPanel client:load booking={booking} viewer="jigi" lateCancelMinutes={settings.late_cancel_minutes} />
+          </div>
+
+          <div class="card mt-5 p-5 md:p-7">
+            <h2 class="text-lg font-bold">요청 내용</h2>
+            <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+              <div><dt class="text-xs font-semibold text-muted">여행자</dt><dd class="mt-0.5 font-semibold">{booking.traveler_name || '여행자'}</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">인원</dt><dd class="mt-0.5 font-semibold">{booking.party_size}명</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">시간 (한국)</dt><dd class="mt-0.5 font-semibold tabular-nums">{kstWhen(booking.starts_at, 'ko')} ~ {new Date(booking.ends_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false })}</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">만나는 곳</dt><dd class="mt-0.5 font-semibold">{booking.meeting_area ? `${areaName(booking.meeting_area, 'ko')} · ` : ''}{booking.meeting_point_note ?? '—'}</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">가격 (기록용)</dt><dd class="mt-0.5 font-semibold">{priceText(booking.list_price, booking.final_price, booking.promotion_name)}</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">확정 방식</dt><dd class="mt-0.5 font-semibold">{booking.confirm_mode === 'instant' ? '즉시 확정' : '수락 후 확정'}</dd></div>
+              <div class="sm:col-span-2"><dt class="text-xs font-semibold text-muted">여행자 메모</dt><dd class="mt-0.5">{booking.note ?? '없음'}</dd></div>
+              {travelerCancel && <div class="sm:col-span-2"><dt class="text-xs font-semibold text-muted">취소 사유</dt><dd class="mt-0.5">{travelerCancel}</dd></div>}
+            </dl>
+            <p class="mt-5 text-sm text-muted">연락처는 서로 보이지 않아요. 만남 확정 후 연온 채팅으로 정확한 장소를 알려 주세요 (채팅은 곧 열려요).</p>
+          </div>
+        </>
+      )}
+    </div>
+  </section>
+</BaseLayout>

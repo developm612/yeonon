@@ -2,12 +2,14 @@
 export const TRAVELER_NAV = [
   { href: '/app', label: 'Home' },
   { href: '/app/discover', label: 'Discover' },
+  { href: '/app/bookings', label: 'Bookings' },
   { href: '/routes', label: 'Routes' },
   { href: '/app/profile', label: 'Profile' },
 ];
 
 export const PARTNER_NAV = [
   { href: '/partner', label: '지기 홈' },
+  { href: '/partner/bookings', label: '예약' },
   { href: '/partner/routes', label: '내 루트' },
   { href: '/partner/availability', label: '가능 시간' },
   { href: '/partner/apply', label: '지기 신청서' },
@@ -18,6 +20,8 @@ export const ADMIN_NAV = [
   { href: '/admin/users', label: '회원' },
   { href: '/admin/jigi-applications', label: '지기 신청' },
   { href: '/admin/routes', label: '루트 검수' },
+  { href: '/admin/bookings', label: '예약' },
+  { href: '/admin/promotions', label: '할인·예약 규칙' },
   { href: '/admin/recommendations', label: '추천 로그' },
 ];
 

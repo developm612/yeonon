@@ -2,6 +2,7 @@
 import { defineConfig, envField } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import vercel from '@astrojs/vercel';
+import preact from '@astrojs/preact';
 
 // 서버가 믿어도 되는 접속 주소. Vercel은 실제 브라우저 주소를 x-forwarded-host로 넘기는데,
 // 여기 없는 주소면 Astro가 무시해서 Astro.url이 https://localhost가 되고 폼 전송(CSRF 검사)·로그인 주소가 틀어진다.
@@ -22,6 +23,8 @@ export default defineConfig({
   output: 'static',
   // 추천 API는 임베딩(최대 2.5초) + LLM(최대 6초)을 기다리므로 함수 시간 제한을 넉넉히 둔다
   adapter: vercel({ maxDuration: 30 }),
+  // 실시간 구독 화면(알림 종·예약 상태·새 요청)은 Preact 아일랜드 — src/components/islands/
+  integrations: [preact()],
   // TODO: 도메인 확정 후 교체 (canonical / OG URL에 사용)
   site: 'https://yeonon.xyz',
   trailingSlash: 'ignore',
@@ -34,6 +37,10 @@ export default defineConfig({
       LLM_MODEL: envField.string({ context: 'server', access: 'secret', optional: true }),
       EMBEDDING_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       EMBEDDING_MODEL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      // 알림 메일 (Phase 5): 셋 중 하나라도 없으면 메일만 건너뛰고 사이트 알림은 그대로 남는다
+      SUPABASE_SERVICE_ROLE_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      RESEND_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      MAIL_FROM: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },
   vite: {

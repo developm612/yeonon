@@ -31,7 +31,7 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 
 ## 로그인 · 회원 영역 (실서비스 전환, 진행 중)
 
-계획: `../yeonon-service-plan-v2.md`. Phase 4(AI 루트 추천)까지 구현됨.
+계획: `../yeonon-service-plan-v2.md`. Phase 5(실시간 자동 매칭·무료 이용)까지 구현됨.
 
 | 경로 | 내용 |
 |---|---|
@@ -41,15 +41,21 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 | `/onboarding` | 첫 로그인 후 한 번: 역할(여행자/지기) + 필수 동의(약관·개인정보·만 18세) + 선택 동의(마케팅) |
 | `/account` | 헤더 `My page` → 역할별 홈으로 이동 |
 | `/account/delete` | 회원 탈퇴 (프로필·지기 신청·지기 프로필 함께 삭제) |
-| `/app`, `/app/profile` | 여행자 홈(Find my route)·프로필 (영문) |
+| `/app`, `/app/profile` | 여행자 홈(다가오는 만남·진행 중 요청·Find my route)·프로필 (영문) |
 | `/app/discover` → `/app/discover/results` | AI 추천 입력(관심사 3~5개·날짜·시간대·인원·언어·분위기·자유 문장) → 결과(Perfect match / Closest matches, 일치율·추천 이유·가능 시간) |
-| `/app/routes/[id]` | 여행자 영역 루트 상세. 추천 카드에서 오면 클릭 기록. 요청 버튼은 Phase 5 전까지 Coming soon |
+| `/app/routes/[id]` | 여행자 영역 루트 상세. 추천 카드에서 오면 클릭 기록. 시간 칩 선택 → 인원·메모 → `Request this route`, 가격 `₩45,000 → ₩0 · Early member` |
+| `/app/bookings`, `/app/bookings/[id]` | 내 예약 목록 / 상태 타임라인(실시간)·응답 기한·만남 안내·취소·만료·거절 시 `See other routes`(같은 조건의 /app/discover) |
+| `/api/bookings/request`·`respond`·`cancel` | 예약 API (POST, JSON 또는 폼). 입력 검증 → DB 함수 → 오류 코드를 여행자 영문·지기 한글 문구로 |
+| `/account/notifications` | 알림 목록·읽음 처리 (헤더 알림 종의 전체 보기) |
 | `/api/recommend` | 추천 API (POST, 로그인한 여행자만) |
-| `/partner`, `/partner/apply` | 지기 홈(신청 상태)·지기 신청서 (한글) |
+| `/partner`, `/partner/apply` | 지기 홈(신청 상태 / 승인 후 새 요청 실시간·응답 기한 카운트다운·이번 주 만남)·지기 신청서 (한글) |
+| `/partner/bookings`, `/partner/bookings/[id]` | 예약 목록 / 상세(수락·거절 사유·취소, 실시간) |
 | `/partner/routes`, `/partner/routes/new`, `/partner/routes/[id]/edit` | 내 루트 목록·루트 빌더(기본 정보 → 코스 → 미리보기 → 검수 요청). 승인된 지기만 |
-| `/partner/availability` | 주간 반복 시간·날짜별 예외·확정 방식 → 앞으로 4주 슬롯 자동 생성 |
+| `/partner/availability` | 주간 반복 시간·날짜별 예외·확정 방식(수락 후 확정/즉시 확정) → 앞으로 4주 슬롯 자동 생성 |
 | `/admin`, `/admin/users`, `/admin/jigi-applications`, `/admin/routes` | 관리자 대시보드·회원 관리(정지·메모)·지기 신청 심사·루트 검수(공개/수정 요청/비공개) (한글) |
 | `/admin/recommendations` | 추천 로그(조건·결과·모델·지연·대체 여부·클릭·요청), 대체 비율, 임베딩 백필 |
+| `/admin/bookings` | 상태별 예약 현황, 강제 취소(사유 → audit_log), 기한 만료·완료 [지금 처리] |
+| `/admin/promotions` | 할인(할인율·대상·기간·사용 한도·켜고 끄기) + 예약 규칙(응답 기한·대기 요청 수 등) |
 | `/routes`, `/routes/[id]` | 공개 루트 둘러보기·상세 (누구나, 영문). 공개 전 루트는 주인 지기·관리자에게만 미리보기로 보임 |
 | `/terms` | 이용약관 자리 — **공개 전 실제 약관으로 교체 필요** |
 
@@ -69,6 +75,9 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 7. `20261110000007_slots_cron.sql` — (선택) pg_cron으로 매일 00:05 KST에 4주 창을 앞으로 민다. Dashboard → Database → Extensions에서 pg_cron을 먼저 켠다
 8. `20261110000008_route_embeddings.sql` — pgvector(`vector` 확장), routes.embedding(1024차원)·is_sample, `set_route_embedding()`, `match_routes()`
 9. `20261110000009_recommendations.sql` — recommendation_requests, `save_recommendation()`, `record_recommendation_click()`
+10. `20261110000010_bookings.sql` — booking_settings(예약 규칙 한 행), promotions(+얼리 멤버 100% 기본 1건, 가입 시 얼리 멤버 자동), bookings(슬롯당 활성 예약 1건 유니크 인덱스, 가격 스냅샷), notifications, 겹치는 슬롯 처리
+11. `20261110000011_booking_functions.sql` — `request_booking()`·`respond_booking()`·`cancel_booking()`, `expire_pending_bookings()`·`complete_past_bookings()`, `booking_quote()`, `mark_notifications_read()`, 관리자 함수, 탈퇴 시 진행 중 예약 취소
+12. `20261110000012_bookings_cron_realtime.sql` — pg_cron 5분마다 만료·완료 처리, Realtime publication에 bookings·notifications 추가
 
 추천 테스트용 샘플(선택, 마이그레이션 뒤): `supabase/seed/recommend_sample.sql` → 테스트 후 `supabase/seed/recommend_sample_cleanup.sql`로 한 번에 삭제.
 
@@ -79,6 +88,14 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 - 루트·정류장·가능 시간·슬롯도 DB 함수로만 쓴다. 공개·비공개 루트를 고치면 작성 중으로 돌아가 다시 검수를 받는다. 슬롯은 공개 루트마다 가능 시간 안에서 루트 소요 시간 간격으로 만들어지고(한국 시간), 요청·확정된 슬롯은 가능 시간을 바꿔도 남는다.
 - 취향 id 목록은 `src/data/interests.ts` 한 곳에서 관리한다 (여행자 관심사·지기 취향·루트 태그 공용). DB의 `valid_interest_tags()`와 같아야 한다.
 - **AI 추천** (`src/lib/recommend/`, `src/lib/ai/`, 설정 `src/config/recommend.ts`): 캐시(같은 조건 30분) → 시간당 10회 제한 → 쿼리 임베딩 → `match_routes` 상위 10개(태그 0.45 + 유사도 0.40 + 품질 0.15) → LLM이 최종 5개·영어 이유·perfect/close를 JSON으로 → 기록. LLM·임베딩 키가 없거나 LLM이 6초를 넘기거나 JSON이 아니면 점수 순서 + 템플릿 이유로 대체한다. LLM에는 취향 조건과 루트 공개 정보만 보내고, 자유 문장의 이메일·전화번호·링크는 지운다.
+- **예약** (계획서 2-4·2-6): 요청·수락·거절·취소·만료·완료는 모두 DB 함수 하나(트랜잭션)로만 바뀐다. bookings는 클라이언트가 직접 insert/update 할 수 없다.
+  - 동시 요청: 같은 지기의 예약 변경은 지기 행 잠금으로 줄을 세우고, 같은 슬롯은 유니크 인덱스가 한 번 더 막는다 → 두 사람이 동시에 눌러도 1명만 성공, 다른 사람은 '방금 마감' + 같은 루트의 다른 시간.
+  - 한 슬롯이 요청·확정되면 같은 지기의 시간이 겹치는 다른 루트 슬롯은 내려가고, 예약이 풀리면 다시 생긴다.
+  - 규칙 값(응답 기한 12시간 / 만남 24시간 이내면 2시간, 대기 요청 3건, 시작 2시간 전까지 요청, 24시간 이내 취소 기록, 기본 할인율)은 `booking_settings` 한 행 — /admin/promotions에서 바꾼다.
+  - 결제는 없다. 예약에 정가·할인율·최종 가격·프로모션을 스냅샷으로 남긴다.
+  - 메모·사유의 연락처(이메일·전화·링크·SNS 아이디)는 서버가 지운다. 여행자 이메일은 지기에게 보이지 않는다.
+- **알림**: 사이트 알림(notifications)은 DB 함수가 받는 사람 언어로 만든다. 헤더 알림 종(Preact 아일랜드, `src/components/islands/`)이 Realtime으로 바로 보여 준다. 메일은 `RESEND_API_KEY`·`MAIL_FROM`·`SUPABASE_SERVICE_ROLE_KEY`가 모두 있을 때만 보낸다 (`src/lib/mail.ts`). 크론이 만든 알림(만료·완료)은 사이트 알림만 남는다.
+- **실시간 RLS 확인**: Realtime(postgres_changes)은 구독자 토큰으로 bookings·notifications의 select 정책을 확인한 뒤에만 보낸다. 브라우저 2개(여행자 A·B)로 A가 요청할 때 B의 알림 종·예약 화면이 바뀌지 않는지, 지기 화면에는 바로 뜨는지 본다. 연결이 안 되면 화면은 30초마다 다시 읽는다.
 - **렌더링**: 공개 페이지는 지금처럼 빌드 때 정적 HTML로 만들고, `export const prerender = false`인 페이지만 요청마다 서버에서 렌더링한다.
 - **헤더 로그인 표시**: 정적 페이지는 브라우저의 Supabase 세션 쿠키 유무로 `Sign in` ↔ `My page`를 바꿔 보여 줄 뿐이고, 실제 접근 확인은 서버가 한다.
 

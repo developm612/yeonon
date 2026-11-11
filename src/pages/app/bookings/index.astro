@@ -1,0 +1,71 @@
+---
+/** 내 예약 (여행자): 응답 대기 / 다가오는 만남 / 지난·종료된 예약. 읽기는 RLS(본인 예약만) */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import { TRAVELER_NAV } from '../../../data/accountNav';
+import { BOOKING_STATUS, STATUS_TONE_CLASS, kstWhen, priceText } from '../../../data/bookingOptions';
+import { BOOKING_COLUMNS, type BookingRow } from '../../../lib/bookings';
+import { dbError } from '../../../lib/forms';
+
+export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/login');
+
+const { data, error } = await supabase.from('bookings').select(BOOKING_COLUMNS).eq('traveler_id', profile.id)
+  .order('starts_at', { ascending: false }).limit(100);
+dbError(error, 'load traveler bookings');
+const all = (data ?? []) as BookingRow[];
+const now = Date.now();
+const pending = all.filter((b) => b.status === 'pending').reverse();
+const upcoming = all.filter((b) => b.status === 'confirmed').reverse();
+const past = all.filter((b) => b.status !== 'pending' && b.status !== 'confirmed');
+const groups = [
+  { title: 'Waiting for reply', list: pending, empty: 'No requests waiting.' },
+  { title: 'Upcoming meetups', list: upcoming, empty: 'No confirmed meetups yet.' },
+  { title: 'Past & closed', list: past, empty: '' },
+];
+---
+<BaseLayout title="My bookings | YEONON" description="Your YEONON bookings." sticky="none" noindex>
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-2xl!">
+      <p class="eyebrow">Traveler</p>
+      <h1 class="mt-3 text-3xl font-extrabold">My bookings</h1>
+      {all.length === 0 ? (
+        <div class="card mt-8 p-6 text-center md:p-8">
+          <p class="text-4xl" aria-hidden="true">🗺️</p>
+          <p class="mt-3 font-bold">No bookings yet</p>
+          <p class="mt-1 text-muted">Find a route you love, pick a time, and your jigi will reply.</p>
+          <a href="/app/discover" class="mt-5 inline-flex min-h-11 items-center rounded-full bg-traveler-strong px-5 font-semibold text-white hover:bg-[#134FB0]">Find my route</a>
+        </div>
+      ) : (
+        groups.filter((g) => g.list.length || g.empty).map((g) => (
+          <div class="mt-10">
+            <h2 class="font-bold">{g.title} <span class="font-normal text-muted tabular-nums">{g.list.length}</span></h2>
+            {g.list.length === 0 ? (
+              <p class="mt-2 text-sm text-muted">{g.empty}</p>
+            ) : (
+              <ul class="mt-3 space-y-3">
+                {g.list.map((b) => (
+                  <li>
+                    <a href={`/app/bookings/${b.id}`} class="card block p-4 transition-colors hover:border-text md:p-5">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class:list={['rounded-full px-2.5 py-0.5 text-xs font-bold', STATUS_TONE_CLASS[BOOKING_STATUS[b.status].tone]]}>{BOOKING_STATUS[b.status].en}</span>
+                        {b.status === 'pending' && b.respond_by && new Date(b.respond_by).getTime() > now && (
+                          <span class="text-xs text-muted tabular-nums">Reply by {kstWhen(b.respond_by, 'en')} KST</span>
+                        )}
+                      </div>
+                      <p class="mt-2 font-bold">{b.route_title}</p>
+                      <p class="mt-0.5 text-sm text-muted tabular-nums">{kstWhen(b.starts_at, 'en')} KST · {b.party_size} {b.party_size === 1 ? 'person' : 'people'} · {priceText(b.list_price, b.final_price, b.promotion_name)}</p>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  </section>
+</BaseLayout>

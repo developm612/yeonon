@@ -2,7 +2,7 @@
 /**
  * 루트 상세 (누구나). 코스 타임라인, 지기(이름 일부만), 앞으로 4주 예약 가능한 시간 — 본문은 components/routes/RouteDetail.astro.
  * 공개 루트가 아니면 루트 주인(지기)과 관리자에게만 '미리보기'로 보인다 — 읽기 권한은 DB RLS가 정한다.
- * 매칭 요청(Request this route)은 Phase 5에서 연결한다. 비회원은 로그인 후 같은 루트로 돌아온다.
+ * 매칭 요청(Request this route)은 여행자 영역 /app/routes/[id]에서 한다. 비회원은 로그인 후 같은 루트로 돌아온다.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import RouteDetail from '../../components/routes/RouteDetail.astro';
@@ -68,10 +68,10 @@ const cta = 'mt-5 flex h-[52px] items-center justify-center rounded-full bg-trav
             ) : !profile || !isOnboarded(profile) ? (
               <a href={`/onboarding?next=${encodeURIComponent(here)}`} class={cta}>Finish signing up</a>
             ) : canRequest ? (
-              <button type="button" disabled class={`${cta} w-full opacity-60`}>Request this route</button>
+              <a href={`/app/routes/${route.id}`} class={cta}>Request this route</a>
             ) : null
           )}
-          {!isPreview && (!profile || canRequest) && <p class="mt-2 text-center text-xs text-muted">Requests open soon — we're testing with our first local friends.</p>}
+          {!isPreview && !user && <p class="mt-2 text-center text-xs text-muted">Sign in, pick a time and your jigi will reply — you'll come back to this route.</p>}
         </Fragment>
       </RouteDetail>
     </>

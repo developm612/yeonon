@@ -1,11 +1,19 @@
 ---
-/** 지기 홈: 신청 전 → 신청 안내, 신청 후 → 심사 상태, 승인 후 → 내 루트·가능 시간 요약 */
+/**
+ * 지기 홈: 신청 전 → 신청 안내, 신청 후 → 심사 상태,
+ * 승인 후 → 새 요청(실시간 + 응답 기한 카운트다운, Preact 아일랜드) · 오늘·이번 주 만남 · 내 루트·가능 시간 요약
+ */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
 import Notice from '../../components/account/Notice.astro';
 import { PARTNER_NAV } from '../../data/accountNav';
 import { APPLICATION_STATUS, type ApplicationStatus } from '../../data/jigiStatus';
+import PartnerRequests, { type RequestItem } from '../../components/islands/PartnerRequests';
+import { kstWhen } from '../../data/bookingOptions';
+import { kstToday } from '../../lib/availability';
+import { BOOKING_COLUMNS, type BookingRow } from '../../lib/bookings';
 import { dbError, notice } from '../../lib/forms';
+import { kstDay } from '../../lib/routes';
 
 export const prerender = false;
 
@@ -22,15 +30,28 @@ const approved = status === 'approved' && jigi?.is_active;
 let routeCount = 0;
 let publishedCount = 0;
 let openSlotCount = 0;
+let pending: RequestItem[] = [];
+let week: BookingRow[] = [];
 if (approved) {
-  const [{ data: routes }, { count }] = await Promise.all([
+  // 이번 주 = 오늘부터 7일
+  const weekEnd = new Date(Date.now() + 7 * 864e5).toISOString();
+  const [{ data: routes }, { count }, p, w] = await Promise.all([
     supabase.from('routes').select('status').eq('jigi_id', profile.id),
     supabase.from('slots').select('id', { count: 'exact', head: true }).eq('jigi_id', profile.id).eq('status', 'open').gt('starts_at', new Date().toISOString()),
+    supabase.from('bookings').select(BOOKING_COLUMNS).eq('jigi_id', profile.id).eq('status', 'pending').order('respond_by').limit(50),
+    supabase.from('bookings').select(BOOKING_COLUMNS).eq('jigi_id', profile.id).eq('status', 'confirmed')
+      .gt('ends_at', new Date().toISOString()).lt('starts_at', weekEnd).order('starts_at').limit(30),
   ]);
   routeCount = routes?.length ?? 0;
   publishedCount = routes?.filter((r) => r.status === 'published').length ?? 0;
   openSlotCount = count ?? 0;
+  dbError(p.error ?? w.error, 'load jigi home bookings');
+  pending = (p.data ?? []) as BookingRow[];
+  week = (w.data ?? []) as BookingRow[];
 }
+const today = kstToday();
+const todays = week.filter((b) => kstDay(b.starts_at) === today);
+const later = week.filter((b) => kstDay(b.starts_at) !== today);
 const applied = notice(Astro.url, { applied: '신청서를 보냈어요. 검토 후 연락드릴게요.' });
 const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
 ---
@@ -42,6 +63,31 @@ const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZo
       <h1 class="mt-3 text-3xl font-extrabold">{profile.display_name}님, 안녕하세요</h1>
 
       {applied && <Notice class="mt-6">{applied}</Notice>}
+
+      {approved && (
+        <>
+          <h2 class="mt-8 font-bold">새 요청 <span class="font-normal text-muted">· 실시간</span></h2>
+          <div class="mt-3"><PartnerRequests client:load jigiId={profile.id} initial={pending} /></div>
+
+          <h2 class="mt-8 font-bold">오늘 · 이번 주 만남</h2>
+          {week.length === 0 ? (
+            <p class="mt-2 text-sm text-muted">앞으로 7일 안에 확정된 만남이 없어요.</p>
+          ) : (
+            <ul class="mt-3 divide-y divide-border rounded-2xl bg-surface shadow-card">
+              {[...todays, ...later].map((b) => (
+                <li>
+                  <a href={`/partner/bookings/${b.id}`} class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-text/5">
+                    {kstDay(b.starts_at) === today && <span class="rounded-full bg-jigi-strong px-2.5 py-0.5 text-xs font-bold text-white">오늘</span>}
+                    <span class="font-semibold tabular-nums">{kstWhen(b.starts_at, 'ko')}</span>
+                    <span>{b.route_title}</span>
+                    <span class="text-sm text-muted">{b.party_size}명 · {b.traveler_name || '여행자'}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
 
       <div class="card mt-8 p-6 md:p-8">
         {!status ? (
@@ -59,7 +105,8 @@ const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZo
               내 루트 {routeCount}개 · 공개 {publishedCount}개 · 앞으로 4주 열린 시간 {openSlotCount}개
             </p>
             <div class="mt-6 flex flex-wrap gap-3">
-              <a href="/partner/routes" class="inline-flex min-h-11 items-center rounded-full bg-jigi-strong px-5 font-semibold text-white hover:bg-[#08566F]">내 루트</a>
+              <a href="/partner/bookings" class="inline-flex min-h-11 items-center rounded-full bg-jigi-strong px-5 font-semibold text-white hover:bg-[#08566F]">예약</a>
+              <a href="/partner/routes" class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">내 루트</a>
               <a href="/partner/availability" class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">가능 시간</a>
             </div>
           </>

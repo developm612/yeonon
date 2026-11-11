@@ -1,10 +1,14 @@
 ---
-/** 관리자 대시보드 (회원·지기 신청·루트 수). 예약·추천 지표는 이후 단계에서 추가 */
+/**
+ * 관리자 대시보드: 예약(오늘 요청·확정·만료, 평균 응답 시간, 수락률 — admin_booking_stats), 회원·지기 신청·루트 수.
+ * 추천 지표는 /admin/recommendations.
+ */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
 import { APPLICATION_STATUS, APPLICATION_STATUSES } from '../../data/jigiStatus';
 import { ROUTE_STATUS, ROUTE_STATUSES } from '../../data/routeOptions';
+import { dbError } from '../../lib/forms';
 
 export const prerender = false;
 
@@ -34,6 +38,25 @@ const [total, travelers, jigis, pending, suspended, lastWeek, ...apps] = await P
   ...APPLICATION_STATUSES.map((s) => count('jigi_applications', 'status', s)),
 ]);
 
+// 예약 지표: 오늘은 한국 날짜, 평균 응답 시간·수락률은 최근 30일 '수락 후 확정' 요청 기준
+const STATS_DAYS = 30;
+const { data: statsData, error: statsError } = await supabase.rpc('admin_booking_stats', { p_days: STATS_DAYS });
+dbError(statsError, 'admin booking stats');
+const st = (statsData ?? null) as Record<string, number | null> | null;
+const decided = st ? (st.accepted ?? 0) + (st.declined ?? 0) + (st.expired ?? 0) : 0;
+const acceptRate = st && decided > 0 ? `${Math.round(((st.accepted ?? 0) / decided) * 100)}%` : '-';
+const avgResponse = st?.avg_response_minutes == null ? '-' : st.avg_response_minutes < 60 ? `${st.avg_response_minutes}분` : `${Math.floor(st.avg_response_minutes / 60)}시간 ${st.avg_response_minutes % 60}분`;
+const bookingToday = st
+  ? [
+      { label: '오늘 요청', value: st.today_requests ?? 0, href: '/admin/bookings?status=all' },
+      { label: '오늘 확정', value: st.today_confirmed ?? 0, href: '/admin/bookings?status=confirmed' },
+      { label: '오늘 만료', value: st.today_expired ?? 0, href: '/admin/bookings?status=expired' },
+      { label: '응답 대기 중', value: st.pending_now ?? 0, href: '/admin/bookings?status=pending' },
+      { label: `평균 응답 시간 (${STATS_DAYS}일)`, value: avgResponse, href: null },
+      { label: `수락률 (${STATS_DAYS}일)`, value: acceptRate, href: null, hint: decided ? `수락 ${st.accepted} · 거절 ${st.declined} · 만료 ${st.expired}` : '아직 응답한 요청이 없어요' },
+    ]
+  : [];
+
 const members = [
   { label: '전체 회원', value: total },
   { label: '여행자', value: travelers },
@@ -48,6 +71,30 @@ const members = [
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">
       <h1 class="text-3xl font-extrabold">대시보드</h1>
+
+      <h2 class="mt-10 font-bold">예약 <span class="font-normal text-muted">· 오늘은 한국 시간 기준</span></h2>
+      {bookingToday.length === 0 ? (
+        <p class="mt-3 text-sm text-muted">예약 지표를 읽지 못했어요. 마이그레이션 10~11번을 실행했는지 확인해 주세요.</p>
+      ) : (
+        <ul class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          {bookingToday.map((m) => (
+            <li>
+              {m.href ? (
+                <a href={m.href} class="card block h-full p-5 transition-colors hover:border-text">
+                  <p class="text-sm text-muted">{m.label}</p>
+                  <p class="mt-1 text-3xl font-extrabold tabular-nums">{m.value}</p>
+                </a>
+              ) : (
+                <div class="card h-full p-5">
+                  <p class="text-sm text-muted">{m.label}</p>
+                  <p class="mt-1 text-3xl font-extrabold tabular-nums">{m.value}</p>
+                  {m.hint && <p class="mt-1 text-xs text-muted">{m.hint}</p>}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h2 class="mt-10 font-bold">회원</h2>
       <ul class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">

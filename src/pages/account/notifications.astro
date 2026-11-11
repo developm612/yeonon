@@ -1,0 +1,76 @@
+---
+/**
+ * 알림 목록 (모든 회원). 여행자는 영어, 지기·관리자는 한국어 화면.
+ * 알림은 본인 것만 읽힌다 (notifications RLS). 읽음 처리는 mark_notifications_read() — 하나씩(열 때) 또는 전부.
+ * 헤더 알림 종(Preact 아일랜드)이 같은 데이터를 실시간으로 보여 준다.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import { ADMIN_NAV, PARTNER_NAV, TRAVELER_NAV } from '../../data/accountNav';
+import { kstWhen } from '../../data/bookingOptions';
+import { dbError, field } from '../../lib/forms';
+import { UUID } from '../../lib/routes';
+import { safeNext } from '../../lib/supabase';
+
+export const prerender = false;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/login');
+const lang = profile.role === 'traveler' ? 'en' : 'ko';
+const ko = lang === 'ko';
+
+// 읽음 처리: 전부 / 하나 열기(읽음 표시 후 그 링크로 이동)
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const id = field(fd, 'id');
+  const { error } = await supabase.rpc('mark_notifications_read', { p_ids: UUID.test(id) ? [id] : null });
+  dbError(error, 'mark notifications read');
+  return Astro.redirect(UUID.test(id) ? safeNext(field(fd, 'link'), '/account/notifications') : '/account/notifications');
+}
+
+const { data, error } = await supabase.from('notifications').select('id, type, title, body, link, read_at, created_at')
+  .order('created_at', { ascending: false }).limit(100);
+dbError(error, 'load notifications');
+const items = data ?? [];
+const unread = items.filter((n) => !n.read_at).length;
+const nav = profile.role === 'traveler' ? TRAVELER_NAV : profile.role === 'jigi' ? PARTNER_NAV : ADMIN_NAV;
+---
+<BaseLayout title={ko ? '알림 | YEONON' : 'Notifications | YEONON'} description={ko ? '연온 알림' : 'Your YEONON notifications.'} lang={lang} sticky="none" noindex>
+  <AreaNav items={nav} label={ko ? '회원 메뉴' : 'Member menu'} lang={lang} />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-2xl!">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <h1 class="text-3xl font-extrabold">{ko ? '알림' : 'Notifications'}</h1>
+        {unread > 0 && (
+          <form method="post">
+            <button type="submit" class="min-h-11 rounded-full border border-border bg-surface px-5 text-sm font-semibold hover:border-text">
+              {ko ? `모두 읽음 (${unread})` : `Mark all read (${unread})`}
+            </button>
+          </form>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <p class="mt-8 rounded-xl bg-surface px-4 py-6 text-center text-muted shadow-card">{ko ? '아직 알림이 없어요.' : 'No notifications yet.'}</p>
+      ) : (
+        <ul class="mt-6 divide-y divide-border rounded-2xl bg-surface shadow-card">
+          {items.map((n) => (
+            <li class:list={[!n.read_at && 'bg-traveler-soft/40']}>
+              <form method="post">
+                <input type="hidden" name="id" value={n.id} />
+                <input type="hidden" name="link" value={n.link ?? '/account/notifications'} />
+                <button type="submit" class="flex w-full gap-3 px-4 py-4 text-left hover:bg-text/5">
+                  <span class:list={['mt-1.5 size-2 shrink-0 rounded-full', n.read_at ? 'bg-transparent' : 'bg-[#D92D20]']} aria-hidden="true"></span>
+                  <span class="min-w-0">
+                    <span class="block font-semibold">{n.title}{!n.read_at && <span class="sr-only"> ({ko ? '안 읽음' : 'unread'})</span>}</span>
+                    <span class="mt-0.5 block text-sm text-muted">{n.body}</span>
+                    <span class="mt-1 block text-xs text-muted tabular-nums">{kstWhen(n.created_at, lang)}{ko ? '' : ' KST'}</span>
+                  </span>
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </section>
+</BaseLayout>

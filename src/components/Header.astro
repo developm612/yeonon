@@ -2,6 +2,8 @@
 import Logo from './Logo.astro';
 import Button from './Button.astro';
 import Icon from './Icon.astro';
+import NotificationBell from './islands/NotificationBell';
+import { isOnboarded } from '../lib/profile';
 import { isAuthConfigured, isMemberUiPublic } from '../lib/supabase';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
@@ -14,6 +16,10 @@ const links = [
 // Supabase 키가 없거나 회원 기능 비공개(PUBLIC_MEMBER_UI가 true가 아님)면 로그인 메뉴를 아예 그리지 않는다
 const showAuth = isAuthConfigured && isMemberUiPublic;
 const signedIn = Boolean(Astro.locals.user);
+// 알림 종: 서버 렌더링 페이지에서 로그인·온보딩을 마친 회원에게만 (정적 공개 페이지에는 그리지 않는다 — 번들 크기)
+// 로그인한 회원에게만 보이므로 회원 기능 비공개(PUBLIC_MEMBER_UI) 중에도 내부 테스트 계정에는 보인다
+const me = Astro.locals.profile;
+const bell = isAuthConfigured && signedIn && me && me.status === 'active' && isOnboarded(me) ? me : null;
 ---
 <header class="sticky top-0 z-40 border-b border-border/70 bg-bg/90 backdrop-blur-md">
   <!-- 모바일: [로고 | 여행자·지기 전환 | 메뉴] 3열, 가운데 열이 화면 정중앙 / 데스크톱: 로고 + 내비 -->
@@ -77,17 +83,20 @@ const signedIn = Boolean(Astro.locals.user);
       </Button>
     </nav>
 
-    <button
-      type="button"
-      class="-mr-2 inline-flex size-11 justify-self-end items-center justify-center rounded-full hover:bg-text/5 md:hidden"
-      aria-expanded="false"
-      aria-controls="mobile-menu"
-      data-menu-toggle
-    >
-      <span class="sr-only">Menu</span>
-      <span data-icon-open><Icon name="menu" /></span>
-      <span data-icon-close class="hidden"><Icon name="x" /></span>
-    </button>
+    <div class:list={['-mr-2 flex items-center justify-self-end', !bell && 'md:hidden']}>
+      {bell && <NotificationBell client:load userId={bell.id} lang={bell.role === 'traveler' ? 'en' : 'ko'} />}
+      <button
+        type="button"
+        class="inline-flex size-11 items-center justify-center rounded-full hover:bg-text/5 md:hidden"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        data-menu-toggle
+      >
+        <span class="sr-only">Menu</span>
+        <span data-icon-open><Icon name="menu" /></span>
+        <span data-icon-close class="hidden"><Icon name="x" /></span>
+      </button>
+    </div>
   </div>
 
   <nav id="mobile-menu" class="hidden border-t border-border bg-bg md:hidden" aria-label="Main mobile" data-menu>

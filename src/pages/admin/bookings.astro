@@ -1,0 +1,149 @@
+---
+/**
+ * 예약 현황 (관리자): 상태별 목록, 강제 취소(사유 필수 → audit_log 'booking.force_cancel'), 예약 작업 바로 실행.
+ * 변경은 DB 함수로만: cancel_booking(관리자 호출 = 강제 취소), admin_run_booking_jobs(만료·완료 처리).
+ * 예약 작업은 pg_cron이 5분마다 돌리지만, 확인할 때 기다리지 않도록 [지금 처리] 버튼을 둔다.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import Notice from '../../components/account/Notice.astro';
+import { ADMIN_NAV } from '../../data/accountNav';
+import { BOOKING_STATUS, BOOKING_STATUSES, STATUS_TONE_CLASS, kstWhen, priceText, type BookingStatus } from '../../data/bookingOptions';
+import { BOOKING_COLUMNS, bookingErrorCode, bookingMessage, type BookingRow } from '../../lib/bookings';
+import { dbError, field } from '../../lib/forms';
+import { mailBookingNotifications } from '../../lib/mail';
+import { UUID } from '../../lib/routes';
+import { clean } from '../../scripts/formSafety';
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+if (!supabase) return Astro.redirect('/login');
+
+const PAGE = 50;
+const tab = Astro.url.searchParams.get('status') ?? 'pending';
+const current: BookingStatus | 'all' = (BOOKING_STATUSES as string[]).includes(tab) ? (tab as BookingStatus) : tab === 'all' ? 'all' : 'pending';
+const page = Math.max(1, Number(Astro.url.searchParams.get('page')) || 1);
+const back = (notice: string) => `/admin/bookings?status=${current}&page=${page}&notice=${notice}`;
+
+let error: string | null = null;
+let ran: { expired: number; completed: number } | null = null;
+if (Astro.request.method === 'POST') {
+  const started = new Date();
+  const fd = await Astro.request.formData();
+  const action = field(fd, 'action');
+  if (action === 'run_jobs') {
+    const { data, error: rpcError } = await supabase.rpc('admin_run_booking_jobs');
+    if (dbError(rpcError, 'admin run booking jobs')) error = '실행하지 못했어요.';
+    else ran = data as { expired: number; completed: number };
+  } else if (action === 'force_cancel') {
+    const id = field(fd, 'id');
+    const reason = clean(field(fd, 'reason'), 200);
+    if (!UUID.test(id)) error = '잘못된 요청이에요.';
+    else if (!reason) error = '강제 취소 사유를 적어 주세요. 관리 기록(audit_log)에 남아요.';
+    else {
+      const { error: rpcError } = await supabase.rpc('cancel_booking', { p_id: id, p_reason: reason });
+      if (!rpcError) {
+        await mailBookingNotifications(id, started, Astro.url.origin);
+        return Astro.redirect(back('cancelled'));
+      }
+      error = bookingMessage(bookingErrorCode(rpcError, 'admin force cancel'), 'ko');
+    }
+  } else error = '잘못된 요청이에요.';
+}
+
+let list = supabase.from('bookings').select(BOOKING_COLUMNS, { count: 'exact' });
+if (current !== 'all') list = list.eq('status', current);
+list = current === 'pending' ? list.order('respond_by') : current === 'confirmed' ? list.order('starts_at') : list.order('created_at', { ascending: false });
+const [{ data, count: total, error: listError }, ...counts] = await Promise.all([
+  list.range((page - 1) * PAGE, page * PAGE - 1),
+  ...BOOKING_STATUSES.map((s) => supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('status', s)),
+]);
+dbError(listError, 'admin list bookings');
+const rows = (data ?? []) as BookingRow[];
+const jigiIds = [...new Set(rows.map((r) => r.jigi_id))];
+const { data: people } = jigiIds.length ? await supabase.from('profiles').select('id, display_name').in('id', jigiIds) : { data: [] };
+const nameOf = new Map((people ?? []).map((p) => [p.id as string, p.display_name as string]));
+const pages = Math.max(1, Math.ceil((total ?? 0) / PAGE));
+
+const notices: Record<string, string> = { cancelled: '강제 취소했어요. 양쪽에 알렸고 관리 기록에 남겼어요.' };
+const done = notices[Astro.url.searchParams.get('notice') ?? ''] ?? null;
+const roleKo = { traveler: '여행자', jigi: '지기', admin: '관리자', system: '시스템(탈퇴)' } as const;
+const tabs: (BookingStatus | 'all')[] = [...BOOKING_STATUSES, 'all'];
+---
+<BaseLayout title="예약 | 관리자 | YEONON" description="연온 관리자 예약 현황" lang="ko" sticky="none" noindex>
+  <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <h1 class="text-3xl font-extrabold">예약 현황</h1>
+        <form method="post">
+          <input type="hidden" name="action" value="run_jobs" />
+          <button type="submit" class="min-h-11 rounded-full border border-border bg-surface px-5 text-sm font-semibold hover:border-text">기한 만료·완료 지금 처리</button>
+        </form>
+      </div>
+      <p class="mt-2 text-sm text-muted">pg_cron이 5분마다 응답 기한이 지난 요청을 만료하고, 끝난 만남을 완료로 바꿔요. 응답 기한 등 규칙은 <a href="/admin/promotions" class="underline underline-offset-2">할인·예약 규칙</a>에서 바꿔요.</p>
+
+      {done && <Notice class="mt-6">{done}</Notice>}
+      {ran && <Notice class="mt-6">처리했어요: 만료 {ran.expired}건 · 완료 {ran.completed}건</Notice>}
+      {error && <Notice tone="error" class="mt-6">{error}</Notice>}
+
+      <nav aria-label="예약 상태" class="mt-8 flex flex-wrap gap-1.5">
+        {tabs.map((s, i) => (
+          <a href={`/admin/bookings?status=${s}`} aria-current={s === current ? 'page' : undefined}
+            class:list={['inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold', s === current ? 'bg-text text-white' : 'bg-surface text-muted shadow-card hover:text-text']}>
+            {s === 'all' ? '전체' : BOOKING_STATUS[s].ko}
+            {s !== 'all' && <span class="tabular-nums opacity-80">{counts[i]?.count ?? 0}</span>}
+          </a>
+        ))}
+      </nav>
+
+      {rows.length === 0 ? (
+        <p class="mt-6 text-muted">해당하는 예약이 없어요.</p>
+      ) : (
+        <ul class="mt-6 space-y-3">
+          {rows.map((b) => (
+            <li class="card p-4 md:p-5" id={`booking-${b.id}`}>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class:list={['rounded-full px-2.5 py-0.5 text-xs font-bold', STATUS_TONE_CLASS[BOOKING_STATUS[b.status].tone]]}>{BOOKING_STATUS[b.status].ko}</span>
+                <span class="text-xs text-muted">{b.confirm_mode === 'instant' ? '즉시 확정' : '수락 후 확정'}</span>
+                {b.late_cancel && <span class="rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-xs font-bold text-[#8A1C1C]">24시간 이내 취소</span>}
+                <span class="ml-auto text-xs text-muted tabular-nums">요청 {kstWhen(b.created_at, 'ko')}</span>
+              </div>
+              <p class="mt-2 font-bold">{b.route_title}</p>
+              <p class="mt-0.5 text-sm text-muted tabular-nums">
+                만남 {kstWhen(b.starts_at, 'ko')} · {b.party_size}명 · 여행자 {b.traveler_name || '-'} · 지기 {nameOf.get(b.jigi_id) ?? '-'} · {priceText(b.list_price, b.final_price, b.promotion_name)}
+              </p>
+              {b.status === 'pending' && b.respond_by && <p class="mt-1 text-sm tabular-nums">응답 기한 {kstWhen(b.respond_by, 'ko')}</p>}
+              {b.responded_at && <p class="mt-1 text-sm text-muted tabular-nums">응답 {kstWhen(b.responded_at, 'ko')} ({Math.round((new Date(b.responded_at).getTime() - new Date(b.created_at).getTime()) / 60000)}분 걸림)</p>}
+              {b.decline_reason && <p class="mt-1 text-sm">거절 사유: {b.decline_reason}</p>}
+              {b.status === 'cancelled' && <p class="mt-1 text-sm">취소: {b.cancelled_role ? roleKo[b.cancelled_role] : '-'} · {b.cancel_reason ?? '-'}{b.cancelled_at && ` · ${kstWhen(b.cancelled_at, 'ko')}`}</p>}
+              {b.note && <p class="mt-2 rounded-lg bg-bg px-3 py-2 text-sm">메모: {b.note}</p>}
+              {(b.status === 'pending' || b.status === 'confirmed') && (
+                <details class="mt-3">
+                  <summary class="inline-flex min-h-10 cursor-pointer items-center rounded-full px-3 text-sm font-semibold text-[#B42318] hover:bg-[#FDECEC]">강제 취소</summary>
+                  <form method="post" class="mt-2 flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="action" value="force_cancel" />
+                    <input type="hidden" name="id" value={b.id} />
+                    <label class="min-w-0 flex-1 text-sm font-semibold">사유 (필수 · 관리 기록에 남고, 양쪽에는 '운영팀 취소'로만 보여요)
+                      <input name="reason" required maxlength="200" class="mt-1 block h-11 w-full rounded-xl border border-border bg-surface px-3 font-normal" />
+                    </label>
+                    <button type="submit" class="h-11 rounded-xl bg-[#B42318] px-5 text-sm font-semibold text-white">취소 확정</button>
+                  </form>
+                </details>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pages > 1 && (
+        <nav aria-label="페이지" class="mt-6 flex items-center gap-3 text-sm">
+          {page > 1 && <a href={`/admin/bookings?status=${current}&page=${page - 1}`} class="font-semibold underline">이전</a>}
+          <span class="text-muted tabular-nums">{page} / {pages}</span>
+          {page < pages && <a href={`/admin/bookings?status=${current}&page=${page + 1}`} class="font-semibold underline">다음</a>}
+        </nav>
+      )}
+    </div>
+  </section>
+</BaseLayout>

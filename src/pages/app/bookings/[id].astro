@@ -1,0 +1,89 @@
+---
+/**
+ * 예약 상세 (여행자). 상태·응답 기한·타임라인·취소·"See other routes"는 Preact 아일랜드(BookingPanel)가
+ * Realtime으로 바로 갱신한다. 만남 안내(시간·만나는 곳·지기 이름)와 가격 스냅샷은 여기서 그린다.
+ * 다른 사람의 예약 id를 넣으면 RLS 때문에 행이 없으므로 '찾을 수 없음'이 된다.
+ */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AreaNav from '../../../components/account/AreaNav.astro';
+import Notice from '../../../components/account/Notice.astro';
+import BookingPanel from '../../../components/islands/BookingPanel';
+import { TRAVELER_NAV } from '../../../data/accountNav';
+import { kstWhen, priceText } from '../../../data/bookingOptions';
+import { areaName } from '../../../data/routeOptions';
+import { BOOKING_COLUMNS, discoverHrefFor, loadBookingSettings, type BookingRow } from '../../../lib/bookings';
+import { notice } from '../../../lib/forms';
+import { UUID, type PublicJigi } from '../../../lib/routes';
+
+export const prerender = false;
+
+const { supabase } = Astro.locals;
+if (!supabase) return Astro.redirect('/login');
+
+const id = Astro.params.id ?? '';
+const { data } = UUID.test(id) ? await supabase.from('bookings').select(BOOKING_COLUMNS).eq('id', id).maybeSingle() : { data: null };
+const booking = data as BookingRow | null;
+if (!booking) Astro.response.status = 404;
+
+let host: PublicJigi | null = null;
+let discoverHref = '/app/discover';
+let routeLive = false;
+const settings = await loadBookingSettings(supabase);
+if (booking) {
+  const [{ data: j }, { data: r }, rec] = await Promise.all([
+    supabase.from('public_jigis').select('*').eq('user_id', booking.jigi_id).maybeSingle(),
+    supabase.from('routes').select('id, tags, languages, status').eq('id', booking.route_id).maybeSingle(),
+    booking.recommendation_id
+      ? supabase.from('recommendation_requests').select('input').eq('id', booking.recommendation_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  host = (j as PublicJigi | null) ?? null;
+  routeLive = r?.status === 'published';
+  discoverHref = discoverHrefFor(booking, r ?? null, (rec.data?.input as Record<string, unknown> | undefined) ?? null);
+}
+
+const done = notice(Astro.url, {
+  requested: "Request sent! We'll let you know as soon as your jigi replies.",
+  cancelled: 'Your booking was cancelled.',
+});
+const jigiName = booking?.jigi_name ?? host?.display_name ?? 'Your jigi';
+---
+<BaseLayout title="Booking | YEONON" description="Your YEONON booking." sticky="none" noindex>
+  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-2xl!">
+      <a href="/app/bookings" class="text-sm font-semibold text-muted hover:text-text">← My bookings</a>
+      {!booking ? (
+        <div class="mt-8 text-center">
+          <p class="text-4xl" aria-hidden="true">🧭</p>
+          <h1 class="mt-3 text-2xl font-extrabold">We couldn't find that booking</h1>
+          <p class="mt-2 text-muted">It may have been removed, or the link is wrong.</p>
+        </div>
+      ) : (
+        <>
+          <h1 class="mt-4 text-3xl font-extrabold">{booking.route_title}</h1>
+          <p class="mt-1 text-muted tabular-nums">{kstWhen(booking.starts_at, 'en')} KST</p>
+          {done && <Notice class="mt-6">{done}</Notice>}
+
+          <div class="card mt-6 p-5 md:p-7">
+            <BookingPanel client:load booking={booking} viewer="traveler" discoverHref={discoverHref} lateCancelMinutes={settings.late_cancel_minutes} />
+          </div>
+
+          <div class="card mt-5 p-5 md:p-7">
+            <h2 class="text-lg font-bold">Meetup details</h2>
+            <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+              <div><dt class="text-xs font-semibold text-muted">When (KST)</dt><dd class="mt-0.5 font-semibold tabular-nums">{kstWhen(booking.starts_at, 'en')} – {new Date(booking.ends_at).toLocaleTimeString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })}</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">Group</dt><dd class="mt-0.5 font-semibold">{booking.party_size} {booking.party_size === 1 ? 'person' : 'people'}</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">Where you'll meet</dt><dd class="mt-0.5 font-semibold">{booking.meeting_area ? `${areaName(booking.meeting_area, 'en')} · ` : ''}{booking.meeting_point_note ?? '—'}</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">Your local friend</dt><dd class="mt-0.5 font-semibold">{jigiName}</dd></div>
+              <div><dt class="text-xs font-semibold text-muted">Price</dt><dd class="mt-0.5 font-semibold">{priceText(booking.list_price, booking.final_price, booking.promotion_name)}</dd></div>
+              {booking.note && <div class="sm:col-span-2"><dt class="text-xs font-semibold text-muted">Your note</dt><dd class="mt-0.5">{booking.note}</dd></div>}
+            </dl>
+            <p class="mt-5 text-sm text-muted">Always a public place. Your jigi will share the exact spot in chat once you're matched (chat is coming soon). Contact details stay private.</p>
+            {routeLive && <a href={`/app/routes/${booking.route_id}`} class="mt-4 inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">View the route</a>}
+          </div>
+        </>
+      )}
+    </div>
+  </section>
+</BaseLayout>
