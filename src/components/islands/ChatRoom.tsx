@@ -76,6 +76,15 @@ export default function ChatRoom(props: Props) {
   const nearBottom = useRef(true);
   const reading = useRef(false);
   const fitRef = useRef<() => void>(() => {});
+  // 신고·차단 확인은 화면 가운데 팝업(<dialog>)으로 — 채팅 패널(overflow-hidden) 안에 그리면 잘려서 일부가 안 보인다
+  const modal = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const d = modal.current;
+    if (!d) return;
+    if (dialog !== 'none' && !d.open) d.showModal();
+    if (dialog === 'none' && d.open) d.close();
+  }, [dialog]);
 
   const post = async (path: string, body: Record<string, unknown>) => {
     const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversation_id: conversationId, ...body }) });
@@ -327,42 +336,52 @@ export default function ChatRoom(props: Props) {
         </button>
       )}
 
-      {(error || info) && (
+      {(error || info) && dialog === 'none' && (
         <p role={error ? 'alert' : 'status'} class={`mx-3 mb-2 rounded-xl px-3 py-2 text-sm font-medium ${error ? 'bg-[#FDECEC] text-[#8A1C1C]' : 'bg-brand-soft text-brand'}`}>{error ?? info}</p>
       )}
 
-      {dialog === 'report' && (
-        <form class="mx-3 mb-3 rounded-2xl border border-border bg-bg p-4" onSubmit={submitReport}>
-          <p class="font-bold">{t.reportTitle}</p>
-          <p class="mt-1 text-sm text-muted">{t.reportHint}</p>
-          <div class="mt-3 grid gap-2">
-            {REPORT_REASONS.map((r) => (
-              <label key={r.id} class="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-border bg-surface px-3.5 has-checked:border-text">
-                <input type="radio" name="report-reason" value={r.id} checked={reason === r.id} onChange={() => setReason(r.id)} class="size-[18px]" />
-                <span class="text-sm">{r[lang]}</span>
-              </label>
-            ))}
-          </div>
-          <label class="mt-3 block text-sm font-semibold">{t.detail}
-            <textarea rows={2} maxLength={500} value={detail} onInput={(e) => setDetail((e.target as HTMLTextAreaElement).value)} class="mt-1 block w-full rounded-xl border border-border bg-surface px-3 py-2 font-normal" />
-          </label>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button type="submit" class={`${btn} bg-[#B42318] text-white`}>{t.submitReport}</button>
-            <button type="button" class={`${btn} border border-border bg-surface`} onClick={() => setDialog('none')}>{t.cancel}</button>
-          </div>
-        </form>
-      )}
+      <dialog
+        ref={modal}
+        aria-label={dialog === 'block' ? `${t.blockTitle} ${otherName}?` : t.reportTitle}
+        class="m-auto max-h-[90dvh] w-[min(calc(100vw-2rem),28rem)] overflow-y-auto rounded-2xl border border-border bg-surface p-0 text-text shadow-xl backdrop:bg-text/50"
+        onClose={() => setDialog('none')}
+        onClick={(e) => { if (e.target === modal.current) setDialog('none'); }}
+      >
+        {dialog === 'report' && (
+          <form class="p-5" onSubmit={submitReport}>
+            <p class="text-lg font-bold">{t.reportTitle}</p>
+            <p class="mt-1 text-sm text-muted">{t.reportHint}</p>
+            <div class="mt-3 grid gap-2">
+              {REPORT_REASONS.map((r) => (
+                <label key={r.id} class="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-border bg-surface px-3.5 has-checked:border-text">
+                  <input type="radio" name="report-reason" value={r.id} checked={reason === r.id} onChange={() => setReason(r.id)} class="size-[18px] shrink-0" />
+                  <span class="text-sm">{r[lang]}</span>
+                </label>
+              ))}
+            </div>
+            <label class="mt-3 block text-sm font-semibold">{t.detail}
+              <textarea rows={2} maxLength={500} value={detail} onInput={(e) => setDetail((e.target as HTMLTextAreaElement).value)} class="mt-1 block w-full rounded-xl border border-border bg-surface px-3 py-2 font-normal" />
+            </label>
+            {error && <p role="alert" class="mt-3 rounded-xl bg-[#FDECEC] px-3 py-2 text-sm font-medium text-[#8A1C1C]">{error}</p>}
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="submit" class={`${btn} bg-[#B42318] text-white`}>{t.submitReport}</button>
+              <button type="button" class={`${btn} border border-border bg-surface`} onClick={() => setDialog('none')}>{t.cancel}</button>
+            </div>
+          </form>
+        )}
 
-      {dialog === 'block' && (
-        <div class="mx-3 mb-3 rounded-2xl border border-border bg-bg p-4">
-          <p class="font-bold">{t.blockTitle} {otherName}?</p>
-          <p class="mt-1 text-sm text-muted">{t.blockHint}</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button type="button" class={`${btn} bg-[#B42318] text-white`} onClick={() => toggleBlock(true)}>{t.confirmBlock}</button>
-            <button type="button" class={`${btn} border border-border bg-surface`} onClick={() => setDialog('none')}>{t.cancel}</button>
+        {dialog === 'block' && (
+          <div class="p-5">
+            <p class="text-lg font-bold">{t.blockTitle} {otherName}?</p>
+            <p class="mt-1 text-sm text-muted">{t.blockHint}</p>
+            {error && <p role="alert" class="mt-3 rounded-xl bg-[#FDECEC] px-3 py-2 text-sm font-medium text-[#8A1C1C]">{error}</p>}
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="button" class={`${btn} bg-[#B42318] text-white`} onClick={() => toggleBlock(true)}>{t.confirmBlock}</button>
+              <button type="button" class={`${btn} border border-border bg-surface`} onClick={() => setDialog('none')}>{t.cancel}</button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </dialog>
 
       {closed ? (
         <p class="border-t border-border px-4 py-3 text-center text-sm text-muted">{CLOSED_NOTICE[lang]}</p>
