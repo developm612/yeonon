@@ -2,9 +2,11 @@
 /**
  * 루트 검수: 상태별 목록, 루트 전체 내용, 공개 승인 / 수정 요청(사유 필수, 지기에게 보임) / 비공개.
  * 변경은 DB 함수 admin_review_route로만 한다 (슬롯 생성·정리, audit_log 기록).
+ * 루트 하나 = 한 줄. 줄을 누르면 전체 내용과 검수 폼이 펼쳐진다.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import Icon from '../../components/Icon.astro';
 import ExportForm from '../../components/admin/ExportForm.astro';
 import Notice from '../../components/account/Notice.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
@@ -46,6 +48,7 @@ if (Astro.request.method === 'POST') {
       if (action === 'publish') await embedRoute(supabase, id);
       const back = new URL(Astro.url);
       back.searchParams.set('notice', action);
+      back.searchParams.set('open', id);
       return Astro.redirect(back.pathname + back.search);
     }
     error = /not active/.test(rpcError!.message) ? '지기가 정지되었거나 승인이 취소된 상태라 공개할 수 없어요.'
@@ -77,6 +80,8 @@ const memoOf = new Map((notes ?? []).map((n) => [n.route_id as string, n.memo as
 const personOf = new Map((people ?? []).map((p) => [p.id as string, p as { display_name: string; email: string | null }]));
 
 const done = notice(Astro.url, { publish: '공개했어요. 가능 시간이 있으면 슬롯이 만들어졌어요.', request_changes: '수정을 요청했어요.', hide: '비공개로 바꿨어요.' });
+const openId = Astro.url.searchParams.get('open');
+const shortDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' }) : '-');
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'medium', timeStyle: 'short' }) : '-');
 ---
 <BaseLayout title="루트 검수 | 관리자 | YEONON" description="연온 관리자 루트 검수" lang="ko" sticky="none" noindex>
@@ -100,59 +105,84 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR'
       {done && <Notice class="mt-6">{done}</Notice>}
       {error && <Notice tone="error" class="mt-6">{error}</Notice>}
 
-      <ul class="mt-6 space-y-4">
-        {routes.length === 0 && <li class="card p-6 text-center text-muted">이 상태의 루트가 없어요.</li>}
-        {routes.map((r) => {
-          const person = personOf.get(r.jigi_id);
-          const actions = actionsFor(r.status);
-          return (
-            <li id={`route-${r.id}`} class="card scroll-mt-24 p-5 md:p-6">
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2 class="text-lg font-bold">{r.title}</h2>
-                <p class="text-sm text-muted">{person?.display_name} · {person?.email}</p>
-                <a href={`/routes/${r.id}`} class="ml-auto text-sm font-semibold text-brand underline-offset-4 hover:underline">여행자 화면으로 보기</a>
-              </div>
-              <p class="mt-1">{r.summary}</p>
-              <dl class="mt-4 grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
-                <div><dt class="inline text-muted">태그 </dt><dd class="inline">{interestNames(r.tags, 'ko').join(', ')}</dd></div>
-                <div><dt class="inline text-muted">분위기 </dt><dd class="inline">{vibeName(r.vibe, 'ko')}</dd></div>
-                <div><dt class="inline text-muted">소요 시간 </dt><dd class="inline">{fmtDuration(r.duration_minutes)}</dd></div>
-                <div><dt class="inline text-muted">최대 인원 </dt><dd class="inline">{r.max_party_size}명</dd></div>
-                <div><dt class="inline text-muted">만나는 곳 </dt><dd class="inline">{areaName(r.area, 'ko')} · {r.meeting_point_note}</dd></div>
-                <div><dt class="inline text-muted">언어 </dt><dd class="inline">{r.languages.map((l) => languageName(l, 'ko')).join(', ')}</dd></div>
-                <div><dt class="inline text-muted">정가 </dt><dd class="inline">{won(r.list_price)}</dd></div>
-                <div><dt class="inline text-muted">검수 요청 </dt><dd class="inline">{date(r.submitted_at)}{r.reviewed_at && ` · 최근 검수 ${date(r.reviewed_at)}`}</dd></div>
-              </dl>
-              <ol class="mt-4 space-y-2 border-l-2 border-jigi-soft pl-4 text-sm">
-                {stopsOf(r.id).map((s) => (
-                  <li>
-                    <p class="font-semibold">{s.order_no}. {s.place_name} <span class="font-normal text-muted">· {areaName(s.area, 'ko')} · {s.stay_minutes}분{s.tags.length > 0 && ` · ${interestNames(s.tags, 'ko').join(', ')}`}</span></p>
-                    <p>{s.activity}</p>
-                    {s.tip && <p class="text-muted">팁: {s.tip}</p>}
-                  </li>
-                ))}
-              </ol>
+      {routes.length === 0 ? (
+        <p class="card mt-6 p-6 text-center text-muted">이 상태의 루트가 없어요.</p>
+      ) : (
+        <div class="card mt-6 overflow-hidden">
+          <!-- 열 제목 (넓은 화면) -->
+          <div class="hidden gap-3 border-b border-border bg-bg px-4 py-2 text-xs font-semibold text-muted md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_3.5rem_5rem_6rem_5.5rem_1.25rem]" aria-hidden="true">
+            <span>루트</span><span>지기</span><span>장소</span><span>소요</span><span>정가</span><span>{current === 'in_review' ? '검수 요청' : '최근 변경'}</span><span></span>
+          </div>
+          <ul class="divide-y divide-border">
+            {routes.map((r) => {
+              const person = personOf.get(r.jigi_id);
+              const actions = actionsFor(r.status);
+              const stopList = stopsOf(r.id);
+              return (
+                <li id={`route-${r.id}`} class="scroll-mt-24">
+                  <details class="group" open={r.id === openId || undefined}>
+                    <summary class="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_1.25rem] items-center gap-3 px-4 py-3 text-sm hover:bg-text/[0.03] md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_3.5rem_5rem_6rem_5.5rem_1.25rem] [&::-webkit-details-marker]:hidden">
+                      <span class="min-w-0">
+                        <span class="block truncate font-semibold">{r.title}</span>
+                        <span class="block truncate text-xs text-muted md:hidden">{person?.display_name} · {stopList.length}곳 · {fmtDuration(r.duration_minutes)} · {won(r.list_price)}</span>
+                      </span>
+                      <span class="hidden truncate text-muted md:block">{person?.display_name}</span>
+                      <span class="hidden text-muted tabular-nums md:block">{stopList.length}곳</span>
+                      <span class="hidden text-muted whitespace-nowrap md:block">{fmtDuration(r.duration_minutes)}</span>
+                      <span class="hidden text-muted tabular-nums whitespace-nowrap md:block">{won(r.list_price)}</span>
+                      <span class="text-muted tabular-nums whitespace-nowrap">{shortDate(current === 'in_review' ? r.submitted_at : r.updated_at)}</span>
+                      <Icon name="chevron-right" class="size-4 text-muted transition-transform group-open:rotate-90" />
+                    </summary>
+                    <div class="border-t border-border bg-bg/60 px-4 py-4 md:px-5">
+                      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <p class="text-sm text-muted">{person?.display_name} · {person?.email}</p>
+                        <a href={`/routes/${r.id}`} class="ml-auto text-sm font-semibold text-brand underline-offset-4 hover:underline">여행자 화면으로 보기</a>
+                      </div>
+                      <p class="mt-1">{r.summary}</p>
+                      <dl class="mt-3 grid gap-x-6 gap-y-1 text-sm md:grid-cols-2">
+                        <div><dt class="inline text-muted">태그 </dt><dd class="inline">{interestNames(r.tags, 'ko').join(', ')}</dd></div>
+                        <div><dt class="inline text-muted">분위기 </dt><dd class="inline">{vibeName(r.vibe, 'ko')}</dd></div>
+                        <div><dt class="inline text-muted">소요 시간 </dt><dd class="inline">{fmtDuration(r.duration_minutes)}</dd></div>
+                        <div><dt class="inline text-muted">최대 인원 </dt><dd class="inline">{r.max_party_size}명</dd></div>
+                        <div><dt class="inline text-muted">만나는 곳 </dt><dd class="inline">{areaName(r.area, 'ko')} · {r.meeting_point_note}</dd></div>
+                        <div><dt class="inline text-muted">언어 </dt><dd class="inline">{r.languages.map((l) => languageName(l, 'ko')).join(', ')}</dd></div>
+                        <div><dt class="inline text-muted">정가 </dt><dd class="inline">{won(r.list_price)}</dd></div>
+                        <div><dt class="inline text-muted">검수 요청 </dt><dd class="inline">{date(r.submitted_at)}{r.reviewed_at && ` · 최근 검수 ${date(r.reviewed_at)}`}</dd></div>
+                      </dl>
+                      <ol class="mt-3 space-y-2 border-l-2 border-jigi-soft pl-4 text-sm">
+                        {stopList.map((s) => (
+                          <li>
+                            <p class="font-semibold">{s.order_no}. {s.place_name} <span class="font-normal text-muted">· {areaName(s.area, 'ko')} · {s.stay_minutes}분{s.tags.length > 0 && ` · ${interestNames(s.tags, 'ko').join(', ')}`}</span></p>
+                            <p>{s.activity}</p>
+                            {s.tip && <p class="text-muted">팁: {s.tip}</p>}
+                          </li>
+                        ))}
+                      </ol>
 
-              {actions.length > 0 && (
-                <form method="post" class="mt-5 grid gap-3 border-t border-border pt-5 md:grid-cols-[auto_1fr_auto] md:items-end">
-                  <input type="hidden" name="id" value={r.id} />
-                  <div>
-                    <label for={`act-${r.id}`} class="block text-sm font-semibold">검수 결과</label>
-                    <select id={`act-${r.id}`} name="action" class="mt-1 h-11 rounded-xl border border-border bg-surface px-3 text-sm">
-                      {actions.map((a) => <option value={a}>{ACTIONS[a].label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label for={`memo-${r.id}`} class="block text-sm font-semibold">메모 <span class="font-normal text-muted">(지기에게 보여요 · 수정 요청은 필수)</span></label>
-                    <input id={`memo-${r.id}`} name="memo" type="text" maxlength="500" value={memoOf.get(r.id) ?? ''} class="mt-1 h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm" />
-                  </div>
-                  <button type="submit" class="h-11 rounded-xl bg-text px-5 text-sm font-semibold text-white">저장</button>
-                </form>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                      {actions.length > 0 && (
+                        <form method="post" class="mt-4 grid gap-3 border-t border-border pt-4 md:grid-cols-[auto_1fr_auto] md:items-end">
+                          <input type="hidden" name="id" value={r.id} />
+                          <div>
+                            <label for={`act-${r.id}`} class="block text-sm font-semibold">검수 결과</label>
+                            <select id={`act-${r.id}`} name="action" class="mt-1 h-11 rounded-xl border border-border bg-surface px-3 text-sm">
+                              {actions.map((a) => <option value={a}>{ACTIONS[a].label}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label for={`memo-${r.id}`} class="block text-sm font-semibold">메모 <span class="font-normal text-muted">(지기에게 보여요 · 수정 요청은 필수)</span></label>
+                            <input id={`memo-${r.id}`} name="memo" type="text" maxlength="500" value={memoOf.get(r.id) ?? ''} class="mt-1 h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm" />
+                          </div>
+                          <button type="submit" class="h-11 rounded-xl bg-text px-5 text-sm font-semibold text-white">저장</button>
+                        </form>
+                      )}
+                    </div>
+                  </details>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   </section>
 </BaseLayout>
