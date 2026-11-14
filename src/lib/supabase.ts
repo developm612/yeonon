@@ -36,8 +36,12 @@ export function clearSupabaseCookies(request: Request, cookies: AstroCookies) {
   }
 }
 
-/** 로그인 후 돌아갈 주소. 같은 사이트 안의 경로만 허용한다 (외부로 보내는 오픈 리디렉트 방지) */
-export function safeNext(value: string | null | undefined, fallback = '/app'): string {
+/**
+ * 로그인 후 돌아갈 주소. 같은 사이트 안의 경로만 허용한다 (외부로 보내는 오픈 리디렉트 방지)
+ * 기본값 /account는 역할별 홈으로 보낸다 (여행자 /app, 지기 /partner, 관리자 /admin).
+ * /app으로 두면 관리자는 /app에도 들어갈 수 있어서 여행자 화면에 머문다.
+ */
+export function safeNext(value: string | null | undefined, fallback = '/account'): string {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return fallback;
   return value;
 }
