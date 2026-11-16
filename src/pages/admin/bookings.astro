@@ -3,9 +3,11 @@
  * 예약 현황 (관리자): 상태별 목록, 강제 취소(사유 필수 → audit_log 'booking.force_cancel'), 예약 작업 바로 실행.
  * 변경은 DB 함수로만: cancel_booking(관리자 호출 = 강제 취소), admin_run_booking_jobs(만료·완료 처리).
  * 예약 작업은 pg_cron이 5분마다 돌리지만, 확인할 때 기다리지 않도록 [지금 처리] 버튼을 둔다.
+ * 예약 하나 = 한 줄. 줄을 누르면 응답·취소 내역, 메모, 강제 취소가 펼쳐진다.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import Icon from '../../components/Icon.astro';
 import ExportForm from '../../components/admin/ExportForm.astro';
 import Notice from '../../components/account/Notice.astro';
 import { ADMIN_NAV } from '../../data/accountNav';
@@ -13,7 +15,7 @@ import { BOOKING_STATUS, BOOKING_STATUSES, STATUS_TONE_CLASS, kstWhen, priceText
 import { BOOKING_COLUMNS, bookingErrorCode, bookingMessage, type BookingRow } from '../../lib/bookings';
 import { dbError, field } from '../../lib/forms';
 import { mailBookingNotifications } from '../../lib/mail';
-import { UUID } from '../../lib/routes';
+import { UUID, won } from '../../lib/routes';
 import { clean } from '../../scripts/formSafety';
 
 export const prerender = false;
@@ -29,6 +31,8 @@ const back = (notice: string) => `/admin/bookings?status=${current}&page=${page}
 
 let error: string | null = null;
 let ran: { expired: number; completed: number } | null = null;
+// 강제 취소가 실패하면 그 예약 줄을 펼친 채로 보여 준다
+let openId: string | null = null;
 if (Astro.request.method === 'POST') {
   const started = new Date();
   const fd = await Astro.request.formData();
@@ -49,6 +53,7 @@ if (Astro.request.method === 'POST') {
         return Astro.redirect(back('cancelled'));
       }
       error = bookingMessage(bookingErrorCode(rpcError, 'admin force cancel'), 'ko');
+      openId = id;
     }
   } else error = '잘못된 요청이에요.';
 }
@@ -101,42 +106,58 @@ const tabs: (BookingStatus | 'all')[] = [...BOOKING_STATUSES, 'all'];
       </nav>
 
       {rows.length === 0 ? (
-        <p class="mt-6 text-muted">해당하는 예약이 없어요.</p>
+        <p class="card mt-6 p-6 text-center text-muted">해당하는 예약이 없어요.</p>
       ) : (
-        <ul class="mt-6 space-y-3">
-          {rows.map((b) => (
-            <li class="card p-4 md:p-5" id={`booking-${b.id}`}>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class:list={['rounded-full px-2.5 py-0.5 text-xs font-bold', STATUS_TONE_CLASS[BOOKING_STATUS[b.status].tone]]}>{BOOKING_STATUS[b.status].ko}</span>
-                <span class="text-xs text-muted">{b.confirm_mode === 'instant' ? '즉시 확정' : '수락 후 확정'}</span>
-                {b.late_cancel && <span class="rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-xs font-bold text-[#8A1C1C]">24시간 이내 취소</span>}
-                <span class="ml-auto text-xs text-muted tabular-nums">요청 {kstWhen(b.created_at, 'ko')}</span>
-              </div>
-              <p class="mt-2 font-bold">{b.route_title}</p>
-              <p class="mt-0.5 text-sm text-muted tabular-nums">
-                만남 {kstWhen(b.starts_at, 'ko')} · {b.party_size}명 · 여행자 {b.traveler_name || '-'} · 지기 {nameOf.get(b.jigi_id) ?? '-'} · {priceText(b.list_price, b.final_price, b.promotion_name)}
-              </p>
-              {b.status === 'pending' && b.respond_by && <p class="mt-1 text-sm tabular-nums">응답 기한 {kstWhen(b.respond_by, 'ko')}</p>}
-              {b.responded_at && <p class="mt-1 text-sm text-muted tabular-nums">응답 {kstWhen(b.responded_at, 'ko')} ({Math.round((new Date(b.responded_at).getTime() - new Date(b.created_at).getTime()) / 60000)}분 걸림)</p>}
-              {b.decline_reason && <p class="mt-1 text-sm">거절 사유: {b.decline_reason}</p>}
-              {b.status === 'cancelled' && <p class="mt-1 text-sm">취소: {b.cancelled_role ? roleKo[b.cancelled_role] : '-'} · {b.cancel_reason ?? '-'}{b.cancelled_at && ` · ${kstWhen(b.cancelled_at, 'ko')}`}</p>}
-              {b.note && <p class="mt-2 rounded-lg bg-bg px-3 py-2 text-sm">메모: {b.note}</p>}
-              {(b.status === 'pending' || b.status === 'confirmed') && (
-                <details class="mt-3">
-                  <summary class="inline-flex min-h-10 cursor-pointer items-center rounded-full px-3 text-sm font-semibold text-[#B42318] hover:bg-[#FDECEC]">강제 취소</summary>
-                  <form method="post" class="mt-2 flex flex-wrap items-end gap-2">
-                    <input type="hidden" name="action" value="force_cancel" />
-                    <input type="hidden" name="id" value={b.id} />
-                    <label class="min-w-0 flex-1 text-sm font-semibold">사유 (필수 · 관리 기록에 남고, 양쪽에는 '운영팀 취소'로만 보여요)
-                      <input name="reason" required maxlength="200" class="mt-1 block h-11 w-full rounded-xl border border-border bg-surface px-3 font-normal" />
-                    </label>
-                    <button type="submit" class="h-11 rounded-xl bg-[#B42318] px-5 text-sm font-semibold text-white">취소 확정</button>
-                  </form>
+        <div class="card mt-6 overflow-hidden">
+          <!-- 열 제목 (넓은 화면) -->
+          <div class="hidden gap-3 border-b border-border bg-bg px-4 py-2 text-xs font-semibold text-muted md:grid md:grid-cols-[4.5rem_minmax(0,2fr)_8.5rem_2.5rem_minmax(0,1fr)_minmax(0,1fr)_5.5rem_1.25rem]" aria-hidden="true">
+            <span>상태</span><span>루트</span><span>만남</span><span>인원</span><span>여행자</span><span>지기</span><span class="text-right">금액</span><span></span>
+          </div>
+          <ul class="divide-y divide-border">
+            {rows.map((b) => (
+              <li id={`booking-${b.id}`}>
+                <details class="group" open={b.id === openId || undefined}>
+                  <summary class="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_1.25rem] items-center gap-3 px-4 py-2.5 text-sm hover:bg-text/[0.03] md:grid-cols-[4.5rem_minmax(0,2fr)_8.5rem_2.5rem_minmax(0,1fr)_minmax(0,1fr)_5.5rem_1.25rem] [&::-webkit-details-marker]:hidden">
+                    <span class:list={['justify-self-start rounded-full px-2 py-0.5 text-xs font-bold whitespace-nowrap', STATUS_TONE_CLASS[BOOKING_STATUS[b.status].tone]]}>{BOOKING_STATUS[b.status].ko}</span>
+                    <span class="min-w-0">
+                      <span class="flex min-w-0 items-center gap-1.5">
+                        <span class="truncate font-semibold">{b.route_title}</span>
+                        {b.late_cancel && <span class="shrink-0 rounded-full bg-[#FDECEC] px-1.5 py-0.5 text-[11px] font-bold text-[#8A1C1C]">24h 내 취소</span>}
+                      </span>
+                      <span class="block truncate text-xs text-muted tabular-nums md:hidden">{kstWhen(b.starts_at, 'ko')} · {b.party_size}명 · {b.traveler_name || '-'} → {nameOf.get(b.jigi_id) ?? '-'}</span>
+                    </span>
+                    <span class="hidden text-muted tabular-nums whitespace-nowrap md:block">{kstWhen(b.starts_at, 'ko')}</span>
+                    <span class="hidden text-muted tabular-nums md:block">{b.party_size}명</span>
+                    <span class="hidden truncate text-muted md:block">{b.traveler_name || '-'}</span>
+                    <span class="hidden truncate text-muted md:block">{nameOf.get(b.jigi_id) ?? '-'}</span>
+                    <span class="hidden text-right tabular-nums whitespace-nowrap md:block">{won(b.final_price)}</span>
+                    <Icon name="chevron-right" class="size-4 text-muted transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div class="space-y-1 border-t border-border bg-bg/60 px-4 py-4 text-sm md:px-5">
+                    <p class="text-muted tabular-nums">요청 {kstWhen(b.created_at, 'ko')} · {b.confirm_mode === 'instant' ? '즉시 확정' : '수락 후 확정'}</p>
+                    <p class="tabular-nums">만남 {kstWhen(b.starts_at, 'ko')} · {b.party_size}명 · 여행자 {b.traveler_name || '-'} · 지기 {nameOf.get(b.jigi_id) ?? '-'}</p>
+                    <p class="tabular-nums">금액 {priceText(b.list_price, b.final_price, b.promotion_name)}</p>
+                    {b.status === 'pending' && b.respond_by && <p class="tabular-nums">응답 기한 {kstWhen(b.respond_by, 'ko')}</p>}
+                    {b.responded_at && <p class="text-muted tabular-nums">응답 {kstWhen(b.responded_at, 'ko')} ({Math.round((new Date(b.responded_at).getTime() - new Date(b.created_at).getTime()) / 60000)}분 걸림)</p>}
+                    {b.decline_reason && <p>거절 사유: {b.decline_reason}</p>}
+                    {b.status === 'cancelled' && <p>취소: {b.cancelled_role ? roleKo[b.cancelled_role] : '-'} · {b.cancel_reason ?? '-'}{b.cancelled_at && ` · ${kstWhen(b.cancelled_at, 'ko')}`}</p>}
+                    {b.note && <p class="mt-2! rounded-lg bg-surface px-3 py-2">메모: {b.note}</p>}
+                    {(b.status === 'pending' || b.status === 'confirmed') && (
+                      <form method="post" class="mt-4! flex flex-wrap items-end gap-2 border-t border-border pt-4">
+                        <input type="hidden" name="action" value="force_cancel" />
+                        <input type="hidden" name="id" value={b.id} />
+                        <label class="min-w-0 flex-1 text-sm font-semibold text-[#B42318]">강제 취소 사유 <span class="font-normal text-muted">(필수 · 관리 기록에 남고, 양쪽에는 '운영팀 취소'로만 보여요)</span>
+                          <input name="reason" required maxlength="200" class="mt-1 block h-11 w-full rounded-xl border border-border bg-surface px-3 font-normal text-text" />
+                        </label>
+                        <button type="submit" class="h-11 rounded-xl bg-[#B42318] px-5 text-sm font-semibold text-white">강제 취소</button>
+                      </form>
+                    )}
+                  </div>
                 </details>
-              )}
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {pages > 1 && (
