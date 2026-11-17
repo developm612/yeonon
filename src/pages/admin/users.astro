@@ -2,7 +2,9 @@
 /**
  * 관리자 회원 목록: 검색·필터, 정지/해제(사유 기록), 메모.
  * 회원 한 명 = 한 줄. 줄을 누르면 세부 정보와 관리(메모·정지)가 펼쳐진다. 저장 후에는 그 회원 줄을 펼친 채로 돌아온다(?open=).
- * 변경은 DB 함수(admin_set_user_status, admin_set_user_memo)로만 하고, 함수가 audit_log에 기록한다.
+ * 변경은 DB 함수(admin_set_user_status, admin_set_user_memo, admin_set_admin)로만 하고, 함수가 audit_log에 기록한다.
+ * 관리자 권한 주기: 활성 여행자·온보딩 전 회원에게만 (지기·진행 중 예약이 있는 회원은 DB 함수가 막는다).
+ * 관리자 권한 거두기: 이 화면에서 권한을 준 관리자만 (SQL로 지정한 처음 관리자와 본인은 거둘 수 없다). — 마이그레이션 21번
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
@@ -32,22 +34,38 @@ if (Astro.request.method === 'POST') {
   const action = field(fd, 'action');
   if (!UUID.test(user)) error = '잘못된 요청이에요.';
   else {
-    const { error: rpcError } =
-      action === 'memo'
+    const isAdminAction = action === 'grant_admin' || action === 'revoke_admin';
+    const confirmed = field(fd, 'confirm') === 'yes';
+    const { error: rpcError } = isAdminAction && !confirmed
+      ? { error: { message: 'not confirmed' } }
+      : action === 'memo'
         ? await supabase.rpc('admin_set_user_memo', { p_user: user, p_memo: clean(field(fd, 'memo'), 1000) })
-        : await supabase.rpc('admin_set_user_status', {
-            p_user: user,
-            p_status: action === 'suspend' ? 'suspended' : 'active',
-            p_reason: clean(field(fd, 'reason'), 300),
-          });
-    if (!dbError(rpcError, `admin users ${action}`)) {
+        : isAdminAction
+          ? await supabase.rpc('admin_set_admin', { p_user: user, p_grant: action === 'grant_admin', p_reason: clean(field(fd, 'admin_reason'), 300) })
+          : await supabase.rpc('admin_set_user_status', {
+              p_user: user,
+              p_status: action === 'suspend' ? 'suspended' : 'active',
+              p_reason: clean(field(fd, 'reason'), 300),
+            });
+    if (!rpcError || (rpcError.message !== 'not confirmed' && !dbError(rpcError, `admin users ${action}`))) {
       // 같은 검색 조건으로 돌아간다
       const back = new URL(Astro.url);
-      back.searchParams.set('notice', action === 'memo' ? 'memo' : 'status');
+      back.searchParams.set('notice', action === 'memo' ? 'memo' : action === 'grant_admin' ? 'granted' : action === 'revoke_admin' ? 'revoked' : 'status');
       back.searchParams.set('open', user);
       return Astro.redirect(back.pathname + back.search);
     }
-    error = /own status|another admin/.test(rpcError!.message) ? '본인이나 다른 관리자의 상태는 바꿀 수 없어요.' : '저장하지 못했어요. 다시 시도해 주세요.';
+    const m = rpcError!.message;
+    error = m === 'not confirmed' ? '확인 칸에 체크해 주세요.'
+      : /own status|own role/.test(m) ? '본인의 상태·권한은 바꿀 수 없어요.'
+      : /another admin/.test(m) ? '다른 관리자의 상태는 바꿀 수 없어요. 먼저 관리자 권한을 거둬 주세요.'
+      : /jigi cannot be admin/.test(m) ? '지기 계정은 관리자로 바꿀 수 없어요. 지기 활동(루트·예약)이 끊기기 때문이에요. 관리자용 계정을 따로 만들어 주세요.'
+      : /has active bookings/.test(m) ? '진행 중(대기·확정)인 예약이 있는 여행자는 관리자로 바꿀 수 없어요. 예약이 끝난 뒤에 다시 해 주세요.'
+      : /user not active/.test(m) ? '정지되었거나 탈퇴한 회원에게는 관리자 권한을 줄 수 없어요.'
+      : /already admin/.test(m) ? '이미 관리자예요.'
+      : /original admin/.test(m) ? '처음부터 지정된 관리자(운영 계정)는 화면에서 권한을 거둘 수 없어요.'
+      : /not admin/.test(m) ? '관리자가 아닌 회원이에요.'
+      : /admin_set_admin/.test(m) ? '관리자 권한 기능을 쓰려면 Supabase에서 SQL 21번을 먼저 실행해 주세요.'
+      : '저장하지 못했어요. 다시 시도해 주세요.';
   }
 }
 
@@ -74,6 +92,19 @@ const { data: notes } = users.length
   ? await supabase.from('admin_notes').select('user_id, memo').in('user_id', users.map((u) => u.id))
   : { data: [] };
 const memoOf = new Map((notes ?? []).map((n) => [n.user_id as string, n.memo as string]));
+// 이 화면에서 권한을 받은 관리자 (거둘 수 있음) — 마지막 'user.set_admin' 기록이 '주기'인 관리자
+const adminIds = users.filter((u) => u.role === 'admin').map((u) => u.id);
+const grantedAdmins = new Set<string>();
+if (adminIds.length) {
+  const { data: logs } = await supabase.from('audit_log').select('target_id, detail, created_at')
+    .eq('action', 'user.set_admin').in('target_id', adminIds).order('created_at', { ascending: false });
+  const seen = new Set<string>();
+  for (const l of logs ?? []) {
+    if (seen.has(l.target_id)) continue;
+    seen.add(l.target_id);
+    if ((l.detail as { to?: string })?.to === 'admin') grantedAdmins.add(l.target_id);
+  }
+}
 const pages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 const pageHref = (p: number) => {
   const u = new URL(Astro.url);
@@ -82,7 +113,12 @@ const pageHref = (p: number) => {
   u.searchParams.delete('open');
   return u.pathname + u.search;
 };
-const saved = notice(Astro.url, { memo: '메모를 저장했어요.', status: '회원 상태를 바꿨어요.' });
+const saved = notice(Astro.url, {
+  memo: '메모를 저장했어요.',
+  status: '회원 상태를 바꿨어요.',
+  granted: '관리자 권한을 줬어요. 그 회원이 다시 로그인하거나 새로고침하면 관리자 화면(/admin)이 열려요.',
+  revoked: '관리자 권한을 거뒀어요. 권한을 받기 전 역할로 돌아갔어요.',
+});
 const openId = Astro.url.searchParams.get('open');
 const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
 const input = 'h-11 rounded-xl border border-border bg-surface px-3 text-sm';
@@ -165,6 +201,33 @@ const input = 'h-11 rounded-xl border border-border bg-surface px-3 text-sm';
                         </form>
                       )}
                     </div>
+                    {u.id !== me.id && (u.role !== 'admin' || grantedAdmins.has(u.id)) && (
+                      <form method="post" class="mt-4 space-y-2 rounded-xl border border-border bg-surface p-3.5">
+                        <input type="hidden" name="user" value={u.id} />
+                        <input type="hidden" name="action" value={u.role === 'admin' ? 'revoke_admin' : 'grant_admin'} />
+                        <p class="text-sm font-semibold">{u.role === 'admin' ? '관리자 권한 거두기' : '관리자 권한 주기'}</p>
+                        <p class="text-xs text-muted">
+                          {u.role === 'admin'
+                            ? '권한을 받기 전 역할(여행자 또는 온보딩 전)로 돌아가요. 기록이 남아요.'
+                            : u.role === 'jigi'
+                              ? '지기 계정은 관리자로 바꿀 수 없어요 (루트·예약이 끊겨요). 관리자용 계정을 따로 만들어 주세요.'
+                              : '관리자는 모든 회원 정보·예약·신고·대화(신고된 것)를 볼 수 있고 회원을 정지할 수 있어요. 믿을 수 있는 운영진에게만 주세요. 기록이 남아요.'}
+                        </p>
+                        {!(u.role === 'jigi') && (
+                          <>
+                            <label class="sr-only" for={`areason-${u.id}`}>사유</label>
+                            <input id={`areason-${u.id}`} name="admin_reason" type="text" maxlength="300" placeholder="사유 (예: 운영팀 합류)" class={`${input} block w-full`} />
+                            <label class="flex items-center gap-2 text-sm">
+                              <input type="checkbox" name="confirm" value="yes" required class="size-4" />
+                              {u.role === 'admin' ? `${u.display_name || '이 회원'}님의 관리자 권한을 거둘게요.` : `${u.display_name || '이 회원'}님에게 관리자 권한을 줄게요.`}
+                            </label>
+                            <button type="submit" class:list={['h-10 rounded-xl px-4 text-sm font-semibold', u.role === 'admin' ? 'border border-border bg-surface text-[#B42318] hover:border-[#B42318]' : 'bg-text text-white']}>
+                              {u.role === 'admin' ? '관리자 권한 거두기' : '관리자로 지정'}
+                            </button>
+                          </>
+                        )}
+                      </form>
+                    )}
                   </div>
                 </details>
               </li>
