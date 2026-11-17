@@ -144,7 +144,7 @@ const notices: Record<string, string> = { safety: '안전 체크 후기를 확�
 const done = notices[Astro.url.searchParams.get('notice') ?? ''] ?? null;
 const statusClass = (s: string) => (s === 'open' ? 'bg-[#FFF4D6] text-[#7A5200]' : s === 'dismissed' ? 'bg-text/5 text-muted' : 'bg-[#FDECEC] text-[#8A1C1C]');
 ---
-<BaseLayout title="신고·안전 | 관리자 | YEONON" description="연온 관리자 채팅 신고·안전 후기" lang="ko" sticky="none" noindex>
+<BaseLayout title="신고·안전 | 관리자 | YEONON" description="연온 관리자 채팅 신고·안전 후기" lang="ko" noindex>
   <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">

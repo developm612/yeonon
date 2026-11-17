@@ -1,5 +1,5 @@
 /**
- * 대화 화면 (Preact 아일랜드) — 여행자 /app/messages/[id](영문), 지기 /partner/messages/[id](한글).
+ * 대화 화면 (Preact 아일랜드) — 여행자 /chats/[id](영문), 지기 /partner/messages/[id](한글).
  * Realtime으로 새 메시지·읽음 표시를 바로 받고, 보이는 동안 받은 메시지를 읽음 처리한다.
  * 보내기·읽음·신고·차단·번역은 /api/chat/* 로 보낸다 (권한·차단·제한 확인은 DB 함수).
  * 모바일: 입력창이 키보드에 가려지지 않게 화면에 보이는 높이(visualViewport)에 맞춰 대화 영역 높이를 맞춘다.

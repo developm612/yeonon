@@ -7,7 +7,7 @@ import { PARTNER_NAV } from '../../../data/accountNav';
 
 export const prerender = false;
 ---
-<BaseLayout title="메시지 | YEONON" description="연온 지기 메시지" lang="ko" sticky="none" noindex>
-  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+<BaseLayout title="메시지 | YEONON" description="연온 지기 메시지" lang="ko" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
   <InboxView lang="ko" />
 </BaseLayout>

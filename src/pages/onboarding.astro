@@ -23,12 +23,16 @@ const destination = (role: Role) => {
   const next = safeNext(nextParam, '');
   const area = AREAS.find((a) => next && inArea(next.split('?')[0], a.base));
   if (area?.roles.includes(role)) return next;
-  if (role === 'traveler' && next && inArea(next.split('?')[0], '/routes')) return next;
-  return role === 'jigi' ? '/partner/apply' : '/app';
+  if (role === 'traveler' && next && (next.split('?')[0] === '/' || inArea(next.split('?')[0], '/routes'))) return next;
+  return role === 'jigi' ? '/partner/apply' : '/';
 };
 
 let error: string | null = null;
-let form = { role: '', display_name: profile?.display_name ?? '', marketing: false };
+// 역할 기본값: 로그인 직전에 보던 탭 (지기 탭 → 지기, Travelers 탭 → 여행자). 사용자가 바꿀 수 있다
+const lastTab = Astro.cookies.get('yeonon_tab')?.value;
+const nextPath = (nextParam ?? '').split('?')[0];
+const defaultRole = lastTab === 'jigi' || inArea(nextPath, '/partner') ? 'jigi' : lastTab === 'travelers' || nextPath === '/' || inArea(nextPath, '/routes') ? 'traveler' : '';
+let form = { role: defaultRole, display_name: profile?.display_name ?? '', marketing: false };
 
 if (Astro.request.method === 'POST' && profile && supabase) {
   const fd = await Astro.request.formData();
@@ -59,7 +63,7 @@ if (Astro.request.method === 'POST' && profile && supabase) {
 const box = 'flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-surface p-4 has-checked:border-brand has-checked:bg-brand-soft';
 const checkbox = 'mt-1 size-[18px] shrink-0 cursor-pointer accent-brand';
 ---
-<BaseLayout title="Welcome | YEONON" description="Set up your YEONON account. 연온 시작하기." sticky="none" noindex>
+<BaseLayout title="Welcome | YEONON" description="Set up your YEONON account. 연온 시작하기." noindex>
   <section class="section pt-10! md:pt-16!">
     <div class="container-page max-w-xl!">
       <p class="eyebrow">Welcome · 환영해요</p>

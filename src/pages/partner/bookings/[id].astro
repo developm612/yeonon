@@ -48,8 +48,8 @@ const reviewNotice = notice(Astro.url, { review_saved: '후기를 저장했어�
 const travelerCancel = booking?.status === 'cancelled' && booking.cancelled_role === 'traveler'
   ? reasonLabel(booking.cancel_reason, TRAVELER_CANCEL_REASONS, 'ko') : null;
 ---
-<BaseLayout title="예약 상세 | YEONON" description="연온 지기 예약 상세" lang="ko" sticky="none" noindex>
-  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+<BaseLayout title="예약 상세 | YEONON" description="연온 지기 예약 상세" lang="ko" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page max-w-2xl!">
       <a href="/partner/bookings" class="text-sm font-semibold text-muted hover:text-text">← 예약</a>

@@ -1,0 +1,101 @@
+---
+/**
+ * 앱 상단 바 (yeonon-app-first-plan.md 5장) — 랜딩용 Header를 대신한다.
+ *   로고 | Travelers · 지기 탭 | (여행자, 데스크톱) 메뉴 | 채팅·알림 | 내 정보(또는 로그인)
+ * Travelers · 지기 탭은 어느 쪽 화면을 볼지 고르는 스위치일 뿐 계정 역할은 바꾸지 않는다 (/switch가 쿠키에 기억).
+ * 스크롤하면 흰 면 + 얇은 선. 관리자는 오른쪽에 '관리자' 링크.
+ */
+import Logo from '../Logo.astro';
+import Icon from '../Icon.astro';
+import ChatBadge from '../islands/ChatBadge';
+import NotificationBell from '../islands/NotificationBell';
+import { TRAVELER_NAV } from '../../data/accountNav';
+import { inArea, isOnboarded } from '../../lib/profile';
+import { isAuthConfigured } from '../../lib/supabase';
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const area = inArea(path, '/admin') ? 'admin' : inArea(path, '/partner') ? 'jigi' : 'travelers';
+const { user, profile: me } = Astro.locals;
+const member = isAuthConfigured && user && me && me.status === 'active' && isOnboarded(me) ? me : null;
+const here = Astro.url.pathname + Astro.url.search;
+const travelerMenu = area === 'travelers' && !['/login', '/onboarding'].includes(path) && !inArea(path, '/account');
+const current = path.startsWith('/routes/') ? '/' : TRAVELER_NAV.map((i) => i.href).filter((h) => path === h || (h !== '/' && path.startsWith(h + '/'))).sort((a, b) => b.length - a.length)[0];
+const seg = 'inline-flex h-9 items-center rounded-full px-3.5 text-[0.8125rem] font-semibold whitespace-nowrap transition-colors md:px-4 md:text-sm';
+const meHref = member?.role === 'jigi' ? '/partner/me' : '/me';
+---
+<header class="app-top sticky top-0 z-40 border-b border-transparent bg-bg/90 backdrop-blur-md transition-colors" data-app-top>
+  <div class="container-page flex h-14 items-center gap-2 md:h-16 md:gap-4">
+    <Logo href={area === 'jigi' ? '/partner' : area === 'admin' ? '/admin' : '/'} size="sm" class="max-w-[80px] shrink-0 md:max-w-none" />
+
+    <nav aria-label="Choose a side" class="min-w-0">
+      <ul class="flex rounded-full border border-border bg-surface p-0.5">
+        <li>
+          <a href="/switch?to=travelers" lang="en" aria-current={area === 'travelers' ? 'page' : undefined}
+            class:list={[seg, area === 'travelers' ? 'bg-traveler-strong text-white' : 'text-muted hover:text-text']}>Travelers</a>
+        </li>
+        <li>
+          <a href="/switch?to=jigi" lang="ko" aria-current={area === 'jigi' ? 'page' : undefined}
+            class:list={[seg, area === 'jigi' ? 'bg-jigi-strong text-white' : 'text-muted hover:text-text']}>지기</a>
+        </li>
+      </ul>
+    </nav>
+
+    {travelerMenu && (
+      <nav aria-label="Main menu" class="hidden min-w-0 flex-1 lg:block">
+        <ul class="flex items-center gap-0.5">
+          {TRAVELER_NAV.map((i) => (
+            <li>
+              <a href={i.href} aria-current={i.href === current ? 'page' : undefined}
+                class:list={['relative flex min-h-11 items-center px-3 text-[0.9375rem] font-semibold whitespace-nowrap transition-colors',
+                  i.href === current ? 'text-text after:absolute after:inset-x-3 after:bottom-1.5 after:h-[3px] after:rounded-full after:bg-line2' : 'text-muted hover:text-text']}>
+                {i.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )}
+
+    <div class="ml-auto -mr-2 flex shrink-0 items-center">
+      {member ? (
+        <>
+          {(member.role === 'traveler' || member.role === 'jigi') && (
+            <span class="hidden md:contents"><ChatBadge client:load userId={member.id} lang={member.role === 'traveler' ? 'en' : 'ko'} href={member.role === 'traveler' ? '/chats' : '/partner/messages'} /></span>
+          )}
+          <NotificationBell client:load userId={member.id} lang={member.role === 'traveler' ? 'en' : 'ko'} />
+          {member.role === 'admin' ? (
+            <a href="/admin" lang="ko" class="ml-1 inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-3.5 text-sm font-semibold hover:border-text">관리자</a>
+          ) : (
+            <a href={meHref} class="hidden size-11 items-center justify-center rounded-full text-text hover:bg-text/5 md:inline-flex" aria-label={member.role === 'jigi' ? '내 정보' : 'My account'}>
+              <span class="inline-flex size-8 items-center justify-center rounded-full bg-text/[0.06] text-sm font-bold" aria-hidden="true">{member.display_name?.slice(0, 1) || <Icon name="user" class="size-4" />}</span>
+            </a>
+          )}
+        </>
+      ) : user && me?.status === 'active' ? (
+        <a href="/onboarding" class="mr-2 inline-flex min-h-10 items-center rounded-full bg-text px-3 text-sm font-semibold whitespace-nowrap text-white">Sign up</a>
+      ) : isAuthConfigured && path !== '/login' ? (
+        <a href={`/login?next=${encodeURIComponent(here)}`} lang={area === 'jigi' ? 'ko' : 'en'}
+          class="mr-2 inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-3 text-sm font-semibold whitespace-nowrap hover:border-text md:px-4">
+          {area === 'jigi' ? '로그인' : 'Sign in'}
+        </a>
+      ) : null}
+    </div>
+  </div>
+</header>
+
+<script>
+  // 스크롤하면 흰 면 + 얇은 선
+  const h = document.querySelector<HTMLElement>('[data-app-top]');
+  if (h) {
+    const sync = () => h.classList.toggle('is-scrolled', window.scrollY > 4);
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
+  }
+</script>
+
+<style>
+  .app-top.is-scrolled {
+    background-color: var(--color-surface);
+    border-bottom-color: var(--color-border);
+  }
+</style>

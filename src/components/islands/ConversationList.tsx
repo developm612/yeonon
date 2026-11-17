@@ -1,5 +1,5 @@
 /**
- * 메시지 목록 (Preact 아일랜드) — /app/messages(영문), /partner/messages(한글).
+ * 메시지 목록 (Preact 아일랜드) — /chats(영문), /partner/messages(한글).
  * 상대 표시 이름·루트·마지막 메시지·안 읽은 수. 새 메시지가 오면(Realtime) my_conversations()로 다시 읽는다.
  * 여행자 화면(en)은 성수 라인 모양: 아바타 + 루트 이름 + 마지막 메시지 + 시간, 안 읽음은 ON Blue 점.
  */
@@ -12,7 +12,7 @@ import { subscribeLive } from '../../lib/realtime';
 interface Props {
   userId: string;
   lang: 'en' | 'ko';
-  base: '/app/messages' | '/partner/messages';
+  base: '/chats' | '/partner/messages';
   initial: ConversationListItem[];
 }
 
@@ -55,7 +55,7 @@ export default function ConversationList({ userId, lang, base, initial }: Props)
         <div lang="en" class="rounded-card border border-hairline bg-paper px-6 py-10 text-center">
           <p class="t-heading">No conversations yet</p>
           <p class="t-body mx-auto mt-2 max-w-md text-stone">A chat opens when you request a route. Find one for your days in Seoul.</p>
-          <a href="/app/discover" class="mt-6 inline-flex min-h-[52px] items-center justify-center rounded-control bg-on-blue px-6 font-semibold text-white hover:bg-on-blue-hover">Find my route</a>
+          <a href="/for-you" class="mt-6 inline-flex min-h-[52px] items-center justify-center rounded-control bg-on-blue px-6 font-semibold text-white hover:bg-on-blue-hover">Find my route</a>
         </div>
       );
     }

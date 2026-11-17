@@ -1,0 +1,25 @@
+---
+/**
+ * 앱 하단의 작은 링크 줄 — 랜딩용 긴 푸터를 대신한다 (yeonon-app-first-plan.md 5장).
+ * 루트 피드 맨 아래, 내 정보(/me, /partner/me), 지기 시작 화면, 로그인 화면에 둔다.
+ * 약관·개인정보처리방침은 이 앱의 /terms, /privacy가 정본이다. About은 새 랜딩 주소가 정해졌을 때만 보인다.
+ */
+import { SITE, landingUrl } from '../../config/site';
+
+interface Props {
+  lang?: 'en' | 'ko';
+  class?: string;
+}
+const { lang = 'en', class: className = '' } = Astro.props;
+const about = landingUrl('footnote');
+const link = 'underline-offset-4 hover:text-text hover:underline';
+---
+<footer class:list={['text-xs leading-6 text-muted', className]} lang={lang}>
+  <ul class="flex flex-wrap gap-x-4">
+    {about && <li><a href={about} class={link}>{lang === 'ko' ? '연온 소개' : 'About YEONON'}</a></li>}
+    <li><a href="/terms" class={link}>{lang === 'ko' ? '이용약관' : 'Terms'}</a></li>
+    <li><a href="/privacy" class={link}>{lang === 'ko' ? '개인정보처리방침' : 'Privacy'}</a></li>
+    <li><a href={`mailto:${SITE.contactEmail}`} class={link}>{lang === 'ko' ? '문의' : 'Contact'}</a></li>
+  </ul>
+  <p class="mt-1">© {new Date().getFullYear()} YEONON · <span lang="ko">운영: {SITE.operator}</span></p>
+</footer>

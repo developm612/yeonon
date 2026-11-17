@@ -136,7 +136,7 @@ const vibeLabel = (id?: string) => DISCOVER_VIBES.find((v) => v.id === id)?.labe
 const pageHref = (p: number) => `?days=${period.id}&page=${p}`;
 const llm = llmModel();
 ---
-<BaseLayout title="추천 로그 | YEONON" description="AI 추천 로그" lang="ko" sticky="none" noindex>
+<BaseLayout title="추천 로그 | YEONON" description="AI 추천 로그" lang="ko" noindex>
   <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">

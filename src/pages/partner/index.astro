@@ -1,10 +1,13 @@
 ---
 /**
+ * 지기 탭 (yeonon-app-first-plan.md 1-2). 로그인 없이 열린다 — 상태에 따라 한 화면이 바뀐다:
+ *   비로그인 → 시작 화면, 여행자 계정 → 안내 (components/partner/PartnerStart.astro)
  * 지기 홈: 신청 전 → 신청 안내, 신청 후 → 심사 상태,
  * 승인 후 → 새 요청(실시간 + 응답 기한 카운트다운, Preact 아일랜드) · 오늘·이번 주 만남 · 내 평점·후기 · 내 루트·가능 시간 요약
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
+import PartnerStart from '../../components/partner/PartnerStart.astro';
 import Notice from '../../components/account/Notice.astro';
 import { PARTNER_NAV } from '../../data/accountNav';
 import { APPLICATION_STATUS, type ApplicationStatus } from '../../data/jigiStatus';
@@ -18,12 +21,14 @@ import { loadPublicReviews, type PublicReview } from '../../lib/reviews';
 
 export const prerender = false;
 
-const { profile, supabase } = Astro.locals;
-if (!profile || !supabase) return Astro.redirect('/onboarding');
+const { profile: me, supabase, user } = Astro.locals;
+// 시작 화면: 비로그인이거나 여행자 계정 (로그인했는데 온보딩 전이면 middleware가 온보딩으로 보낸다)
+const start: 'start' | 'traveler' | null = !user || !me || !supabase ? 'start' : me.role === 'traveler' ? 'traveler' : null;
+const profile = me!;
 
-const [{ data: application, error: appError }, { data: jigi }] = await Promise.all([
-  supabase.from('jigi_applications').select('status, created_at, reviewed_at').eq('user_id', profile.id).maybeSingle(),
-  supabase.from('jigi_profiles').select('is_active, languages, rating_avg, rating_count, accept_rate, avg_response_minutes, response_count').eq('user_id', profile.id).maybeSingle(),
+const [{ data: application, error: appError }, { data: jigi }] = start ? [{ data: null, error: null }, { data: null }] : await Promise.all([
+  supabase!.from('jigi_applications').select('status, created_at, reviewed_at').eq('user_id', profile.id).maybeSingle(),
+  supabase!.from('jigi_profiles').select('is_active, languages, rating_avg, rating_count, accept_rate, avg_response_minutes, response_count').eq('user_id', profile.id).maybeSingle(),
 ]);
 dbError(appError, 'load own application');
 const status = application?.status as ApplicationStatus | undefined;
@@ -37,13 +42,14 @@ let reviews: PublicReview[] = [];
 if (approved) {
   // 이번 주 = 오늘부터 7일
   const weekEnd = new Date(Date.now() + 7 * 864e5).toISOString();
+  const sb = supabase!;
   const [{ data: routes }, { count }, p, w, rv] = await Promise.all([
-    supabase.from('routes').select('status').eq('jigi_id', profile.id),
-    supabase.from('slots').select('id', { count: 'exact', head: true }).eq('jigi_id', profile.id).eq('status', 'open').gt('starts_at', new Date().toISOString()),
-    supabase.from('bookings').select(BOOKING_COLUMNS).eq('jigi_id', profile.id).eq('status', 'pending').order('respond_by').limit(50),
-    supabase.from('bookings').select(BOOKING_COLUMNS).eq('jigi_id', profile.id).eq('status', 'confirmed')
+    sb.from('routes').select('status').eq('jigi_id', profile.id),
+    sb.from('slots').select('id', { count: 'exact', head: true }).eq('jigi_id', profile.id).eq('status', 'open').gt('starts_at', new Date().toISOString()),
+    sb.from('bookings').select(BOOKING_COLUMNS).eq('jigi_id', profile.id).eq('status', 'pending').order('respond_by').limit(50),
+    sb.from('bookings').select(BOOKING_COLUMNS).eq('jigi_id', profile.id).eq('status', 'confirmed')
       .gt('ends_at', new Date().toISOString()).lt('starts_at', weekEnd).order('starts_at').limit(30),
-    loadPublicReviews(supabase, profile.id, 3),
+    loadPublicReviews(sb, profile.id, 3),
   ]);
   reviews = rv;
   routeCount = routes?.length ?? 0;
@@ -62,8 +68,10 @@ const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZo
 const m = jigi as { rating_avg: number | null; rating_count: number; accept_rate: number | null; avg_response_minutes: number | null; response_count: number } | null;
 const responseText = m?.avg_response_minutes == null ? '-' : m.avg_response_minutes < 60 ? `${m.avg_response_minutes}분` : `${Math.floor(m.avg_response_minutes / 60)}시간 ${m.avg_response_minutes % 60}분`;
 ---
-<BaseLayout title="지기 홈 | YEONON" description="연온 지기 홈" lang="ko" sticky="none" noindex>
-  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+<BaseLayout title={start ? '지기 · YEONON' : '지기 홈 | YEONON'} description="연온 지기 홈" lang="ko" noindex>
+  {start ? <PartnerStart mode={start} /> : (
+  <>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page max-w-2xl!">
       <p class="eyebrow">지기</p>
@@ -158,4 +166,6 @@ const responseText = m?.avg_response_minutes == null ? '-' : m.avg_response_minu
       </div>
     </div>
   </section>
+  </>
+  )}
 </BaseLayout>

@@ -1,7 +1,7 @@
 ---
 /**
  * 루트 빌더: 기본 정보 → 코스 정류장 → 미리보기 → 저장/검수 요청.
- * 앱 미리보기(/app-preview-jigi)의 '코스 만들기' 화면을 실제 입력용으로 넓혔다 — 정류장 카드(번호·위로·빼기),
+ * 옛 앱 미리보기의 '코스 만들기' 화면을 실제 입력용으로 넓혔다 — 정류장 카드(번호·위로·빼기),
  * 시작 시간 선택, 여행자에게 보이는 코스 카드(CourseCard)를 그대로 쓴다. 동작은 scripts/routeBuilder.ts.
  * 서버가 같은 검증(lib/routeValidation.ts)을 다시 하고 DB 함수 save_route로 저장한다.
  */
@@ -9,10 +9,10 @@ import CourseCard from './CourseCard.astro';
 import PhotoField from './PhotoField.astro';
 import StopFields from './StopFields.astro';
 import { INTERESTS } from '../../data/interests';
-import { START_TIMES } from '../../data/jigiPreview';
 import {
   DURATIONS, LIMITS, PARTY_MAX, PRICE_MAX, ROUTE_AREAS, ROUTE_LANGUAGES, ROUTE_TAG_MAX, ROUTE_TAG_MIN, STOP_MAX, STOP_MIN,
   VIBES, WALK_MIN,
+  START_TIMES,
 } from '../../data/routeOptions';
 import { fmtDuration } from '../../lib/course';
 import type { RouteError, RouteForm, StopDraft } from '../../lib/routeValidation';

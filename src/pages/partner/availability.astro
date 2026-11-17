@@ -91,8 +91,8 @@ const done = notice(Astro.url, {
 const select = 'h-11 rounded-xl border border-border bg-surface px-3 text-[0.9375rem]';
 const pill = 'flex min-h-11 cursor-pointer items-start gap-3 rounded-[14px] border border-border bg-surface p-3.5 has-checked:border-jigi-strong has-checked:bg-jigi-soft';
 ---
-<BaseLayout title="가능 시간 | YEONON" description="연온 지기 가능 시간" lang="ko" sticky="none" noindex>
-  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+<BaseLayout title="가능 시간 | YEONON" description="연온 지기 가능 시간" lang="ko" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page max-w-3xl!">
       <p class="eyebrow">지기</p>

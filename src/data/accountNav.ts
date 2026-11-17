@@ -1,20 +1,32 @@
-/** 회원 영역 탭 메뉴 */
+/**
+ * 메뉴 (yeonon-app-first-plan.md 1장·5장). 여행자·지기는 모바일 하단 탭바(components/ui/TabBar)와 데스크톱 메뉴가 같은 목록을 쓴다.
+ * icon은 components/Icon.astro 이름.
+ */
 export const TRAVELER_NAV = [
-  { href: '/app', label: 'Home' },
-  { href: '/app/discover', label: 'Discover' },
-  { href: '/app/bookings', label: 'Bookings' },
-  { href: '/app/messages', label: 'Messages' },
-  { href: '/routes', label: 'Routes' },
-  { href: '/app/profile', label: 'Profile' },
-];
+  { href: '/', label: 'Home', icon: 'home' },
+  { href: '/for-you', label: 'For you', icon: 'spark' },
+  { href: '/bookings', label: 'Bookings', icon: 'calendar' },
+  { href: '/chats', label: 'Chats', icon: 'chat' },
+  { href: '/me', label: 'My', icon: 'user' },
+] as const;
 
+/** 지기 하단 탭바 (모바일) */
+export const PARTNER_TABS = [
+  { href: '/partner', label: '요청', icon: 'bell' },
+  { href: '/partner/routes', label: '내 루트', icon: 'route' },
+  { href: '/partner/availability', label: '가능 시간', icon: 'clock' },
+  { href: '/partner/messages', label: '채팅', icon: 'chat' },
+  { href: '/partner/me', label: '내 정보', icon: 'user' },
+] as const;
+
+/** 지기 데스크톱 메뉴 (상단 바 아래 얇은 메뉴) */
 export const PARTNER_NAV = [
   { href: '/partner', label: '지기 홈' },
   { href: '/partner/bookings', label: '예약' },
-  { href: '/partner/messages', label: '메시지' },
+  { href: '/partner/messages', label: '채팅' },
   { href: '/partner/routes', label: '내 루트' },
   { href: '/partner/availability', label: '가능 시간' },
-  { href: '/partner/apply', label: '지기 신청서' },
+  { href: '/partner/me', label: '내 정보' },
 ];
 
 export const ADMIN_NAV = [

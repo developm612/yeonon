@@ -35,12 +35,18 @@ export function homeFor(p: Profile | null): string {
   if (p.status !== 'active') return '/suspended';
   if (!isOnboarded(p)) return '/onboarding';
   if (p.role === 'admin') return '/admin';
-  return p.role === 'jigi' ? '/partner' : '/app';
+  return p.role === 'jigi' ? '/partner' : '/';
 }
 
-/** 영역별로 들어갈 수 있는 역할 (관리자는 확인용으로 모든 영역에 들어갈 수 있다) */
+/**
+ * 로그인이 필요한 영역과 들어갈 수 있는 역할 (관리자는 확인용으로 모든 영역에 들어갈 수 있다).
+ * 여행자 영역은 짧은 주소 (yeonon-app-first-plan.md 2장). 루트 피드(/)·루트 상세(/routes/*)·지기 시작 화면(/partner)은 로그인 없이 열린다.
+ */
 export const AREAS: { base: string; roles: Role[] }[] = [
-  { base: '/app', roles: ['traveler', 'admin'] },
+  { base: '/for-you', roles: ['traveler', 'admin'] },
+  { base: '/bookings', roles: ['traveler', 'admin'] },
+  { base: '/chats', roles: ['traveler', 'admin'] },
+  { base: '/me', roles: ['traveler', 'admin'] },
   { base: '/partner', roles: ['jigi', 'admin'] },
   { base: '/admin', roles: ['admin'] },
 ];

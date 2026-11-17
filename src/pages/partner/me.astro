@@ -1,0 +1,46 @@
+---
+/**
+ * 지기 내 정보 (yeonon-app-first-plan.md 1-2, 하단 탭 '내 정보'): 계정 정보, 지기 신청서, 알림, 로그아웃·탈퇴, 약관 링크.
+ * 로그인한 지기(와 확인용 관리자)만 — middleware가 /partner/* 를 지킨다.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import Icon from '../../components/Icon.astro';
+import AppFootnote from '../../components/ui/AppFootnote.astro';
+import { PARTNER_NAV } from '../../data/accountNav';
+
+export const prerender = false;
+
+const { profile } = Astro.locals;
+if (!profile) return Astro.redirect('/login?next=/partner/me');
+const row = 'flex min-h-14 items-center justify-between gap-3 px-4 font-semibold transition-colors hover:bg-text/[0.03]';
+---
+<BaseLayout title="내 정보 | YEONON" description="연온 지기 내 정보" lang="ko" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
+  <section class="pt-8 pb-12 md:pt-12">
+    <div class="container-page max-w-xl!">
+      <h1 class="text-2xl font-extrabold">내 정보</h1>
+      <div class="mt-5 flex items-center gap-4 rounded-2xl border border-border bg-surface p-4">
+        <span class="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-jigi-soft text-lg font-bold text-jigi-strong" aria-hidden="true">{profile.display_name?.slice(0, 1)}</span>
+        <span class="min-w-0">
+          <span class="block truncate font-bold">{profile.display_name}</span>
+          <span class="block truncate text-sm text-muted">{profile.email}</span>
+        </span>
+      </div>
+
+      <ul class="mt-6 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+        <li><a href="/partner/apply" class={row}>지기 신청서 <Icon name="chevron-right" class="size-5 text-muted" /></a></li>
+        <li><a href="/partner/bookings" class={row}>예약 전체 보기 <Icon name="chevron-right" class="size-5 text-muted" /></a></li>
+        <li><a href="/account/notifications" class={row}>알림 <Icon name="chevron-right" class="size-5 text-muted" /></a></li>
+      </ul>
+
+      <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <form method="post" action="/auth/signout">
+          <button type="submit" class="min-h-11 font-semibold text-text underline-offset-4 hover:underline">로그아웃</button>
+        </form>
+        <a href="/account/delete" class="inline-flex min-h-11 items-center font-semibold text-[#B42318] underline-offset-4 hover:underline">회원 탈퇴</a>
+      </div>
+      <AppFootnote lang="ko" class="mt-12 border-t border-border pt-6" />
+    </div>
+  </section>
+</BaseLayout>

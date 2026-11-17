@@ -1,25 +1,33 @@
-# 연온(YEONON) 랜딩사이트
+# 연온(YEONON) 앱
 
-외국인 여행자와 성수동 현지 친구 '지기'를 연결하는 연온의 사전 등록(Pre-launch) 랜딩사이트입니다.
-Astro + Tailwind CSS v4 사이트입니다 (공개 페이지는 정적, 로그인 영역은 Vercel 서버 렌더링). 신청은 앱 미리보기 페이지 하단 폼(여행자 `/app-preview`, 지기 `/app-preview-jigi`)으로 받아 Google Apps Script로 스프레드시트에 저장합니다. (로그인·DB는 실서비스 전환 작업 중 — 아래 '로그인 · 회원 영역')
+외국인 여행자와 성수동 현지 친구 '지기'를 연결하는 연온의 **바로 쓰는 앱**입니다 (yeonon.vercel.app).
+서비스 설명과 대기자·설문은 **별도의 새 랜딩 사이트**가 맡고, 이 프로젝트는 들어오자마자 루트 목록이 보이는 앱만 남겼습니다 (`../yeonon-app-first-plan.md`).
+Astro 5 + Tailwind CSS v4 + Supabase, Vercel 서버 렌더링. 디자인 시스템은 "성수 라인" (`yeonon-traveler-ui-plan.md`).
 
-**신청 버튼 연결** (`src/config/cta.ts` 한 곳 — 회원 기능 공개 스위치 `PUBLIC_MEMBER_UI`에 따라 바뀜)
-- 여행자: 사전 등록 중 `Join the early list` → `/app-preview` / 공개 후 `Find my route` → Google 로그인 → `/app/discover`
-  (헤더, 홈(히어로·하단), `/travelers`(히어로·하단), 모바일 하단 고정 버튼, 앱 미리보기 결과 화면)
-- 지기: 사전 등록 중 `지기 지원하기` → `/app-preview-jigi` / 공개 후 `Google로 시작하고 지원하기` → Google 로그인 → `/partner/apply`
-  (`/jigi`(히어로·하단), `/jigi` 모바일 하단 고정 버튼, 지기 앱 미리보기 완료 화면)
-- 공개 후에는 앱 미리보기 하단의 대기자·지기 사전 신청 폼 대신 로그인 안내가 보이고, 푸터의 '사전 등록 단계' 문구가 바뀐다.
+- 둘러보기(루트 피드·루트 상세)는 로그인 없이, 요청·채팅·루트 작성 같은 **행동을 할 때만 로그인**합니다.
+- 상단 `Travelers | 지기` 탭은 어느 쪽 화면을 볼지 고르는 스위치입니다 (계정 역할은 바꾸지 않음, 마지막 탭을 쿠키 `yeonon_tab`에 기억).
+- 모바일은 역할별 하단 탭바, 데스크톱은 상단 바 메뉴(여행자)·상단 바 아래 얇은 메뉴(지기)를 씁니다.
 
 ## 페이지
 
-| 경로 | 내용 | 언어 |
+| 경로 | 내용 | 로그인 |
 |---|---|---|
-| `/` | 홈 — 프로그램 소개, 진행 방식(`#how-it-works`: 탭, 매칭 다이어그램, 안전, 비교) | 영문 + 한국어 요약 |
-| `/travelers` | 여행자 페이지 | 영문 |
-| `/jigi` | 지기 모집 페이지 | 한글 |
-| `/privacy` | 개인정보처리방침 (초안 — 법률 검토 필요) | 한글 기본 + 영문 전환 |
-| `/terms` | 이용약관 (초안 — 법률 검토 필요) | 한글 기본 + 영문 전환 |
-| `/404`, `/500` | 없는 주소 / 서버 오류 화면 | 영문 + 한글 |
+| `/` | Travelers 탭 = 루트 피드: 검색(`?q=`)·관심사 칩(`?tag=`)·For you 입구·가장 가까운 열린 시간 순·Load more(`?page=`). 로그인한 여행자에겐 다가오는 만남·답을 기다리는 요청 한 줄 | 필요 없음 |
+| `/routes/[id]` | 루트 상세. 비로그인은 시간을 고르고 `Sign in to request` → 로그인 → 같은 화면(`?slot=`, 고른 시간 선택된 채로) | 필요 없음 (요청은 여행자) |
+| `/for-you` → `/for-you/results` | AI 추천 입력 3단계 → 결과 | 여행자 |
+| `/bookings`, `/bookings/[id]` | 내 예약 / 상세 | 여행자 |
+| `/chats`, `/chats/[id]` | 채팅 목록 / 대화 | 여행자 |
+| `/me` | 내 정보(프로필·알림·로그아웃·탈퇴·약관 링크) | 여행자 |
+| `/partner` | 지기 탭: 비로그인 → 시작 화면, 여행자 계정 → 안내, 신청 전·심사 중 → 신청 상태, 승인 → 새 요청·이번 주 만남 | 필요 없음 (상태별) |
+| `/partner/*` | 지기 앱 (아래 표) · `/partner/me` 지기 내 정보 | 지기 |
+| `/admin/*` | 관리자 (아래 표) | 관리자 |
+| `/switch?to=travelers\|jigi` | 상단 탭 전환 (쿠키 기억 후 그 탭 첫 화면으로) | — |
+| `/privacy`, `/terms` | 개인정보처리방침·이용약관 (앱 쪽이 정본, 랜딩은 링크만) | — |
+| `/404`, `/500` | 없는 주소 / 서버 오류 | — |
+
+**옛 주소는 301로 이동** (`src/data/paths.ts`의 `legacyRedirect`, `src/middleware.ts`) — 이미 보낸 알림·메일·공유 링크가 깨지지 않게:
+`/app` → `/`, `/app/discover(/results)` → `/for-you(/results)`, `/app/bookings/*` → `/bookings/*`, `/app/messages/*` → `/chats/*`, `/app/profile` → `/me`, `/app/routes/[id]` → `/routes/[id]`, `/routes` → `/`, `/jigi` → `/partner`,
+`/travelers`·`/how-it-works`·`/app-preview`·`/app-preview-jigi` → 새 랜딩 사이트(주소가 정해지기 전에는 `/`). DB 함수가 만든 알림 링크(`/app/bookings/…`)도 이 이동으로 새 주소에 닿는다.
 
 ## 로컬 실행 · 빌드
 
@@ -33,7 +41,7 @@ npm run build      # 빌드 → .vercel/output/ (공개 페이지는 정적 HTML
 
 Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확인은 `npm run dev` 또는 Vercel 미리보기 배포로 한다.
 
-## 로그인 · 회원 영역 (실서비스 전환, 진행 중)
+## 로그인 · 회원 영역
 
 계획: `../yeonon-service-plan-v2.md`. Phase 7(후기·관리자 완성·약관·대기자 이전)까지 구현됨. 오픈 전 할 일: [`docs/launch-checklist.md`](docs/launch-checklist.md)
 
@@ -43,21 +51,20 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 | `/auth/google` → `/auth/callback` | Supabase OAuth 시작 / 세션 쿠키 발급 |
 | `/auth/signout` | 로그아웃 (POST) |
 | `/onboarding` | 첫 로그인 후 한 번: 역할(여행자/지기) + 필수 동의(약관·개인정보·만 18세) + 선택 동의(마케팅) |
-| `/account` | 헤더 `My page` → 역할별 홈으로 이동 |
+| `/account` | 역할별 홈으로 이동 (여행자 `/`, 지기 `/partner`, 관리자 `/admin`) |
 | `/account/delete` | 회원 탈퇴 (프로필·지기 신청·지기 프로필 함께 삭제) |
 | `/account/consent` | 약관·개인정보처리방침 다시 동의 — 동의한 시행일이 `src/config/legal.ts`와 다르면 미들웨어가 이리로 보낸다 |
-| `/app`, `/app/profile` | 여행자 홈(다가오는 만남·진행 중 요청·Find my route)·프로필 (영문) |
-| `/app/discover` → `/app/discover/results` | AI 추천 입력(관심사 3~5개·날짜·시간대·인원·언어·분위기·자유 문장) → 결과(Perfect match / Closest matches, 일치율·추천 이유·가능 시간) |
-| `/app/routes/[id]` | 여행자 영역 루트 상세. 추천 카드에서 오면 클릭 기록. 시간 칩 선택 → 인원·메모 → `Request this route`, 가격 `₩45,000 → ₩0 · Early member` |
-| `/app/bookings`, `/app/bookings/[id]` | 내 예약 목록 / 상태 타임라인(실시간)·응답 기한·만남 안내·취소·만료·거절 시 `See other routes`(같은 조건의 /app/discover)·완료 후 후기(별점·코멘트·안전 문제 체크, 24시간 안 수정·삭제) |
+| `/for-you` → `/for-you/results` | AI 추천 입력(관심사 3~5개·날짜·시간대·인원·언어·분위기·자유 문장) → 결과(Perfect match / Closest matches, 일치율·추천 이유·가능 시간) |
+| `/routes/[id]` | 루트 상세(누구나). 추천 카드에서 오면 클릭 기록. 여행자는 시간 칩 → 인원·메모 → `Request this route`, 가격 `₩45,000 → ₩0 · Early member`. 공개 전 루트는 주인 지기·관리자에게만 미리보기 |
+| `/bookings`, `/bookings/[id]` | 내 예약 목록 / 상태 타임라인(실시간)·응답 기한·만남 안내·취소·만료·거절 시 `See other routes`(같은 조건의 /for-you)·완료 후 후기(별점·코멘트·안전 문제 체크, 24시간 안 수정·삭제) |
 | `/api/bookings/request`·`respond`·`cancel` | 예약 API (POST, JSON 또는 폼). 입력 검증 → DB 함수 → 오류 코드를 여행자 영문·지기 한글 문구로 |
 | `/account/notifications` | 알림 목록·읽음 처리 (헤더 알림 종의 전체 보기) |
-| `/app/messages`, `/app/messages/[id]` | 메시지 목록(상대 이름·마지막 메시지·안 읽은 수) / 대화(실시간·읽음 표시·번역·신고·차단, 예약 요약) (영문) |
+| `/chats`, `/chats/[id]` | 메시지 목록(상대 이름·마지막 메시지·안 읽은 수) / 대화(실시간·읽음 표시·번역·신고·차단, 예약 요약) (영문) |
 | `/partner/messages`, `/partner/messages/[id]` | 같은 구성 (한글) |
 | `/api/chat/send`·`read`·`report`·`block`·`translate` | 채팅 API (POST JSON). 번역은 LLM 키가 있을 때만 |
 | `/api/cron/chat-unread-mail` | 안 읽은 메시지 메일 (GET, `CRON_SECRET` 필요 — DB 크론이 부름) |
 | `/api/recommend` | 추천 API (POST, 로그인한 여행자만) |
-| `/partner`, `/partner/apply` | 지기 홈(신청 상태 / 승인 후 새 요청 실시간·응답 기한 카운트다운·이번 주 만남)·지기 신청서 (한글) |
+| `/partner`, `/partner/apply`, `/partner/me` | 지기 탭(비로그인 시작 화면 / 신청 상태 / 승인 후 새 요청 실시간·응답 기한 카운트다운·이번 주 만남)·지기 신청서·지기 내 정보 (한글) |
 | `/partner/bookings`, `/partner/bookings/[id]` | 예약 목록 / 상세(수락·거절 사유·취소, 실시간)·완료 후 여행자 후기 (비공개) |
 | `/partner/routes`, `/partner/routes/new`, `/partner/routes/[id]/edit` | 내 루트 목록·루트 빌더(기본 정보 → 코스 → 미리보기 → 검수 요청). 승인된 지기만 |
 | `/partner/availability` | 주간 반복 시간·날짜별 예외·확정 방식(수락 후 확정/즉시 확정) → 앞으로 4주 슬롯 자동 생성 |
@@ -69,10 +76,9 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 | `/admin/reports` | 안전 문제가 체크된 후기(확인 메모 → 확인 완료) + 채팅 신고 목록 → 상세 → [대화 열람](열람마다 audit_log) → 처리(문제없음·경고·정지) |
 | `/admin/waitlist` | 대기자 명단: Google 시트 CSV 가져오기(중복 제거), 같은 이메일 가입 시 자동 연결·얼리 멤버, 초대 보냄 표시·삭제 |
 | `/api/admin/export` | 관리자 목록 CSV 내보내기 (POST, 각 목록 화면의 [CSV 내보내기]). 민감 항목은 체크해야만 포함, 내보낼 때마다 audit_log |
-| `/routes`, `/routes/[id]` | 공개 루트 둘러보기·상세 (누구나, 영문)·지기 평점·최근 후기(여행자 이름 첫 글자만). 공개 전 루트는 주인 지기·관리자에게만 미리보기로 보임 |
 
-- **접근 규칙** (`src/middleware.ts`): 로그인 전 → `/login`, 온보딩 전 → `/onboarding`, 정지 → `/suspended`, 다른 역할의 영역 → 자기 홈. 관리자는 모든 영역에 들어갈 수 있다. 다른 사이트에서 보낸 폼 전송(POST)은 모두 거절한다.
-- **키 설정**: `.env.example`을 `.env`로 복사해 Supabase 값을 채운다. 값이 비어 있으면 로그인 기능이 꺼지고 헤더의 Sign in도 보이지 않는다 (기존 사이트와 같은 화면).
+- **접근 규칙** (`src/middleware.ts`): `/`, `/routes/*`, `/partner`(시작 화면)는 로그인 없이 열린다. 그 밖의 회원 영역은 로그인 전 → `/login`, 온보딩 전 → `/onboarding`, 정지 → `/suspended`, 다른 역할의 영역 → 자기 홈. 관리자는 모든 영역에 들어갈 수 있다. 다른 사이트에서 보낸 폼 전송(POST)은 모두 거절한다.
+- **키 설정**: `.env.example`을 `.env`로 복사해 Supabase 값을 채운다. 값이 비어 있으면 로그인 기능이 꺼지고 상단 바의 Sign in도 보이지 않는다.
 
 ### DB (Supabase)
 
@@ -140,153 +146,56 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 
 CLI로 배포하려면: `npx vercel` (미리보기) → `npx vercel --prod` (프로덕션)
 
-## 바꿔야 할 값은 한 곳에: `src/config/site.ts`
+## 바꿔야 할 값: `src/config/site.ts`, 환경 변수
 
-`TODO:`로 시작하는 값은 배포 전에 채워야 합니다.
-설문 링크가 `TODO` 상태이면 버튼은 `#`로 렌더링되고 눌러도 이동하지 않습니다.
-
-| 상수 | 설명 |
+| 값 | 설명 |
 |---|---|
-| `travelerFormUrl` / `jigiFormUrl` | 여행자·지기 외부 설문 링크. **현재 사이트 버튼에서는 쓰지 않음** (버튼은 앱 미리보기 페이지로 연결). 다시 쓰려면 `travelerForm()` / `jigiForm()`으로 UTM을 붙여 사용 |
-| `contactEmail`, `operator`, `url` | 문의 이메일, 운영 주체명, 도메인 |
-| `showPrice` | `false`면 `/travelers` 가격 섹션과 FAQ 가격 문항이 사라짐 |
-| `priceLabel` | 가격 문구 (1인/팀 기준 확정 후 수정) |
-| `formTool`, `retentionPeriod` | 개인정보 페이지의 설문 도구명, 보관 기간 |
-| `STAT_SOURCES` | `/jigi` 통계 수치 출처 (각주) |
+| `SITE.landingUrl` | 새 랜딩 사이트 주소. `TODO`인 동안은 랜딩 링크(About YEONON·자세히 알아보기·Get updates)를 숨기고, 옛 설명 주소는 `/`로 보낸다. 정하면 이 한 줄만 바꾸고 다시 배포 |
+| `SITE.contactEmail`, `SITE.operator` | 문의 이메일, 운영 주체명 (앱 하단 작은 링크 줄·약관·개인정보) |
+| `PUBLIC_APP_OPEN` | 앱 오픈 스위치 (`.env.example`). 오픈 전에도 피드·루트 상세는 공개, 차이는 검색 노출 — `true`일 때만 `/`와 `/routes/[id]`가 검색에 허용된다 |
 
-UTM `utm_medium` 값: `header_cta`, `sticky_cta`, `hero_cta`, `final_cta`, `travelers_hero_cta`, `travelers_final_cta`, `jigi_hero_cta`, `jigi_final_cta`, `hiw_final_cta`
+랜딩 사이트 쪽 버튼은 앱으로 연결한다: 여행자 → `https://<앱 주소>/?utm_source=landing`, 지기 → `https://<앱 주소>/partner?utm_source=landing`.
+앱에서 랜딩으로 가는 링크에는 `utm_source=app`이 붙는다.
 
 ## 이미지
 
-`public/images/`에 아래 파일명으로 넣으면 자동으로 표시되고, 없으면 브랜드 색 그라디언트 일러스트가 대신 보입니다.
-
 | 파일 | 위치 |
 |---|---|
-| `og-image.png` | 공유 미리보기 이미지 1200×630 |
+| `public/images/og-image.png` | 공유 미리보기 이미지 1200×630 |
+| `public/images/logo.png` | 로고 (`src/components/Logo.astro`). 파비콘 `public/favicon.png`·`apple-touch-icon.png`는 로고의 전원 심볼 |
 
-홈, `/travelers`, `/jigi` 히어로는 페이지를 열 때마다 순서가 무작위로 정해지는 사진 슬라이더입니다 (`src/components/HeroSlider.astro`, 목록과 대체 텍스트는 `src/data/heroSlides.ts`). 파일은 `public/images/hero/`의 `<번호>.webp`(1254px), `<번호>-800.webp`(모바일용)이며, 원본은 1:1 정사각형으로 준비합니다.
-
-로고: 원본 `public/images/logo-power-symbol.png`에서 여백을 자르고 흰 배경을 투명 처리한 `public/images/logo.png`(495×96)를 씁니다 (`src/components/Logo.astro`). 파비콘 `public/favicon.png`·`apple-touch-icon.png`는 로고의 전원 심볼 부분입니다. 로고를 바꾸면 이 파일들을 교체하세요.
+루트 사진은 Supabase Storage `route-photos` 버킷 (마이그레이션 20번, 지기가 루트 빌더에서 올림).
 
 ## 구조
 
 ```
 src/
-  components/  Header, Footer, Hero, Card, StepTimeline, FAQ, CTASection, StickyCTA,
-               StatCard, MatchDiagram, SmartImage, SectionHeading, Button, Icon, Logo
-  layouts/     BaseLayout.astro   (lang 속성, SEO·OG 메타, 폰트)
-  pages/       index, travelers, jigi, privacy
-  config/      site.ts            (모든 TODO 값·외부 링크·SHOW_PRICE)
-  styles/      global.css         (색상 토큰, 공통 클래스)
-public/
-  images/
-  favicon.png, apple-touch-icon.png
+  components/ui/      AppTopBar(상단 바), TabBar(모바일 하단 탭, 여행자·지기), AppFootnote(작은 링크 줄),
+                      RouteRow(피드 한 줄), RouteCard, RouteLine, RoutePhoto, BottomSheet, StatusBadge, UiButton, EmptyState …
+  components/partner/ PartnerStart(지기 탭 시작 화면)
+  data/paths.ts       새 주소·옛 주소 301 규칙
+  data/accountNav.ts  여행자·지기 메뉴 (하단 탭바와 데스크톱 메뉴가 같이 씀)
+  layouts/BaseLayout  SEO·OG 메타, 폰트, 상단 바·하단 탭바
+  lib/routeCards.ts   루트 피드 (검색·관심사·가장 가까운 열린 시간 순)
+  config/site.ts      랜딩 주소·연락처
+  styles/global.css   색 토큰 (성수 라인은 .ui-traveler 범위)
 ```
 
-JS는 모바일 메뉴(Header), 탭 토글(홈 How it works 섹션)에만 사용합니다. FAQ는 `<details>` 기반이라 JS가 없습니다.
-
 ### 디자인 메모
-- 로고 색을 기준으로 한 블루톤입니다. (명세서의 아이보리·레드·그린·오렌지 팔레트에서 변경)
-  역할별 토큰: `brand` 네이비 `#0B3D91`(연온·매칭) / `traveler` 블루 `#1A5FD0`(여행자) / `jigi` 시안 `#0B6E91`·`#19B5E6`(지기).
-  `-strong`은 버튼·텍스트용(WCAG AA 대비), `-soft`는 아이콘 배경용입니다. 값은 `src/styles/global.css`의 `@theme`에서 바꿉니다.
-- 모바일 헤더 가운데에 `Traveler | 지기` 전환 버튼이 고정되어 `/travelers`, `/jigi`로 이동합니다 (현재 페이지는 채워진 상태로 표시).
-- 한글 페이지·블록은 `word-break: keep-all`, Pretendard 폰트 적용.
+- 여행자 화면(`/`, `/routes/*`, `/for-you`, `/bookings`, `/chats`, `/me`)은 "성수 라인" 토큰(`.ui-traveler`): 제목 Bricolage Grotesque, 본문 Pretendard 17px, 배경 Concrete, 행동은 ON Blue, 루트 라인은 2호선 초록.
+- 지기·관리자 화면은 기존 토큰 (`brand` 네이비, `jigi` 시안). 한글 블록은 `word-break: keep-all`.
 
-## 배포 전 체크 (명세 8장)
+## 배포 전 체크
 
-- [x] 5개 페이지 렌더링
 - [x] 375 / 768 / 1280px 가로 스크롤 없음 (헤드리스 브라우저로 확인)
-- [x] 모든 CTA가 `site.ts` 외부 링크로 연결 (새 탭, `rel="noopener"`, UTM)
-- [x] "Book", "예약", "결제", 가짜 후기·프로필 없음
-- [x] 지기를 "가이드"로 지칭하지 않음 (FAQ의 "가이드가 아니라" 부정 문맥만 사용)
-- [x] 통계 수치 출처 각주
-- [x] `showPrice=false` 시 가격 섹션 숨김
+- [x] 설명 문단·대기자 폼·Apps Script 호출 없음 (`yeonon-app-first-plan.md` A3·A5)
+- [x] 옛 주소 301 이동
 - [ ] Lighthouse 모바일 성능·접근성 90+ (배포 후 측정)
-- [ ] 아래 TODO 채우기
+- [ ] 새 랜딩 주소(`SITE.landingUrl`)·도메인 정하기
 
 ## 사람이 직접 채울 것 (TODO)
 
-1. 여행자용·지기용 외부 설문 링크
-2. 도메인, 문의 이메일, 운영 주체명
-3. 가격 기준(1인/팀) 확정 또는 `showPrice: false`
-4. 지기에게 요구할 영어 수준 (`src/pages/jigi.astro`)
-5. 통계 수치 출처 링크 (`STAT_SOURCES`)
-6. 로고 파일, 히어로 이미지 (OG 이미지 `public/images/og-image.png`는 Phase 7에서 만듦)
-7. 사업자 정보·개인정보 보호책임자 등 `src/config/legal.ts`의 TODO (`docs/launch-checklist.md` 2번)
-8. 신고·보험 절차 확정 후 `/travelers` Safety 문구 추가
-
-## 참고: 외부 설문 질문 제안
-
-### 여행자용
-- 이름(닉네임), 이메일, 국가, 사용 언어
-- 방한 예정 시기, 일행 구성(혼자/커플/가족/친구)
-- 관심사 복수 선택
-- 원하는 시간(2/3/4시간)
-- 4시간 ₩120,000에 대한 반응 (너무 비쌈 / 적당 / 저렴 / 더 낼 의향 있음)
-- 이전에 현지인을 찾으려 했던 경험 (자유 응답)
-- 인터뷰 참여 의향 (예/아니오)
-- 개인정보 수집·이용 동의
-
-### 지기용
-- 이름, 연락처, 이메일, 나이대
-- 성수동과의 관계(거주/직장/학교/자주 방문), 기간
-- 직업/활동 분야
-- 영어 수준, 그 밖의 가능 언어
-- 소개하고 싶은 장소나 테마 (자유 응답)
-- 활동 가능 요일·시간대
-- 기대하는 활동 보상 수준, 가장 걱정되는 점 (자유 응답)
-- 인터뷰 참여 가능 여부
-- 개인정보 수집·이용 동의
-
-## 앱 미리보기 페이지 (`/app-preview`)
-
-아직 없는 연온 앱의 경험을 여행자가 직접 눌러 보는 인터랙티브 데모입니다 (영문, PRD: `yeonon-app-preview-prd.md`).
-폰 낙하 → 로고·로딩 → 앱 홈 → 취향 3~5개 선택 → 매칭 로딩 → "We found your Jigis!" → 추천 지기 목록 → `Join the early list`(UTM `utm_medium=app_preview`) 순서로 진행되며, 서버·DB 없이 샘플 데이터만 씁니다. 지기 프로필은 모두 가상 인물이고 `Demo` 배지가 붙습니다.
-- 데이터·타이밍: `src/data/appPreview.ts` — `TIMING`(낙하·스플래시·매칭 시간), `INTERESTS`(취향 20개), `SAMPLE_JIGIS`(가상 지기 6명), `matchJigis()`(매칭률 = 72 + 겹침 비율 × 26)
-- 동작: `src/scripts/appPreview.ts` (화면 흐름) / 화면: `src/components/app/AppScreens.astro`
-- 지기 미리보기와 공통: `src/scripts/phoneApp.ts`(낙하·스플래시·화면 전환·타이머·칩 선택), `src/components/app/PhoneStage.astro`(헤드라인·낙하 무대·Replay/Skip), `src/components/app/PhoneFrame.astro`(폰 프레임), `src/styles/app-preview.css`(화면 공통 스타일, 강조색은 `[data-app]` 변수)
-- 앱 UI는 393×852 기준으로 그리고 폰 크기에 맞춰 scale 합니다. 폰은 최대 590px 폭(1.5배)이며 브라우저 높이에 맞춰 줄어듭니다.
-- 이 페이지는 모바일 하단 고정 CTA를 숨깁니다 (`BaseLayout`의 `sticky="none"`). 사이트의 모든 여행자 신청 버튼(`Join the early list`, `Join as a traveler`)이 이 페이지로 연결됩니다.
-- 앱 결과 화면의 `Join the early list`는 같은 페이지 하단 대기자 등록 폼(`#waitlist`)으로 스크롤합니다.
-
-## 지기 앱 미리보기 페이지 (`/app-preview-jigi`)
-
-한국인 지기 지원자가 지기 앱을 직접 눌러 보는 데모입니다 (한국어, 청록 강조색). 사이트의 모든 지기 신청 버튼(`지기 지원하기`, `지기로 지원하기`)이 이 페이지로 연결됩니다.
-폰 낙하 → 로고 → 홈 → ① 취향 3~5개 고르기 → ② 나만의 코스 만들기(장소 2~5곳 담기·순서 바꾸기·빼기, 이동 포함 총 시간 계산) → ③ 여행자에게 보이는 코스 카드 미리보기(코스 이름 수정, 시작 시간 선택 → 장소별 도착 시각 계산) → 코스 등록 로딩 → 완료 → `지기 사전 신청하기`로 하단 폼 이동.
-- 데이터: `src/data/jigiPreview.ts` — 취향 한국어 이름(`TASTE_KO`, id는 여행자 취향과 같음), 장소 후보 `SPOTS`(18곳, 특정 가게가 아닌 예시 묘사), 코스 규칙(`COURSE_MIN/MAX`, 이동 시간 `WALK_MIN`, `START_TIMES`)
-- 동작: `src/scripts/jigiPreview.ts` / 화면: `src/components/app/JigiScreens.astro`
-- 완료 화면에서 신청 폼으로 넘어가면 고른 취향과 만든 코스가 폼에 함께 담겨 `taste`, `course` 칸으로 저장됩니다.
-
-### 지기 사전 신청 폼 (`/app-preview-jigi` 하단)
-
-`src/components/app/JigiApplyForm.astro` + `src/scripts/jigiApply.ts`. 이름, 휴대폰 번호(010 형식으로 정리), 이메일, 나이대, 성수동과의 관계, 외국어(복수), 활동 가능 시간(복수), 자기소개(20~300자), 인스타그램·추천인(선택), 알게 된 경로, 개인정보 동의를 받습니다.
-대기자 폼과 같은 `SITE.waitlistEndpoint`로 `form=jigi`를 붙여 보내고, Apps Script가 `Jigi` 시트에 저장하고 `[연온] 새 지기 신청` 메일을 보냅니다.
-두 폼의 입력 정리·검증 규칙(정규식)과 보안 처리는 `src/scripts/formSafety.ts`에 모여 있습니다.
-
-### 대기자 등록 폼 (`/app-preview` 하단)
-
-`src/components/app/WaitlistForm.astro` + `src/scripts/waitlist.ts`. 연락 방법(Email/WhatsApp/Instagram), 연락처, 국적, 유입 경로, 추천인(선택), 개인정보 동의를 받고,
-데모에서 고른 취향(`interests`)·UTM 파라미터·제출 시각을 함께 `SITE.waitlistEndpoint`로 POST 합니다. 사이트 자체에는 아무것도 저장하지 않습니다.
-`waitlistEndpoint`가 `TODO`이면 제출해도 데이터를 보내지 않고 "아직 열리지 않았다"는 안내만 보여 줍니다.
-
-**구글 스프레드시트로 받기 + 메일 알림 (무료)**
-
-수신 코드는 `apps-script/Code.gs`에 있습니다. 대기자 응답은 `Waitlist` 시트, 지기 신청은 `Jigi` 시트에 한 줄씩 쌓이고(시트는 첫 신청 때 자동 생성), 새 신청이 들어올 때마다 `NOTIFY_EMAIL`(현재 `yeonon.official2026@gmail.com`)로 알림 메일이 갑니다.
-
-> `apps-script/*.gs`는 로컬에만 두고 GitHub에는 올리지 않습니다(`.gitignore`). 새로 clone하면 이 파일이 없으니, 현재 Apps Script 프로젝트의 코드를 가져오세요.
-
-1. **yeonon.official2026@gmail.com 계정으로** Google 스프레드시트를 새로 만듭니다 (이름 예: `YEONON Waitlist`). 주소 `docs.google.com/spreadsheets/d/<ID>/edit`의 `<ID>`를 복사해 둡니다.
-2. [script.google.com](https://script.google.com) → 새 프로젝트 → 기본 코드를 지우고 `apps-script/Code.gs` 내용 전체를 붙여넣기 → 맨 위 `SHEET_ID`가 1번의 ID와 같은지 확인 → 저장.
-   이 스크립트는 시트에 연결되지 않은 **독립 프로젝트**이고, 시트는 `SpreadsheetApp.openById(SHEET_ID)`로 엽니다. (`getActiveSpreadsheet()`는 독립 프로젝트에서 동작하지 않으니 쓰지 마세요.)
-3. 함수 선택에서 `testSubmit` → 실행 → 권한 검토 → 계정 선택 → (확인되지 않은 앱 경고가 나오면) 고급 → 이동 → 허용.
-   시트에 테스트 행이 생기고 알림 메일이 오면 정상입니다. 지기 쪽은 `testJigiSubmit`으로 같은 확인을 할 수 있습니다. 테스트 행은 지워도 됩니다(첫 줄 제목 행은 남겨 두세요).
-4. 배포 → 새 배포 → 유형 `웹 앱`, 실행 계정 `나`, 액세스 권한 `모든 사용자` → 배포 → **웹 앱 URL**(`https://script.google.com/macros/s/…/exec`) 복사.
-5. `src/config/site.ts`의 `waitlistEndpoint`에 URL을 붙여넣고 사이트를 다시 배포합니다.
-6. 배포된 `/app-preview`에서 직접 한 번 제출해 시트에 행이 생기고 메일이 오는지 확인합니다.
-
-- 코드를 고친 뒤에는 배포 → 배포 관리 → 편집 → 버전 `새 버전`으로 다시 배포해야 반영됩니다(URL은 그대로).
-- 웹앱 URL은 공개 주소라 사이트를 거치지 않고 직접 보낼 수도 있어서, `Code.gs`에서 연락처 형식을 한 번 더 검증하고 `= + - @`로 시작하는 값은 글자로 저장합니다(스프레드시트 수식 주입 방지). 정규식을 바꿀 때는 `src/scripts/formSafety.ts`와 같이 바꾸세요.
-- 일반 Gmail 계정의 Apps Script 메일 발송 한도는 하루 약 100통입니다. 넘으면 메일만 안 가고 시트 저장은 계속됩니다.
-- 시트 값을 나중에 다른 웹페이지·관리 도구에 띄울 때는 반드시 글자(text)로 출력하세요. HTML로 끼워 넣으면 안 됩니다.
-
-> 브라우저 보안 정책(CORS) 때문에 폼은 응답 내용을 읽지 않고 보냅니다. 네트워크 오류만 실패로 표시되므로, 연결 후 6번처럼 꼭 직접 제출해 확인하세요.
+1. 새 랜딩 사이트 주소 → `src/config/site.ts`의 `landingUrl`
+2. 도메인 (앱·랜딩을 어떻게 나눌지) → `SITE_URL`
+3. 사업자 정보·개인정보 보호책임자 등 `src/config/legal.ts`의 TODO (`docs/launch-checklist.md` 2번)
+4. 오픈할 때 Vercel 환경 변수 `PUBLIC_APP_OPEN=true` (다시 배포)

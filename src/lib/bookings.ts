@@ -128,7 +128,7 @@ export function bookingMessage(code: BookingErrorCode, lang: Lang, ctx: { max?: 
 }
 
 /**
- * 만료·거절·취소된 예약의 "See other routes" — 같은 조건으로 /app/discover를 연다.
+ * 만료·거절·취소된 예약의 "See other routes" — 같은 조건으로 /for-you를 연다.
  * 추천에서 왔으면 그 추천 조건(날짜가 지났으면 오늘부터), 아니면 이 루트의 관심사·날짜·인원으로 채운다.
  */
 export function discoverHrefFor(
@@ -141,7 +141,7 @@ export function discoverHrefFor(
     const input = readInput((k) => recInput[k]);
     if (input.date_from < today) input.date_from = today;
     if (!input.date_to || input.date_to < input.date_from) input.date_to = kstToday(13);
-    return `/app/discover?${toQuery(input)}`;
+    return `/for-you?${toQuery(input)}`;
   }
   const day = kstDay(booking.starts_at) < today ? today : kstDay(booking.starts_at);
   const q = new URLSearchParams({ from: day, to: day, party: String(booking.party_size) });
@@ -149,5 +149,5 @@ export function discoverHrefFor(
     q.set('interests', route.tags.slice(0, 5).join(','));
     q.set('lang', route.languages.slice(0, 3).join(','));
   }
-  return `/app/discover?${q}`;
+  return `/for-you?${q}`;
 }

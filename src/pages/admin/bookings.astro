@@ -77,7 +77,7 @@ const done = notices[Astro.url.searchParams.get('notice') ?? ''] ?? null;
 const roleKo = { traveler: '여행자', jigi: '지기', admin: '관리자', system: '시스템(탈퇴)' } as const;
 const tabs: (BookingStatus | 'all')[] = [...BOOKING_STATUSES, 'all'];
 ---
-<BaseLayout title="예약 | 관리자 | YEONON" description="연온 관리자 예약 현황" lang="ko" sticky="none" noindex>
+<BaseLayout title="예약 | 관리자 | YEONON" description="연온 관리자 예약 현황" lang="ko" noindex>
   <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">

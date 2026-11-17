@@ -1,0 +1,43 @@
+---
+/**
+ * 지기 탭 시작 화면 (yeonon-app-first-plan.md 1-2) — /partner를 로그인하지 않았거나 여행자 계정으로 열었을 때.
+ *   비로그인 : 제목 한 줄 + Google로 시작하기 + (새 랜딩 주소가 있으면) 자세히 알아보기. 설명 문단은 두지 않는다.
+ *   여행자   : 이 계정은 여행자 계정이라는 안내 + 로그아웃 후 다른 Google 계정으로 시작
+ * 한 계정 = 한 역할 원칙은 그대로다 (탭 전환은 보는 화면만 바꾼다).
+ */
+import AppFootnote from '../ui/AppFootnote.astro';
+import { landingUrl } from '../../config/site';
+
+interface Props {
+  mode: 'start' | 'traveler';
+}
+const { mode } = Astro.props;
+const about = landingUrl('jigi_start');
+const start = `/login?next=${encodeURIComponent('/partner')}`;
+const primary = 'inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-jigi-strong px-6 text-[1.0625rem] font-semibold text-white hover:bg-[#08566F] sm:w-auto';
+---
+<section class="pt-12 pb-16 md:pt-20">
+  <div class="container-page max-w-xl!">
+    <p class="inline-flex rounded-full bg-jigi-soft px-3 py-1 text-sm font-semibold text-jigi-strong">성수 지기</p>
+    {mode === 'start' ? (
+      <>
+        <h1 class="mt-4 text-3xl leading-tight font-extrabold md:text-4xl">성수의 단골 코스를<br />여행자와 함께 걸어요</h1>
+        <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <a href={start} class={primary}>Google로 시작하기</a>
+          {about && <a href={about} class="inline-flex min-h-11 items-center justify-center px-2 font-semibold text-jigi-strong underline-offset-4 hover:underline">자세히 알아보기</a>}
+        </div>
+        <p class="mt-4 text-sm text-muted">이미 지기라면 같은 버튼으로 로그인하면 돼요.</p>
+      </>
+    ) : (
+      <>
+        <h1 class="mt-4 text-2xl leading-snug font-extrabold md:text-3xl">이 계정은 여행자 계정이에요</h1>
+        <p class="mt-3 text-muted">지기로 활동하려면 로그아웃한 뒤 다른 Google 계정으로 시작해 주세요. 한 계정은 한 가지 역할만 쓸 수 있어요.</p>
+        <form method="post" action="/auth/signout" class="mt-8">
+          <button type="submit" class={primary}>로그아웃</button>
+        </form>
+        <a href="/switch?to=travelers" class="mt-4 inline-flex min-h-11 items-center font-semibold text-jigi-strong underline-offset-4 hover:underline" lang="en">Back to Travelers</a>
+      </>
+    )}
+    <AppFootnote lang="ko" class="mt-16 border-t border-border pt-6" />
+  </div>
+</section>

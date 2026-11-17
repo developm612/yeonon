@@ -9,7 +9,7 @@ export const prerender = false;
 const { profile } = Astro.locals;
 if (profile && profile.status === 'active') return Astro.redirect(homeFor(profile));
 ---
-<BaseLayout title="Account paused | YEONON" description="Your YEONON account is paused." sticky="none" noindex>
+<BaseLayout title="Account paused | YEONON" description="Your YEONON account is paused." noindex>
   <section class="section pt-12! md:pt-20!">
     <div class="container-page max-w-md!">
       <div class="card p-6 text-center md:p-10">

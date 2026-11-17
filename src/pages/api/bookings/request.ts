@@ -15,7 +15,7 @@ export const prerender = false;
  */
 export const POST: APIRoute = async (ctx) => {
   const started = new Date();
-  const req = await readBookingRequest(ctx.request, '/app');
+  const req = await readBookingRequest(ctx.request, '/bookings');
   const denied = guardMember(ctx, req, 'en');
   if (denied) return denied;
   if (!req) return bookingFail(req, 'invalid_input', 'en');
@@ -65,5 +65,5 @@ export const POST: APIRoute = async (ctx) => {
 
   const result = data as { id: string; status: string; respond_by: string | null };
   await mailBookingNotifications(result.id, started, ctx.url.origin);
-  return bookingOk(req, result, `/app/bookings/${result.id}`, 'requested');
+  return bookingOk(req, result, `/bookings/${result.id}`, 'requested');
 };

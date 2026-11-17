@@ -1,0 +1,186 @@
+---
+/**
+ * AI 추천 결과 (여행자, yeonon-traveler-ui-plan.md 5-3). 주소의 조건을 검증한 뒤, 화면에서 /api/recommend를 불러 카드로 보여 준다.
+ *   로딩: 루트 라인이 한 번 그려지는 연출 (서비스의 유일한 연출, 동작 줄이기 설정이면 바로 완성된 모습)
+ *   → Perfect match / Closest matches 그룹 + RouteCard (브라우저에서 그리는 lib/routeCardHtml.ts)
+ *   결과가 적으면 카드 아래 한 줄 제안 + 버튼 1개 (Try other dates). AI 안내는 목록 끝에 한 번만.
+ * 카드를 누르면 /routes/[id]?rec=… 로 가고, 그 페이지가 클릭을 기록한다.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import EmptyState from '../../components/ui/EmptyState.astro';
+import RouteLine from '../../components/ui/RouteLine.astro';
+import UiButton from '../../components/ui/UiButton.astro';
+import { DISCOVER, DISCOVER_VIBES, RECOMMEND, TIMES_OF_DAY } from '../../config/recommend';
+import { interestNames } from '../../data/interests';
+import { kstToday } from '../../lib/availability';
+import { readInput, toQuery, validateInput } from '../../lib/recommend/input';
+
+export const prerender = false;
+
+const raw = readInput((k) => Astro.url.searchParams.get(k));
+const { input, errors } = validateInput(raw);
+if (Object.keys(errors).length) return Astro.redirect(`/for-you?${toQuery(raw)}&invalid=1`);
+
+const day = (d: string) => new Date(`${d}T12:00:00+09:00`).toLocaleDateString('en-US', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', weekday: 'short' });
+const summary = [
+  ...interestNames(input.interests, 'en'),
+  input.date_from === input.date_to ? day(input.date_from) : `${day(input.date_from)} – ${day(input.date_to)}`,
+  TIMES_OF_DAY.find((t) => t.id === input.time_of_day)!.label,
+  input.party_size === 1 ? 'Just me' : `${input.party_size} people`,
+  input.languages.join(', '),
+  DISCOVER_VIBES.find((v) => v.id === input.vibe)!.label,
+];
+const editHref = `/for-you?${toQuery(input)}`;
+const widenHref = `/for-you/results?${toQuery({ ...input, date_from: kstToday(), date_to: kstToday(DISCOVER.maxDaysAhead), time_of_day: 'any' })}`;
+const canWiden = input.date_from !== kstToday() || input.date_to !== kstToday(DISCOVER.maxDaysAhead) || input.time_of_day !== 'any';
+const more = canWiden ? { href: widenHref, label: 'Try other dates' } : { href: editHref, label: 'Change my choices' };
+---
+<BaseLayout title="Your route matches | YEONON" description="Routes in Seongsu recommended for you." noindex>
+  <section class="pt-8 pb-16 md:pt-12 md:pb-24">
+    <div class="container-page">
+      <h1 class="t-display">Routes for you</h1>
+      <div class="mt-4 flex flex-wrap items-center gap-x-2 gap-y-2">
+        <ul class="flex flex-wrap gap-1.5" aria-label="Your choices">
+          {summary.map((s) => <li class="rounded-full border border-hairline bg-paper px-3 py-1 text-[0.875rem] font-semibold">{s}</li>)}
+        </ul>
+        <UiButton variant="text" href={editHref}>Change</UiButton>
+      </div>
+      {input.note && <p class="t-small measure mt-2 font-normal text-stone">“{input.note}”</p>}
+
+      <div class="mt-10" data-results data-input={JSON.stringify(input)} data-final={RECOMMEND.finalCount} data-chips={RECOMMEND.slotChips}>
+        <div data-view="loading" aria-live="polite" class="mx-auto max-w-md py-10 text-center md:py-16">
+          <RouteLine variant="mini" animate label="Loading your matches"
+            stops={[{ name: 'Your interests' }, { name: 'Your dates' }, { name: 'Local routes' }, { name: 'Your matches' }]} />
+          <p class="t-body mt-8 font-semibold">Matching your interests with routes in Seongsu</p>
+          <p class="t-small mt-1 font-normal text-stone">This takes a few seconds.</p>
+        </div>
+
+        <div data-view="error" hidden>
+          <div class="rounded-card border border-hairline bg-paper px-6 py-10 text-center md:py-14" role="alert">
+            <h2 class="t-heading" data-error-text>Something went wrong.</h2>
+            <div class="mt-6 flex flex-wrap justify-center gap-3">
+              <UiButton data-retry>Try again</UiButton>
+              <UiButton variant="secondary" href={editHref}>Change my choices</UiButton>
+            </div>
+          </div>
+        </div>
+
+        <div data-view="done" hidden>
+          <div class="space-y-12">
+            <section data-group="perfect" hidden aria-labelledby="g-perfect">
+              <h2 id="g-perfect" class="t-title">Perfect match</h2>
+              <p class="t-small mt-1 font-normal text-stone">These routes cover what you asked for.</p>
+              <ul class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" data-list></ul>
+            </section>
+            <section data-group="close" hidden aria-labelledby="g-close">
+              <h2 id="g-close" class="t-title">Closest matches</h2>
+              <p class="t-small mt-1 font-normal text-stone">Not an exact fit, but close to what you love.</p>
+              <ul class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" data-list></ul>
+            </section>
+          </div>
+
+          <div data-empty hidden>
+            <EmptyState title="No open routes for these choices yet" body="Local friends add new times every week. Try other dates or interests." action={more} />
+          </div>
+
+          <div data-suggest hidden class="mt-10 flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-hairline pt-6">
+            <p class="t-body">We found fewer than {RECOMMEND.finalCount} routes for these choices.</p>
+            <UiButton variant="secondary" size="sm" href={more.href}>{more.label}</UiButton>
+          </div>
+
+          <p class="t-caption mt-10 font-normal text-stone" data-ai-note></p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import type { RecommendResult, RecommendationCard } from '../../lib/recommend/engine';
+  import { routeCardHtml } from '../../lib/routeCardHtml';
+
+  const root = document.querySelector<HTMLElement>('[data-results]')!;
+  const chipCount = Number(root.dataset.chips);
+  const finalCount = Number(root.dataset.final);
+  const view = (name: string) => root.querySelectorAll<HTMLElement>('[data-view]').forEach((v) => (v.hidden = v.dataset.view !== name));
+  const $ = <T extends HTMLElement>(el: ParentNode, sel: string) => el.querySelector<T>(sel)!;
+
+  function card(c: RecommendationCard, recId: string | null) {
+    const li = document.createElement('li');
+    // 글자는 routeCardHtml 안에서 이스케이프된다
+    li.innerHTML = routeCardHtml({
+      href: `/routes/${c.route_id}${recId ? `?rec=${recId}` : ''}`,
+      title: c.title,
+      photo: c.cover_photo ?? null,
+      stops: c.stop_names ?? [],
+      duration: c.duration,
+      area: c.area,
+      host: { name: c.jigi_name, rating: c.host_rating ?? null, reviews: c.host_reviews ?? 0 },
+      match: c.percent,
+      reason: c.reason,
+      slots: c.slots,
+      slotCount: c.slot_count,
+      chips: chipCount,
+    });
+    return li;
+  }
+
+  function render(res: RecommendResult) {
+    for (const kind of ['perfect', 'close'] as const) {
+      const group = $(root, `[data-group="${kind}"]`);
+      const list = $(group, '[data-list]');
+      list.replaceChildren(...res.results.filter((c) => c.kind === kind).map((c) => card(c, res.id)));
+      group.hidden = list.children.length === 0;
+    }
+    $(root, '[data-empty]').hidden = res.results.length > 0;
+    $(root, '[data-suggest]').hidden = res.results.length === 0 || res.results.length >= finalCount;
+    $(root, '[data-ai-note]').textContent = res.results.length === 0 ? '' : res.ai
+      ? 'Recommended by YEONON AI. The reasons are written by AI from each route’s details.'
+      : 'Ranked by YEONON match score (shared interests and route quality).';
+    view('done');
+  }
+
+  // 로딩 연출: 다시 시도할 때도 한 번 더 그린다
+  const replayLine = () => {
+    const line = root.querySelector<HTMLElement>('.route-line');
+    if (!line) return;
+    line.classList.remove('is-drawing');
+    void line.offsetWidth;
+    line.classList.add('is-drawing');
+  };
+
+  async function load() {
+    view('loading');
+    replayLine();
+    try {
+      const resp = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: root.dataset.input,
+      });
+      if (resp.status === 401) {
+        location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+        return;
+      }
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        $(root, '[data-error-text]').textContent =
+          resp.status === 429 ? `You've searched a lot this hour. Try again in about ${data.retry_after_minutes ?? 60} minutes.`
+          : resp.status === 400 ? 'Some of your choices need another look. Change them and search again.'
+          : resp.status === 403 ? 'Route recommendations are for traveler accounts.'
+          : 'We couldn’t load your matches. Try again in a moment.';
+        $<HTMLButtonElement>(root, '[data-retry]').hidden = resp.status !== 500 && resp.status < 502;
+        view('error');
+        return;
+      }
+      render(data as RecommendResult);
+    } catch {
+      $(root, '[data-error-text]').textContent = 'We couldn’t reach YEONON. Check your connection and try again.';
+      $<HTMLButtonElement>(root, '[data-retry]').hidden = false;
+      view('error');
+    }
+  }
+
+  $<HTMLButtonElement>(root, '[data-retry]').addEventListener('click', load);
+  load();
+</script>

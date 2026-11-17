@@ -1,51 +1,97 @@
 ---
 /**
- * 루트 상세 (누구나). 코스 타임라인, 지기(이름 일부만), 앞으로 4주 예약 가능한 시간 — 본문은 components/routes/RouteDetail.astro.
- * 공개 루트가 아니면 루트 주인(지기)과 관리자에게만 '미리보기'로 보인다 — 읽기 권한은 DB RLS가 정한다.
- * 매칭 요청(Request this route)은 여행자 영역 /app/routes/[id]에서 한다. 비회원은 로그인 후 같은 루트로 돌아온다.
+ * 루트 상세 (yeonon-app-first-plan.md 2-1, 6장) — 옛 /app/routes/[id]와 하나로 합쳤다 (옛 주소는 middleware가 301).
+ * 로그인 없이 누구나 본다. 공개 루트가 아니면 루트 주인(지기)과 관리자에게만 '미리보기'로 보인다 — 읽기 권한은 DB RLS가 정한다.
+ * 본문은 components/routes/RouteDetail.astro. 오른쪽 패널(모바일은 시트)의 버튼은 보는 사람에 따라 다르다:
+ *   비로그인          : 시간을 고르고 'Sign in to request' → 로그인 → (처음이면 온보딩) → 같은 화면, 고른 시간이 선택된 채로 (?slot=)
+ *   여행자            : 인원·메모 → Request this route → /api/bookings/request (슬롯 잠금·예약은 DB 함수 하나)
+ *                       가격은 booking_quote()로 이 여행자에게 적용될 할인을 보여 준다. 스크립트가 없어도 폼 전송으로 동작한다.
+ *   온보딩 전         : Finish signing up
+ *   지기·관리자       : 요청 버튼 없음 (여행자 계정으로 요청)
+ * 추천 결과에서 왔으면(?rec=추천 id) 클릭을 기록하고(record_recommendation_click, 첫 클릭만), 결과로 돌아가는 링크를 둔다.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Notice from '../../components/account/Notice.astro';
 import RouteDetail from '../../components/routes/RouteDetail.astro';
 import EmptyState from '../../components/ui/EmptyState.astro';
 import UiButton from '../../components/ui/UiButton.astro';
 import { loadPublicReviews, type PublicReview } from '../../lib/reviews';
 import { ROUTE_STATUS } from '../../data/routeOptions';
-import { loadRoute, type PublicJigi, type SlotRow } from '../../lib/routes';
+import { BOOKING_ERRORS, BOOKING_NOTE_MAX, bookingMessage, fmtMinutes, loadBookingSettings, type BookingErrorCode } from '../../lib/bookings';
+import { dbError } from '../../lib/forms';
 import { isOnboarded } from '../../lib/profile';
-import { createSupabaseServerClient, isAuthConfigured, isMemberUiPublic } from '../../lib/supabase';
+import { readInput, toQuery } from '../../lib/recommend/input';
+import { loadRoute, UUID, type PublicJigi, type SlotRow } from '../../lib/routes';
+import { isAppOpen } from '../../lib/supabase';
 
 export const prerender = false;
 
-const { user, profile } = Astro.locals;
-const supabase = Astro.locals.supabase ?? (isAuthConfigured ? createSupabaseServerClient(Astro.request, Astro.cookies) : null);
+const { supabase, user, profile } = Astro.locals;
 const loaded = supabase ? await loadRoute(supabase, Astro.params.id ?? '') : null;
 if (!loaded) Astro.response.status = 404;
+const route = loaded?.route;
+const isPreview = Boolean(route && route.status !== 'published');
+const canRequest = Boolean(profile && profile.role === 'traveler' && isOnboarded(profile) && profile.status === 'active');
 
+const rec = Astro.url.searchParams.get('rec') ?? '';
+const slotParam = Astro.url.searchParams.get('slot') ?? '';
 let host: PublicJigi | null = null;
 let slots: SlotRow[] = [];
 let reviews: PublicReview[] = [];
-if (loaded && supabase) {
-  const [{ data: j }, { data: s }, rv] = await Promise.all([
-    supabase.from('public_jigis').select('*').eq('user_id', loaded.route.jigi_id).maybeSingle(),
-    supabase.from('slots').select('id, route_id, starts_at, ends_at, status').eq('route_id', loaded.route.id).eq('status', 'open')
-      .gt('starts_at', new Date().toISOString()).order('starts_at').limit(200),
-    loadPublicReviews(supabase, loaded.route.jigi_id),
+let backHref = '/';
+let backLabel = 'All routes';
+interface Quote { list_price: number; discount_rate: number; final_price: number; promotion_name: string | null }
+let quote: Quote | null = null as Quote | null;
+let pendingCount = 0;
+const settings = supabase ? await loadBookingSettings(supabase) : null;
+if (route && supabase && settings) {
+  // 시작 N분(설정값) 전까지만 요청할 수 있으므로 그보다 이른 시간은 보여 주지 않는다
+  const earliest = new Date(Date.now() + settings.min_lead_minutes * 60_000).toISOString();
+  const [{ data: j }, { data: s }, recRow, q, pend, rv] = await Promise.all([
+    supabase.from('public_jigis').select('*').eq('user_id', route.jigi_id).maybeSingle(),
+    supabase.from('slots').select('id, route_id, starts_at, ends_at, status').eq('route_id', route.id).eq('status', 'open')
+      .gt('starts_at', earliest).order('starts_at').limit(200),
+    canRequest && UUID.test(rec)
+      ? supabase.from('recommendation_requests').select('id, input').eq('id', rec).maybeSingle()
+      : Promise.resolve({ data: null }),
+    canRequest && !isPreview ? supabase.rpc('booking_quote', { p_route: route.id }) : Promise.resolve({ data: null, error: null }),
+    canRequest ? supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('traveler_id', profile!.id).eq('status', 'pending') : Promise.resolve({ count: 0 }),
+    loadPublicReviews(supabase, route.jigi_id),
   ]);
   reviews = rv;
   host = (j as PublicJigi | null) ?? null;
   slots = (s ?? []) as SlotRow[];
+  dbError(q.error, 'booking quote');
+  quote = ((q.data as Quote[] | null) ?? [])[0] ?? null;
+  pendingCount = pend.count ?? 0;
+  if (recRow.data) {
+    const { error } = await supabase.rpc('record_recommendation_click', { p_id: rec, p_route: route.id });
+    dbError(error, 'record recommendation click');
+    const input = recRow.data.input as Record<string, unknown>;
+    backHref = `/for-you/results?${toQuery(readInput((k) => input[k]))}`;
+    backLabel = 'Back to my matches';
+  }
 }
 
-const route = loaded?.route;
-const isPreview = route && route.status !== 'published';
-const here = Astro.url.pathname;
-const canRequest = profile?.role === 'traveler' && isOnboarded(profile) && profile.status === 'active';
+const price = quote ? { list: quote.list_price, final: quote.final_price, promo: quote.promotion_name } : undefined;
+const errCode = Astro.url.searchParams.get('error') ?? '';
+const formError = canRequest && settings && errCode in BOOKING_ERRORS
+  ? bookingMessage(errCode as BookingErrorCode, 'en', { max: settings.max_pending_per_traveler })
+  : null;
+const atLimit = canRequest && settings ? pendingCount >= settings.max_pending_per_traveler : false;
+const keepRec = canRequest && UUID.test(rec) ? `?rec=${rec}` : '';
+const here = Astro.url.pathname + keepRec;
+const partyMax = route?.max_party_size ?? 1;
+// 시간을 고를 수 있는 사람: 여행자, 그리고 비로그인(고른 뒤 로그인)
+const pickable = !isPreview && slots.length > 0 && (canRequest || !user);
+const picked = slots.some((s) => s.id === slotParam) ? slotParam : undefined;
+const hostName = host?.display_name ?? 'Your jigi';
+const barLabel = !pickable ? (slots.length ? 'Open times' : 'Details') : 'Pick a time';
 ---
 <BaseLayout
-  title={route ? `${route.title} | YEONON` : 'Route not found | YEONON'}
+  title={route ? `${route.title} · YEONON` : 'Route not found · YEONON'}
   description={route?.summary ?? 'This route is not available.'}
-  sticky="none"
-  noindex={!route || isPreview || !isMemberUiPublic}
+  noindex={!route || isPreview || !isAppOpen}
   tabBar={!route}
   bottomBar={Boolean(route)}
 >
@@ -53,7 +99,7 @@ const canRequest = profile?.role === 'traveler' && isOnboarded(profile) && profi
     <section class="pt-10 pb-16 md:pt-16">
       <div class="container-page max-w-xl!">
         <EmptyState title="This route isn't available" body="It may have been taken down, or the link is wrong. Browse other routes in Seongsu."
-          action={{ href: '/routes', label: 'Browse routes' }} />
+          action={{ href: '/', label: 'Browse routes' }} />
       </div>
     </section>
   ) : (
@@ -65,21 +111,178 @@ const canRequest = profile?.role === 'traveler' && isOnboarded(profile) && profi
           {profile?.role === 'admin' && <a href={`/admin/routes?status=${route.status}#route-${route.id}`} class="ml-2 underline underline-offset-4">검수 화면으로</a>}
         </p>
       )}
-      <RouteDetail route={route} stops={loaded!.stops} host={host} slots={slots} reviews={reviews} backHref="/routes" backLabel="All routes"
-        barLabel={isPreview ? 'Open times' : !user ? 'Sign in to request' : canRequest ? 'Request' : 'Open times'}>
+      <RouteDetail route={route} stops={loaded!.stops} host={host} slots={slots} reviews={reviews} backHref={backHref} backLabel={backLabel}
+        pickForm={pickable ? 'request-form' : undefined} picked={picked} price={price} barLabel={barLabel}>
         <Fragment slot="cta">
-          {!isPreview && (
-            !user ? (
-              <UiButton href={`/login?next=${encodeURIComponent(here)}`} full class="mt-5">Sign in to request</UiButton>
-            ) : !profile || !isOnboarded(profile) ? (
-              <UiButton href={`/onboarding?next=${encodeURIComponent(here)}`} full class="mt-5">Finish signing up</UiButton>
-            ) : canRequest ? (
-              <UiButton href={`/app/routes/${route.id}`} full class="mt-5">Request this route</UiButton>
-            ) : null
+          {isPreview ? null : canRequest ? (
+            slots.length > 0 && (
+              <form id="request-form" method="post" action="/api/bookings/request" class="mt-5 space-y-4 border-t border-hairline pt-5" novalidate data-request-form>
+                <input type="hidden" name="route_id" value={route.id} />
+                <input type="hidden" name="next" value={here} />
+                {UUID.test(rec) && <input type="hidden" name="recommendation_id" value={rec} />}
+
+                <p class="t-small rounded-control bg-concrete px-3.5 py-2.5" data-picked aria-live="polite">Pick a time above.</p>
+
+                <label class="t-small block font-semibold">Group size
+                  <select name="party_size" class="mt-1.5 block h-12 w-full rounded-control border border-hairline bg-paper px-3 text-[1rem] font-normal">
+                    {Array.from({ length: partyMax }, (_, i) => i + 1).map((n) => <option value={n} selected={n === Math.min(2, partyMax) || undefined}>{n} {n === 1 ? 'person' : 'people'}</option>)}
+                  </select>
+                </label>
+
+                <label class="t-small block font-semibold">Note to {hostName} <span class="font-normal text-stone">(optional)</span>
+                  <textarea name="note" rows="3" maxlength={BOOKING_NOTE_MAX} placeholder="What are you most excited about? Any dietary needs or mobility notes?"
+                    class="mt-1.5 block w-full rounded-control border border-hairline bg-paper px-3 py-2.5 text-[1rem] font-normal" data-note></textarea>
+                  <span class="t-caption mt-1 block font-normal text-stone">Contact details (email, phone, social handles, links) are removed. You'll chat in YEONON once matched.</span>
+                </label>
+
+                {atLimit && <Notice>You already have {pendingCount} requests waiting for a reply, the most you can have at once. Wait for an answer, or cancel one in Bookings.</Notice>}
+                <p role="alert" class:list={['t-small rounded-control bg-status-error/10 px-3.5 py-2.5 text-status-error', !formError && 'hidden']} data-error>{formError}</p>
+                <div class="hidden rounded-control border border-hairline p-3" data-alternatives>
+                  <p class="t-small font-semibold">Other open times</p>
+                  <div class="mt-2 flex flex-wrap gap-1.5" data-alt-list></div>
+                </div>
+
+                <UiButton type="submit" full data-submit>Request this route</UiButton>
+                <p class="t-caption text-center font-normal text-stone">
+                  {hostName} replies within {fmtMinutes(settings!.respond_minutes, 'en')} ({fmtMinutes(settings!.urgent_respond_minutes, 'en')} for meetups in the next {fmtMinutes(settings!.urgent_window_minutes, 'en')}).
+                  {quote && quote.final_price === 0 ? ' No payment needed.' : ' No payment in the app yet.'}
+                </p>
+              </form>
+            )
+          ) : !user ? (
+            <form id="request-form" method="get" action="/login" class="mt-5 space-y-3 border-t border-hairline pt-5" data-signin-form data-route={route.id}>
+              <input type="hidden" name="next" value={Astro.url.pathname} />
+              {pickable && <p class="t-small rounded-control bg-concrete px-3.5 py-2.5" data-picked aria-live="polite">Pick a time above.</p>}
+              <UiButton type="submit" full>Sign in to request</UiButton>
+              <p class="t-caption text-center font-normal text-stone">Sign in with Google. You'll come back here with your time still picked.</p>
+            </form>
+          ) : profile && !isOnboarded(profile) ? (
+            <UiButton href={`/onboarding?next=${encodeURIComponent(Astro.url.pathname)}`} full class="mt-5">Finish signing up</UiButton>
+          ) : (
+            <p class="t-small mt-5 border-t border-hairline pt-5 font-normal text-stone">Routes are requested from traveler accounts.</p>
           )}
-          {!isPreview && !user && <p class="t-caption mt-2 text-center font-normal text-stone">Sign in, pick a time, and your jigi replies. You'll come back to this route.</p>}
         </Fragment>
       </RouteDetail>
     </>
   )}
 </BaseLayout>
+
+<script>
+  import { kstWhen } from '../../data/bookingOptions';
+
+  const form = document.querySelector<HTMLFormElement>('[data-request-form]');
+  const sheet = document.getElementById('book-sheet') as HTMLDialogElement | null;
+  const isSheet = () => !window.matchMedia('(min-width: 1024px)').matches;
+  if (form) {
+    const picked = form.querySelector<HTMLElement>('[data-picked]')!;
+    const errorBox = form.querySelector<HTMLElement>('[data-error]')!;
+    const altBox = form.querySelector<HTMLElement>('[data-alternatives]')!;
+    const altList = form.querySelector<HTMLElement>('[data-alt-list]')!;
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+    const radios = () => [...document.querySelectorAll<HTMLInputElement>('input[name="slot_id"]')];
+    const showError = (msg: string | null) => {
+      errorBox.textContent = msg ?? '';
+      errorBox.classList.toggle('hidden', !msg);
+    };
+    // 서버에서 돌아온 오류(?error=)는 모바일에서 시트 안에 있으므로 시트를 열어 보여 준다
+    if (!errorBox.classList.contains('hidden') && sheet && isSheet() && !sheet.open) sheet.showModal();
+    const syncPicked = () => {
+      const r = radios().find((x) => x.checked);
+      picked.textContent = r ? `Selected: ${r.dataset.label} (KST)` : 'Pick a time above.';
+    };
+    // 로그인하고 돌아왔을 때(?slot=) 골라 둔 시간을 보여 주고, 모바일이면 시트를 연다
+    if (radios().some((x) => x.checked)) {
+      syncPicked();
+      if (sheet && isSheet() && !sheet.open) sheet.showModal();
+    }
+    document.addEventListener('change', (e) => {
+      if ((e.target as HTMLElement).matches?.('input[name="slot_id"]')) {
+        syncPicked();
+        showError(null);
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const slot = String(fd.get('slot_id') ?? '');
+      if (!slot) {
+        showError('Pick a time first.');
+        document.querySelector<HTMLElement>('[data-slot-picker]')?.scrollIntoView({ block: 'center' });
+        return;
+      }
+      submit.disabled = true;
+      showError(null);
+      altBox.classList.add('hidden');
+      try {
+        const res = await fetch('/api/bookings/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(fd)),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          id?: string;
+          message?: string;
+          error?: string;
+          alternatives?: { id: string; starts_at: string }[];
+        };
+        if (res.ok && data.id) {
+          location.href = `/bookings/${data.id}?notice=requested`;
+          return;
+        }
+        showError(data.message ?? 'Something went wrong. Please try again.');
+        if (data.error === 'slot_taken' || data.error === 'slot_not_found' || data.error === 'too_soon') {
+          // 방금 마감된 칩은 고를 수 없게 하고, 같은 루트의 다른 시간을 보여 준다
+          const taken = radios().find((x) => x.value === slot);
+          if (taken) {
+            taken.checked = false;
+            taken.disabled = true;
+          }
+          syncPicked();
+          const alts = (data.alternatives ?? []).filter((a) => radios().some((x) => x.value === a.id && !x.disabled));
+          altList.replaceChildren(
+            ...alts.map((a) => {
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 't-num rounded-full border border-on-blue px-3.5 py-2 text-[0.9375rem] leading-none text-on-blue hover:bg-on-blue-soft';
+              b.textContent = kstWhen(a.starts_at, 'en');
+              b.addEventListener('click', () => {
+                const r = radios().find((x) => x.value === a.id);
+                if (r) {
+                  r.checked = true;
+                  r.dispatchEvent(new Event('change', { bubbles: true }));
+                  r.closest('label')?.scrollIntoView({ block: 'nearest' });
+                }
+              });
+              return b;
+            }),
+          );
+          altBox.classList.toggle('hidden', alts.length === 0);
+        }
+      } catch {
+        showError('Connection problem. Please try again.');
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  }
+
+  // 비로그인: 고른 시간을 기억한 채 로그인으로 → 로그인·온보딩 후 같은 화면(?slot=)으로 돌아온다
+  const signin = document.querySelector<HTMLFormElement>('[data-signin-form]');
+  if (signin) {
+    const pickedBox = signin.querySelector<HTMLElement>('[data-picked]');
+    const radios = () => [...document.querySelectorAll<HTMLInputElement>('input[name="slot_id"]')];
+    const sync = () => {
+      const r = radios().find((x) => x.checked);
+      if (pickedBox) pickedBox.textContent = r ? `Selected: ${r.dataset.label} (KST)` : 'Pick a time above.';
+    };
+    document.addEventListener('change', (e) => (e.target as HTMLElement).matches?.('input[name="slot_id"]') && sync());
+    sync();
+    signin.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const slot = radios().find((x) => x.checked)?.value;
+      const back = `/routes/${signin.dataset.route}${slot ? `?slot=${encodeURIComponent(slot)}` : ''}`;
+      location.href = `/login?next=${encodeURIComponent(back)}`;
+    });
+  }
+</script>

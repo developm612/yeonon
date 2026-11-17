@@ -16,7 +16,7 @@ export const POST: APIRoute = async (ctx) => {
   const started = new Date();
   const role = ctx.locals.profile?.role;
   const lang = role === 'traveler' ? 'en' : 'ko';
-  const home = role === 'traveler' ? '/app/bookings' : role === 'jigi' ? '/partner/bookings' : '/admin/bookings';
+  const home = role === 'traveler' ? '/bookings' : role === 'jigi' ? '/partner/bookings' : '/admin/bookings';
   const req = await readBookingRequest(ctx.request, home);
   const denied = guardMember(ctx, req, lang);
   if (denied) return denied;
@@ -41,6 +41,6 @@ export const POST: APIRoute = async (ctx) => {
   if (error) return bookingFail(req, bookingErrorCode(error, 'cancel_booking'), lang);
 
   await mailBookingNotifications(id, started, ctx.url.origin);
-  const back = role === 'traveler' ? `/app/bookings/${id}` : role === 'jigi' ? `/partner/bookings/${id}` : req.next;
+  const back = role === 'traveler' ? `/bookings/${id}` : role === 'jigi' ? `/partner/bookings/${id}` : req.next;
   return bookingOk(req, data as Record<string, unknown>, back, 'cancelled');
 };

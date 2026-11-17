@@ -30,8 +30,8 @@ if (Astro.request.method === 'POST' && jigi) {
   ({ form: values, error } = result);
 }
 ---
-<BaseLayout title="새 루트 | YEONON" description="연온 지기 루트 만들기" lang="ko" sticky="none" noindex>
-  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+<BaseLayout title="새 루트 | YEONON" description="연온 지기 루트 만들기" lang="ko" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">
       <a href="/partner/routes" class="text-sm font-semibold text-muted hover:text-text">← 내 루트</a>

@@ -1,30 +1,53 @@
 ---
 /**
- * 취향 칩 목록 — 앱 미리보기(/app-preview)와 추천 입력(/app/discover)이 같이 쓴다.
- * 스타일은 styles/app-preview.css의 [data-app] .chip (조상에 [data-app]가 있어야 한다),
- * 선택 동작은 scripts/phoneApp.ts의 createPicker.
- * icons를 주면 이모지 대신 선 아이콘 (여행자 화면 성수 라인 — 이모지를 쓰지 않는다).
+ * 취향 칩 목록 — For you 입력(/for-you). 선 아이콘 + 이름, 고르면 ON Blue 면 (성수 라인, 이모지 없음).
+ * 선택 동작은 scripts/chipPicker.ts의 createPicker (aria-pressed, 목록의 is-maxed, 넘치면 칩에 is-shake).
  */
 import Icon from '../Icon.astro';
 import { INTERESTS } from '../../data/interests';
 import { interestIcon } from '../../data/stopKinds';
-import '../../styles/app-preview.css';
 
 interface Props {
   label?: string;
-  icons?: boolean;
   class?: string;
 }
-const { label = 'Travel interests', icons = false, class: className } = Astro.props;
+const { label = 'Travel interests', class: className } = Astro.props;
 ---
 <ul class:list={['flex flex-wrap gap-2', className]} data-chips aria-label={label}>
   {INTERESTS.map((it) => (
     <li>
       <button type="button" class="chip" aria-pressed="false" data-chip={it.id}>
-        {icons ? <Icon name={interestIcon(it.id)} class="size-[18px] shrink-0" /> : <span aria-hidden="true">{it.emoji}</span>}
+        <Icon name={interestIcon(it.id)} class="size-[18px] shrink-0" />
         <span>{it.label}</span>
         <Icon name="check" class="chip-check size-[16px]" />
       </button>
     </li>
   ))}
 </ul>
+
+<style>
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 44px;
+    padding: 0 15px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-text);
+    transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out, opacity 0.2s ease-out;
+  }
+  .chip:hover { border-color: var(--color-muted); }
+  .chip :global(.chip-check) { display: none; }
+  .chip[aria-pressed='true'] { background: var(--color-traveler-strong); border-color: var(--color-traveler-strong); color: #fff; }
+  .chip[aria-pressed='true'] :global(.chip-check) { display: block; }
+  [data-chips].is-maxed .chip[aria-pressed='false'] { opacity: 0.45; }
+  .chip.is-shake { animation: chip-shake 0.35s ease-out; }
+  @keyframes chip-shake {
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+  }
+</style>

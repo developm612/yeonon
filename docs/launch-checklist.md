@@ -82,8 +82,9 @@ TODO 값은 화면에 "확인 중 / To be confirmed"로 보인다. 모두 채운
 
 ## 6. 키·환경 변수 (Vercel → Settings → Environment Variables → Production)
 
-- [ ] **`PUBLIC_MEMBER_UI=true`** → **다시 배포** (PUBLIC_ 값은 빌드 때 들어간다)
-  - 바뀌는 것: 헤더 Sign in/My page 표시, 공개 페이지 버튼이 'Find my route'·'Google로 시작하고 지원하기'(로그인 흐름)로, 앱 미리보기 하단 폼 → 로그인 안내, `/routes` 공개·검색 노출, 푸터 문구
+- [ ] **`PUBLIC_APP_OPEN=true`** → **다시 배포** (PUBLIC_ 값은 빌드 때 들어간다). 예전 `PUBLIC_MEMBER_UI`는 지운다
+  - 바뀌는 것: 검색 노출만 — 루트 피드(`/`)와 루트 상세(`/routes/[id]`)가 검색에 허용된다. 둘러보기·로그인은 오픈 전에도 이미 열려 있다 (`yeonon-app-first-plan.md` 3장)
+- [ ] 새 랜딩 사이트 주소가 정해지면 `src/config/site.ts`의 `landingUrl` → 다시 배포 (옛 `/travelers`·`/app-preview` 등이 랜딩으로 301)
 - [ ] AI: `LLM_API_KEY`, `LLM_MODEL`, `EMBEDDING_API_KEY`, `EMBEDDING_MODEL` → 배포 후 `/admin/recommendations` [임베딩 백필]
 - [ ] AI 업체 콘솔에서 **월 사용 한도·예산 알림** 설정
 - [ ] 메일: `RESEND_API_KEY`, `MAIL_FROM`, `SUPABASE_SERVICE_ROLE_KEY`

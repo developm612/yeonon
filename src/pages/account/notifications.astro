@@ -6,7 +6,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
-import { ADMIN_NAV, PARTNER_NAV, TRAVELER_NAV } from '../../data/accountNav';
+import { ADMIN_NAV, PARTNER_NAV } from '../../data/accountNav';
 import { kstWhen } from '../../data/bookingOptions';
 import { dbError, field } from '../../lib/forms';
 import { UUID } from '../../lib/routes';
@@ -33,10 +33,11 @@ const { data, error } = await supabase.from('notifications').select('id, type, t
 dbError(error, 'load notifications');
 const items = data ?? [];
 const unread = items.filter((n) => !n.read_at).length;
-const nav = profile.role === 'traveler' ? TRAVELER_NAV : profile.role === 'jigi' ? PARTNER_NAV : ADMIN_NAV;
+// 여행자는 상단 바·하단 탭바가 메뉴를 맡는다. 지기는 데스크톱 얇은 메뉴, 관리자는 관리자 메뉴
+const nav = profile.role === 'traveler' ? null : profile.role === 'jigi' ? PARTNER_NAV : ADMIN_NAV;
 ---
-<BaseLayout title={ko ? '알림 | YEONON' : 'Notifications | YEONON'} description={ko ? '연온 알림' : 'Your YEONON notifications.'} lang={lang} sticky="none" noindex>
-  <AreaNav items={nav} label={ko ? '회원 메뉴' : 'Member menu'} lang={lang} />
+<BaseLayout title={ko ? '알림 | YEONON' : 'Notifications | YEONON'} description={ko ? '연온 알림' : 'Your YEONON notifications.'} lang={lang} noindex>
+  {nav && <AreaNav items={nav} label={ko ? '회원 메뉴' : 'Member menu'} lang={lang} desktopOnly={profile.role === 'jigi'} />}
   <section class="section pt-10! md:pt-14!">
     <div class="container-page max-w-2xl!">
       <div class="flex flex-wrap items-end justify-between gap-3">

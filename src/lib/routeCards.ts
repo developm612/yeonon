@@ -1,5 +1,5 @@
 /**
- * 공개 루트 카드 목록 (components/ui/RouteCard.astro에 넘길 값) — 공개 /routes 목록과 여행자 홈 "Explore Seongsu"가 같이 쓴다.
+ * 공개 루트 카드 목록 (components/ui/RouteCard.astro에 넘길 값) — 첫 화면 루트 피드(loadFeed)와 견본 페이지가 쓴다.
  * 공개(published) 루트만 — 읽기 권한은 DB RLS가 다시 거른다. 지기 이름은 public_jigis(일부만).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -28,9 +28,13 @@ export async function loadRouteCards(
   const { data, error } = await query;
   dbError(error, 'list public routes');
   const routes = ((data ?? []) as RouteRow[]).filter((r) => !exclude.includes(r.id)).slice(0, limit);
+  return cardsFor(supabase, routes);
+}
+
+/** 루트 행 → 카드 값 (정류장 이름, 앞으로 열린 시간, 지기 이름·평점) */
+async function cardsFor(supabase: SupabaseClient, routes: RouteRow[]): Promise<RouteCardData[]> {
   const ids = routes.map((r) => r.id);
   if (!ids.length) return [];
-
   const [{ data: stops }, { data: slots }, { data: jigis }] = await Promise.all([
     supabase.from('route_stops').select('route_id, order_no, place_name').in('route_id', ids).order('order_no'),
     supabase.from('slots').select('route_id, starts_at').in('route_id', ids).eq('status', 'open').gt('starts_at', new Date().toISOString()).order('starts_at').limit(1000),
@@ -61,4 +65,34 @@ export async function loadRouteCards(
       slotCount: times.length,
     };
   });
+}
+
+/**
+ * 첫 화면 루트 피드 (yeonon-app-first-plan.md 1-1): 검색어·관심사로 거르고, 가장 가까운 열린 시간 순으로.
+ * 열린 시간이 없는 루트는 맨 뒤 (최근 공개 순). page마다 perPage개씩 더 보여 준다 ('Load more').
+ */
+export async function loadFeed(
+  supabase: SupabaseClient,
+  { tag = null, q = '', page = 1, perPage = 20 }: { tag?: string | null; q?: string; page?: number; perPage?: number },
+): Promise<{ items: RouteCardData[]; total: number }> {
+  let query = supabase.from('routes').select(ROUTE_COLUMNS).eq('status', 'published').order('published_at', { ascending: false }).limit(200);
+  if (tag) query = query.contains('tags', [tag]);
+  // 검색어는 PostgREST 필터 문법 문자( , ( ) * % \ )를 빼고 제목·소개에서 찾는다
+  const term = q.replace(/[,()*%\\]/g, ' ').trim().slice(0, 50);
+  if (term) query = query.or(`title.ilike.%${term}%,summary.ilike.%${term}%`);
+  const { data, error } = await query;
+  dbError(error, 'load route feed');
+  const ids = ((data ?? []) as RouteRow[]).map((r) => r.id);
+  if (!ids.length) return { items: [], total: 0 };
+  const all = await cardsFor(supabase, (data ?? []) as RouteRow[]);
+  const sorted = all
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => {
+      const x = a.c.slots[0], y = b.c.slots[0];
+      if (x && y) return x.localeCompare(y);
+      if (x || y) return x ? -1 : 1;
+      return a.i - b.i;
+    })
+    .map(({ c }) => c);
+  return { items: sorted.slice(0, page * perPage), total: sorted.length };
 }

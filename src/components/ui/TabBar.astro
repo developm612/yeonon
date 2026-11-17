@@ -1,35 +1,39 @@
 ---
 /**
- * 모바일 하단 고정 탭 (768px 미만): Home · Discover · Bookings · Messages · Profile (yeonon-traveler-ui-plan.md 4-4).
- * 데스크톱 메뉴는 여행자 헤더(TravelerHeader)에 있다. BaseLayout이 로그인한 여행자의 /app·/routes 화면에 붙이고 body 아래 여백을 둔다.
+ * 모바일 하단 고정 탭 — yeonon-app-first-plan.md 1장·5장. 여행자는 1024px 미만(그 이상은 상단 바 메뉴), 지기는 768px 미만(그 이상은 얇은 메뉴).
+ *   여행자: Home · For you · Bookings · Chats · My (로그인 안 한 사람에게도 보인다. 로그인이 필요한 탭은 누르면 로그인 → 그 화면으로 복귀)
+ *   지기:   요청 · 내 루트 · 가능 시간 · 채팅 · 내 정보
+ * 데스크톱 메뉴는 상단 바(AppTopBar, 여행자)와 그 아래 얇은 메뉴(AreaNav, 지기)가 맡는다. BaseLayout이 붙이고 body 아래 여백을 둔다.
  * static을 주면 고정하지 않고 제자리에 그린다 (/dev/ui 견본용).
  */
 import Icon, { type IconName } from '../Icon.astro';
+import { PARTNER_TABS, TRAVELER_NAV } from '../../data/accountNav';
 
 interface Props {
+  variant?: 'traveler' | 'jigi';
   /** 지금 주소 대신 쓸 경로 (견본용) */
   path?: string;
   static?: boolean;
 }
-const { path: pathProp, static: isStatic = false } = Astro.props;
-const ITEMS: { href: string; label: string; icon: IconName }[] = [
-  { href: '/app', label: 'Home', icon: 'home' },
-  { href: '/app/discover', label: 'Discover', icon: 'compass' },
-  { href: '/app/bookings', label: 'Bookings', icon: 'calendar' },
-  { href: '/app/messages', label: 'Messages', icon: 'chat' },
-  { href: '/app/profile', label: 'Profile', icon: 'user' },
-];
+const { variant = 'traveler', path: pathProp, static: isStatic = false } = Astro.props;
+const items = (variant === 'jigi' ? PARTNER_TABS : TRAVELER_NAV) as readonly { href: string; label: string; icon: IconName }[];
+const home = variant === 'jigi' ? '/partner' : '/';
 const path = (pathProp ?? Astro.url.pathname).replace(/\/$/, '') || '/';
-const current = ITEMS.map((i) => i.href).filter((h) => path === h || (h !== '/app' && path.startsWith(h + '/'))).sort((a, b) => b.length - a.length)[0];
+// 첫 화면 탭은 그 주소일 때만 켠다 (하위 주소에서 Home이 켜지지 않게). 여행자 루트 상세(/routes/…)는 Home으로 본다
+const current =
+  variant === 'traveler' && path.startsWith('/routes/')
+    ? '/'
+    : items.map((i) => i.href).filter((h) => path === h || (h !== home && path.startsWith(h + '/'))).sort((a, b) => b.length - a.length)[0];
 ---
-<nav aria-label="Traveler menu"
-  class:list={['border-t border-hairline bg-paper/95 backdrop-blur md:hidden', !isStatic && 'fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]']}>
+<nav aria-label={variant === 'jigi' ? '지기 메뉴' : 'Main menu'} lang={variant === 'jigi' ? 'ko' : 'en'}
+  class:list={['border-t border-border bg-surface/95 backdrop-blur', variant === 'jigi' ? 'md:hidden' : 'lg:hidden', !isStatic && 'fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]']}
+  data-tabbar>
   <ul class="mx-auto grid max-w-lg grid-cols-5">
-    {ITEMS.map((i) => (
+    {items.map((i) => (
       <li>
         <a href={i.href} aria-current={i.href === current ? 'page' : undefined}
           class:list={['flex min-h-16 flex-col items-center justify-center gap-1 text-[0.75rem] leading-none font-semibold',
-            i.href === current ? 'text-on-blue' : 'text-stone hover:text-ink']}>
+            i.href === current ? (variant === 'jigi' ? 'text-jigi-strong' : 'text-traveler-strong') : 'text-muted hover:text-text']}>
           <Icon name={i.icon} class="size-6" />
           {i.label}
         </a>

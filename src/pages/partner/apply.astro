@@ -40,8 +40,8 @@ if (Astro.request.method === 'POST' && canApply) {
   for (const k of ['languages', 'availability', 'taste']) values[k] = fields(fd, k);
 }
 ---
-<BaseLayout title="지기 신청서 | YEONON" description="연온 지기 신청서" lang="ko" sticky="none" noindex>
-  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+<BaseLayout title="지기 신청서 | YEONON" description="연온 지기 신청서" lang="ko" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
   {!canApply && (
     <p class="container-page mt-6 rounded-xl bg-brand-soft px-4 py-3 text-sm font-medium text-brand">관리자 확인용 화면이에요. 신청은 지기 계정으로만 할 수 있어요.</p>
   )}

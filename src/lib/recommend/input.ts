@@ -1,5 +1,5 @@
 /**
- * 추천 입력(/app/discover) 읽기·검증. 화면(폼·결과 페이지 주소)과 /api/recommend가 같이 쓴다.
+ * 추천 입력(/for-you) 읽기·검증. 화면(폼·결과 페이지 주소)과 /api/recommend가 같이 쓴다.
  * 입력은 취향 조건뿐이다 — 이름·이메일·연락처 같은 개인정보는 받지 않고, 자유 문장에서도 지운다.
  */
 import { DISCOVER, DISCOVER_VIBES, RECOMMEND, TIMES_OF_DAY, type DiscoverVibe, type TimeOfDay } from '../../config/recommend';

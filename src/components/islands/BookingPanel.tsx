@@ -1,5 +1,5 @@
 /**
- * 예약 상태 패널 (Preact 아일랜드) — 여행자 /app/bookings/[id](영문), 지기 /partner/bookings/[id](한글).
+ * 예약 상태 패널 (Preact 아일랜드) — 여행자 /bookings/[id](영문), 지기 /partner/bookings/[id](한글).
  * 상태 머리말·응답 기한 카운트다운·상태 타임라인·버튼(취소 / 수락·거절)을 그리고,
  * Realtime으로 이 예약 행이 바뀌면(수락·거절·만료·취소·완료) 바로 다시 그린다.
  * 여행자 화면은 성수 라인 모양 (yeonon-traveler-ui-plan.md 5-5): 위쪽에 예약 상태 루트 라인(요청 → 확정 → 만남 → 후기),
@@ -38,7 +38,7 @@ const PANEL_COLUMNS =
 interface Props {
   booking: PanelBooking;
   viewer: 'traveler' | 'jigi';
-  /** 여행자: 만료·거절·취소 후 "See other routes" (같은 조건의 /app/discover) */
+  /** 여행자: 만료·거절·취소 후 "See other routes" (같은 조건의 /for-you) */
   discoverHref?: string;
   /** 이 시간 안에 취소하면 늦은 취소로 기록 (분, booking_settings) */
   lateCancelMinutes: number;

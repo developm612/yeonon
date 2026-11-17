@@ -1,5 +1,5 @@
 ---
-/** 메시지 목록 본문 — /app/messages(영문), /partner/messages(한글). 실시간 갱신은 ConversationList 아일랜드 */
+/** 메시지 목록 본문 — /chats(영문), /partner/messages(한글). 실시간 갱신은 ConversationList 아일랜드 */
 import ConversationList from '../islands/ConversationList';
 import { dbError } from '../../lib/forms';
 import type { ConversationListItem } from '../../lib/chat';
@@ -33,7 +33,7 @@ if (supabase && user) {
     <h1 class="t-display">Messages</h1>
     <p class="t-body measure mt-2 text-stone">Each booking has its own chat. Before it's confirmed, ask questions. Once you're matched, chat freely.</p>
     <div class="mt-8">
-      {user && <ConversationList client:load userId={user.id} lang={lang} base="/app/messages" initial={items} />}
+      {user && <ConversationList client:load userId={user.id} lang={lang} base="/chats" initial={items} />}
     </div>
   </div>
 )}

@@ -59,7 +59,7 @@ const soon = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
 const slots = [soon(30), soon(34), soon(54), soon(58), soon(78)];
 const steps = ['Requested', 'Confirmed', 'Meetup', 'Review'];
 ---
-<BaseLayout title="Design system | YEONON" description="YEONON traveler design system (internal)." sticky="none" noindex>
+<BaseLayout title="Design system | YEONON" description="YEONON traveler design system (internal)." noindex>
   <div class="container-page space-y-16 py-10 md:py-14">
     <header>
       <p class="t-small text-stone">내부 확인용 · 로컬·미리보기에서만</p>
@@ -222,7 +222,7 @@ const steps = ['Requested', 'Confirmed', 'Meetup', 'Review'];
       </div>
       <div class="max-w-md overflow-hidden rounded-card border border-hairline">
         <p class="t-caption bg-paper px-4 pt-3 text-stone">TabBar (768px 미만에서만 보임)</p>
-        <TabBar path="/app/discover" static />
+        <TabBar path="/for-you" static />
       </div>
       <EmptyState title="No meetups yet." body="Find a route for your days in Seoul." action={{ href: '#s-misc', label: 'Find my route' }} />
     </section>

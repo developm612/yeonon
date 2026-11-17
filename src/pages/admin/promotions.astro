@@ -112,7 +112,7 @@ const live = (p: Promotion) =>
   p.is_active && (!p.starts_at || new Date(p.starts_at).getTime() <= now) && (!p.ends_at || new Date(p.ends_at).getTime() > now) && (p.max_uses === null || p.used_count < p.max_uses);
 const input = 'mt-1 block h-11 w-full rounded-xl border border-border bg-surface px-3 font-normal';
 ---
-<BaseLayout title="할인·예약 규칙 | 관리자 | YEONON" description="연온 관리자 할인 설정" lang="ko" sticky="none" noindex>
+<BaseLayout title="할인·예약 규칙 | 관리자 | YEONON" description="연온 관리자 할인 설정" lang="ko" noindex>
   <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page max-w-3xl!">

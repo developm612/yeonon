@@ -10,11 +10,12 @@ export const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const isAuthConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 /**
- * 회원 기능 공개 스위치 (.env.example 참고). 'true'가 아니면 헤더의 로그인 메뉴를 숨기고,
- * /routes는 로그인한 사람에게만 보이며, 서버 렌더링 페이지 전체가 검색엔진에 노출되지 않는다. /login 주소 직접 접속은 된다.
+ * 앱 오픈 스위치 PUBLIC_APP_OPEN (.env.example, yeonon-app-first-plan.md 3장).
+ * 오픈 전(true가 아님)에도 루트 피드(/)·루트 상세는 누구나 둘러보고, 요청·채팅 같은 행동만 로그인한다.
+ * 차이는 검색 노출: 오픈 전에는 모든 페이지가 noindex, 오픈 후에는 /와 /routes/[id]만 검색에 허용한다.
  * PUBLIC_ 값은 빌드할 때 페이지에 들어가므로 Vercel에서 바꾸면 다시 배포해야 한다.
  */
-export const isMemberUiPublic = import.meta.env.PUBLIC_MEMBER_UI === 'true';
+export const isAppOpen = import.meta.env.PUBLIC_APP_OPEN === 'true';
 
 export function createSupabaseServerClient(request: Request, cookies: AstroCookies) {
   return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -38,8 +39,7 @@ export function clearSupabaseCookies(request: Request, cookies: AstroCookies) {
 
 /**
  * 로그인 후 돌아갈 주소. 같은 사이트 안의 경로만 허용한다 (외부로 보내는 오픈 리디렉트 방지)
- * 기본값 /account는 역할별 홈으로 보낸다 (여행자 /app, 지기 /partner, 관리자 /admin).
- * /app으로 두면 관리자는 /app에도 들어갈 수 있어서 여행자 화면에 머문다.
+ * 기본값 /account는 역할별 홈으로 보낸다 (여행자 /, 지기 /partner, 관리자 /admin).
  */
 export function safeNext(value: string | null | undefined, fallback = '/account'): string {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return fallback;

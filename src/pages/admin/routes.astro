@@ -85,7 +85,7 @@ const openId = Astro.url.searchParams.get('open');
 const shortDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' }) : '-');
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'medium', timeStyle: 'short' }) : '-');
 ---
-<BaseLayout title="루트 검수 | 관리자 | YEONON" description="연온 관리자 루트 검수" lang="ko" sticky="none" noindex>
+<BaseLayout title="루트 검수 | 관리자 | YEONON" description="연온 관리자 루트 검수" lang="ko" noindex>
   <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">

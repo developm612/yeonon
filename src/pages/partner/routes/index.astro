@@ -73,8 +73,8 @@ const badge: Record<string, string> = {
 };
 const btn = 'inline-flex min-h-10 items-center rounded-full px-4 text-sm font-semibold';
 ---
-<BaseLayout title="내 루트 | YEONON" description="연온 지기 루트 목록" lang="ko" sticky="none" noindex>
-  <AreaNav items={PARTNER_NAV} label="지기 메뉴" />
+<BaseLayout title="내 루트 | YEONON" description="연온 지기 루트 목록" lang="ko" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page max-w-3xl!">
       <div class="flex flex-wrap items-end justify-between gap-4">

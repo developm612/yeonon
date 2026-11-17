@@ -1,12 +1,27 @@
 import { defineMiddleware } from 'astro:middleware';
-import { createSupabaseServerClient, isAuthConfigured, isMemberUiPublic } from './lib/supabase';
+import { createSupabaseServerClient, isAppOpen, isAuthConfigured } from './lib/supabase';
 import { AREAS, PROFILE_COLUMNS, homeFor, inArea, isOnboarded, type Profile } from './lib/profile';
 import { needsLegalConsent } from './config/legal';
+import { legacyRedirect } from './data/paths';
 
-/** 로그인해야 들어갈 수 있는 곳. /app-preview 같은 공개 페이지는 해당하지 않는다 */
+/**
+ * 로그인해야 들어갈 수 있는 곳 (yeonon-app-first-plan.md 6장).
+ * 루트 피드(/)·루트 상세(/routes/*)·지기 시작 화면(/partner)은 로그인 없이 열리고, 요청·채팅·루트 작성 같은 행동만 로그인으로 보낸다.
+ */
 const LOGIN_REQUIRED = [...AREAS.map((a) => a.base), '/onboarding', '/account'];
+/** 마지막으로 본 탭 (Travelers / 지기) — 다음 방문 때 그 탭으로 연다 */
+const TAB_COOKIE = 'yeonon_tab';
+const TAB_MAX_AGE = 60 * 60 * 24 * 365;
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  // 옛 주소(/app/*, /routes, 설명·미리보기 페이지) → 새 주소로 영구 이동. 쿼리는 그대로 붙인다
+  // (옛 페이지는 지워져서 404로 들어오므로 정적 페이지 확인보다 먼저 본다)
+  if (context.request.method === 'GET' || context.request.method === 'HEAD') {
+    const to = legacyRedirect(context.url.pathname);
+    // 없는 주소(404)로 들어온 요청은 context.url에 쿼리가 빠질 수 있어 원래 요청 주소에서 읽는다
+    if (to) return context.redirect(to.startsWith('http') ? to : to + new URL(context.request.url).search, 301);
+  }
+
   // 정적(공개) 페이지는 빌드할 때 한 번 만들어지므로 세션을 보지 않는다
   if (context.isPrerendered) return next();
 
@@ -33,11 +48,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const { user, profile } = context.locals;
   const here = context.url.pathname + context.url.search;
 
-  // 회원 기능 비공개 동안 공개 루트 목록·상세는 로그인한 사람(내부 테스트)에게만 보인다
-  const isRoutes = inArea(path, '/routes');
-  if (isRoutes && !isMemberUiPublic && !user) return context.redirect('/');
+  // 첫 화면(/)을 주소창에 바로 열면 마지막으로 본 탭으로. 지기 계정은 기본이 지기 탭.
+  // 여행자 계정의 첫 화면은 언제나 Travelers (지기 탭을 둘러본 뒤에도 — 다른 역할 영역에서 홈으로 보낼 때 맴돌지 않게)
+  // (상단 Travelers 탭은 /switch?to=travelers 를 거쳐 쿠키를 바꾸므로 여기서 다시 지기 탭으로 튕기지 않는다)
+  const tab = context.cookies.get(TAB_COOKIE)?.value;
+  if (path === '/' && context.request.method === 'GET' && !context.url.search) {
+    if (profile?.role !== 'traveler' && (tab === 'jigi' || (!tab && profile?.role === 'jigi'))) return context.redirect('/partner');
+  }
 
-  if (LOGIN_REQUIRED.some((base) => inArea(path, base))) {
+  // /partner(지기 시작 화면)는 로그인 없이 열린다. 로그인했으면 아래 확인(온보딩·동의·정지)은 그대로 하되, 역할 이동은 하지 않는다
+  const partnerStart = path === '/partner';
+  const needsLogin = !partnerStart && LOGIN_REQUIRED.some((base) => inArea(path, base));
+  if (needsLogin || (partnerStart && user)) {
     if (!user) return context.redirect('/login?next=' + encodeURIComponent(here));
     // 프로필이 없으면 DB 마이그레이션 전 — 온보딩 화면이 안내를 보여 준다
     if (!profile) {
@@ -49,9 +71,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     } else if (profile.role !== 'admin' && needsLegalConsent(profile) && !inArea(path, '/account')) {
       // 약관·개인정보처리방침이 개정되었으면(동의한 시행일이 다르면) 먼저 다시 동의를 받는다 (/account/consent)
       return context.redirect('/account/consent?next=' + encodeURIComponent(here));
-    } else {
+    } else if (!partnerStart) {
       const area = AREAS.find((a) => inArea(path, a.base));
-      // 다른 역할의 영역에 들어오면 자기 홈으로 보낸다 (예: 여행자가 /partner, 지기가 /app)
+      // 다른 역할의 영역에 들어오면 자기 홈으로 보낸다 (예: 여행자가 /partner/routes, 지기가 /bookings)
       if (area && !area.roles.includes(profile.role!)) return context.redirect(homeFor(profile));
     }
   }
@@ -59,7 +81,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const response = await next();
   // 로그인 상태에 따라 내용이 달라지는 페이지는 캐시하지 않는다
   if (!response.headers.has('Cache-Control')) response.headers.set('Cache-Control', 'private, no-store');
-  // 서버 렌더링 페이지(로그인·회원 영역·인증)는 검색엔진에 노출하지 않는다. /routes만 회원 기능 공개 후 허용
-  if (!(isRoutes && isMemberUiPublic)) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  // 검색 노출: 앱 오픈(PUBLIC_APP_OPEN=true) 후 루트 피드(/)와 루트 상세만 허용
+  const indexable = isAppOpen && (path === '/' || /^\/routes\/[^/]+$/.test(path));
+  if (!indexable) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+
+  // 마지막으로 본 탭 기억 (화면을 성공적으로 보여 줄 때만)
+  if (context.request.method === 'GET' && response.status === 200) {
+    const seen = inArea(path, '/partner') ? 'jigi' : path === '/' || inArea(path, '/routes') || AREAS.slice(0, 4).some((a) => inArea(path, a.base)) ? 'travelers' : null;
+    if (seen && seen !== tab) {
+      response.headers.append('Set-Cookie', `${TAB_COOKIE}=${seen}; Path=/; Max-Age=${TAB_MAX_AGE}; SameSite=Lax${context.url.protocol === 'https:' ? '; Secure' : ''}`);
+    }
+  }
   return response;
 });

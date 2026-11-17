@@ -123,7 +123,7 @@ const openId = Astro.url.searchParams.get('open');
 const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
 const input = 'h-11 rounded-xl border border-border bg-surface px-3 text-sm';
 ---
-<BaseLayout title="회원 | 관리자 | YEONON" description="연온 관리자 회원 관리" lang="ko" sticky="none" noindex>
+<BaseLayout title="회원 | 관리자 | YEONON" description="연온 관리자 회원 관리" lang="ko" noindex>
   <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
   <section class="section pt-10! md:pt-14!">
     <div class="container-page">

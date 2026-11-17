@@ -1,0 +1,20 @@
+---
+/**
+ * 옛 주소 처리 (yeonon-app-first-plan.md 2장): /app/*, /routes, /travelers, /jigi, /how-it-works, /app-preview(-jigi) → 새 주소로 301.
+ * 규칙은 src/data/paths.ts의 legacyRedirect() 한 곳. 다른 페이지에 걸리지 않는 주소만 여기로 온다 (구체적인 페이지가 먼저).
+ * 서버에서 처리해야 운영(Vercel)에서도 쿼리(?tag=, ?rec=)를 그대로 넘길 수 있다 — 정적 404로 빠지면 이동 규칙을 쓸 수 없다.
+ * 해당하지 않는 주소는 보통의 '없는 주소' 화면 (404).
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import NotFound from '../components/ui/NotFound.astro';
+import { legacyRedirect } from '../data/paths';
+
+export const prerender = false;
+
+const to = legacyRedirect(Astro.url.pathname);
+if (to) return Astro.redirect(to.startsWith('http') ? to : to + Astro.url.search, 301);
+Astro.response.status = 404;
+---
+<BaseLayout title="Page not found · YEONON" description="This page doesn't exist. 페이지를 찾을 수 없어요." noindex>
+  <NotFound />
+</BaseLayout>

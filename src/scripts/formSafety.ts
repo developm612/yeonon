@@ -1,13 +1,11 @@
 /**
- * 사이트 폼 공통 입력 정리·검증 (대기자 폼 scripts/waitlist.ts, 지기 신청 폼 scripts/jigiApply.ts).
+ * 폼 공통 입력 정리·검증 — 지기 신청서(scripts/jigiApply.ts, lib/jigiApplication.ts)와 서버 쪽 입력 정리(clean)가 같이 쓴다.
  *
  * 보안 메모
  * - 사용자 입력은 화면에 다시 그릴 때 textContent만 쓴다 (innerHTML 금지).
- * - FormData를 통째로 보내지 않고 각 폼에서 정한 필드만, 정리(clean)·검증한 값으로 보낸다.
- * - 엔드포인트는 공개 URL이라 여기 검증은 우회될 수 있다. 같은 검증과 스프레드시트 수식 주입 방지를
- *   Apps Script(apps-script/Code.gs)에서도 한다. 정규식을 바꾸면 Code.gs도 같이 바꾼다.
+ * - 브라우저 검증은 안내용이다. 저장 전에 서버(DB 함수)가 같은 규칙으로 다시 확인한다.
+ * (공개 대기자·사전 신청 폼의 Apps Script 전송 코드는 새 랜딩 사이트로 옮겨 지웠다 — yeonon-app-first-plan.md 2-2)
  */
-import { SITE } from '../config/site';
 
 export interface Rule {
   /** 입력값을 저장 형식으로 정리 */
@@ -54,8 +52,6 @@ export const PERSON_NAME = /^[\p{L}\p{M} .'’-]{2,30}$/u;
 /** 추천인 이름: 문자(모든 언어)·숫자·공백과 . ' ’ - _ @ 만 */
 export const REFERRER = /^[\p{L}\p{M}\p{N} .'’_@-]{1,60}$/u;
 
-const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
-const UTM_VALUE = /^[\p{L}\p{N} ._~+-]{1,100}$/u;
 
 /** 유니코드 정규화, 제어·보이지 않는 문자와 꺾쇠 제거, 공백 정리, 길이 제한 */
 export function clean(value: string, max: number): string {
@@ -76,23 +72,6 @@ export function check(rule: Rule, raw: string, max = 254): string | null {
 /** 선택 상자는 페이지에 처음 렌더된 보기만 허용 */
 export const allowedOptions = (select: HTMLSelectElement) =>
   new Set([...select.options].filter((o) => !o.disabled).map((o) => o.value));
-
-/** 주소의 UTM 파라미터 중 정해진 키만, 안전한 문자일 때만 담는다 */
-export function addUtm(data: URLSearchParams) {
-  const query = new URLSearchParams(location.search);
-  for (const key of UTM_KEYS) {
-    const v = clean(query.get(key) ?? '', 100);
-    if (UTM_VALUE.test(v)) data.set(key, v);
-  }
-}
-
-/**
- * SITE.waitlistEndpoint(Apps Script 웹앱)로 전송.
- * Apps Script는 CORS 응답을 주지 않으므로 no-cors로 보낸다 (네트워크 오류만 감지 가능).
- */
-export function send(data: URLSearchParams) {
-  return fetch(SITE.waitlistEndpoint, { method: 'POST', mode: 'no-cors', body: data, credentials: 'omit', referrerPolicy: 'no-referrer' });
-}
 
 /** 폼 오류 표시: 오류 상자에 문구, 해당 칸에 aria-invalid + 포커스 */
 export function errorShower(form: HTMLFormElement, box: HTMLElement) {

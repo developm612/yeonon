@@ -1,6 +1,6 @@
 ---
 /**
- * 루트 상세 본문 (yeonon-traveler-ui-plan.md 5-4) — 공개 /routes/[id]와 여행자 /app/routes/[id]가 같이 쓴다.
+ * 루트 상세 본문 (yeonon-traveler-ui-plan.md 5-4) — /routes/[id] (로그인 없이 보기, 요청할 때 로그인).
  *   대표 사진(전체 폭, 모바일 4:5 / 데스크톱 16:9) → 제목·소개 → 아이콘 칸(시간·구역·인원·언어)
  *   → The route(세로 루트 라인 + 정류장 사진) → 만나는 곳 → 지기 → 후기
  *   예약 패널: 데스크톱은 오른쪽 고정 패널, 모바일은 하단 고정 바 → 시트. 같은 폼 하나가 두 모양으로 보인다 (BottomSheet inline).
@@ -26,6 +26,8 @@ interface Props {
   backLabel: string;
   /** 시간 칩을 고를 수 있게 할 폼의 id */
   pickForm?: string;
+  /** 미리 골라 둘 시간 (로그인하고 돌아왔을 때 ?slot=) */
+  picked?: string;
   /** 가격: 정가·이 여행자에게 적용될 값·할인 이름 (없으면 정가) */
   price?: { list: number; final: number; promo: string | null };
   /** 모바일 하단 바의 버튼 글자 */
@@ -33,7 +35,7 @@ interface Props {
   /** 이 지기의 최근 공개 후기 (lib/reviews.ts loadPublicReviews) */
   reviews?: PublicReview[];
 }
-const { route, stops, host, slots, backHref, backLabel, pickForm, price: priceProp, barLabel = 'Pick a time', reviews = [] } = Astro.props;
+const { route, stops, host, slots, backHref, backLabel, pickForm, picked, price: priceProp, barLabel = 'Pick a time', reviews = [] } = Astro.props;
 const price = priceProp ?? { list: route.list_price, final: route.list_price, promo: null };
 const discounted = price.final < price.list;
 const wonText = (n: number) => `₩${n.toLocaleString('en-US')}`;
@@ -155,7 +157,7 @@ const facts = [
                 <div class="mt-1.5 flex flex-wrap gap-1.5">
                   {list.map((s) => (
                     <label class="t-num cursor-pointer rounded-full border border-hairline bg-paper px-3.5 py-2 text-[0.9375rem] leading-none transition-colors hover:border-ink has-checked:border-on-blue has-checked:bg-on-blue has-checked:text-white has-disabled:cursor-not-allowed has-disabled:border-hairline has-disabled:bg-concrete has-disabled:text-stone has-disabled:line-through has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-on-blue">
-                      <input type="radio" name="slot_id" value={s.id} form={pickForm} required class="sr-only"
+                      <input type="radio" name="slot_id" value={s.id} form={pickForm} required class="sr-only" checked={s.id === picked || undefined}
                         data-label={`${dayLabel(s.starts_at)} · ${kstTime(s.starts_at)}`} />
                       {kstTime(s.starts_at)}
                     </label>

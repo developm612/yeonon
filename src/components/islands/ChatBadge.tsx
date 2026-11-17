@@ -9,7 +9,7 @@ import { subscribeLive } from '../../lib/realtime';
 interface Props {
   userId: string;
   lang: 'en' | 'ko';
-  href: '/app/messages' | '/partner/messages';
+  href: '/chats' | '/partner/messages';
 }
 
 export default function ChatBadge({ userId, lang, href }: Props) {

@@ -1,0 +1,52 @@
+---
+/**
+ * 루트 피드의 한 줄 (yeonon-app-first-plan.md 1-1, 당근 목록처럼): 왼쪽 정사각 사진(없으면 노선도) + 오른쪽 제목·지기·시간.
+ *   Hidden cafés of Seongsu
+ *   Minji ★4.9   (시계) 3h   (핀) Seongsu 2-ga   ← 아이콘 + 값 (A · B · C 문자열 대신)
+ *   Next: Sat 14:00   (+5 more)
+ * 줄 전체가 링크다. 가격은 상세에서 (성수 라인 계획서 4-2와 같은 원칙).
+ */
+import Icon from '../Icon.astro';
+import RoutePhoto from './RoutePhoto.astro';
+import type { RouteCardData } from '../../lib/routeCards';
+import { fmtDuration } from '../../lib/course';
+import { kstDate, kstTime } from '../../lib/routes';
+
+interface Props {
+  route: RouteCardData;
+  href: string;
+  eager?: boolean;
+}
+const { route: r, href, eager = false } = Astro.props;
+const next = r.slots[0];
+const more = r.slotCount - 1;
+---
+<article class="group relative flex gap-4 py-4">
+  <RoutePhoto path={r.photo} alt="" stops={r.stops} ratio="1 / 1" sizes="(min-width: 768px) 128px, 104px" eager={eager}
+    class="w-[104px] shrink-0 rounded-control md:w-32" />
+  <div class="min-w-0 flex-1 self-center">
+    <h3 class="t-heading line-clamp-2">
+      <a href={href} class="after:absolute after:inset-0 focus-visible:outline-none group-has-[a:focus-visible]:underline">{r.title}</a>
+    </h3>
+    <p class="t-small mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-normal text-stone">
+      <span class="inline-flex items-center gap-1 font-semibold text-ink">
+        {r.host.name}
+        {r.host.rating != null && r.host.reviews > 0 && (
+          <span class="inline-flex items-center gap-0.5 font-normal" aria-label={`rated ${r.host.rating.toFixed(1)} out of 5`}><Icon name="star" class="size-3.5" /><span class="t-num">{r.host.rating.toFixed(1)}</span></span>
+        )}
+      </span>
+      <span class="inline-flex items-center gap-1"><Icon name="clock" class="size-3.5" /><span class="sr-only">Duration</span>{fmtDuration(r.durationMinutes, 'en')}</span>
+      <span class="inline-flex min-w-0 items-center gap-1"><Icon name="pin" class="size-3.5 shrink-0" /><span class="sr-only">Area</span><span class="truncate">{r.area}</span></span>
+    </p>
+    <p class="t-small mt-2">
+      {next ? (
+        <>
+          <span class="t-num rounded-full border border-line2/40 bg-line2/[0.06] px-2.5 py-1 text-[0.8125rem] text-line2-text">Next: {kstDate(next, 'en-US', { weekday: 'short' })} {kstTime(next)}</span>
+          {more > 0 && <span class="ml-2 text-[0.8125rem] font-semibold text-stone">+{more} more</span>}
+        </>
+      ) : (
+        <span class="text-[0.8125rem] font-normal text-stone">No open times yet</span>
+      )}
+    </p>
+  </div>
+</article>

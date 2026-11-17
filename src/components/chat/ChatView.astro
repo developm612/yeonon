@@ -1,6 +1,6 @@
 ---
 /**
- * 대화 화면 본문 — 여행자 /app/messages/[id](영문), 지기 /partner/messages/[id](한글)가 같이 쓴다.
+ * 대화 화면 본문 — 여행자 /chats/[id](영문), 지기 /partner/messages/[id](한글)가 같이 쓴다.
  * 예약 요약 카드(서버) + 대화(Preact 아일랜드 ChatRoom). 당사자가 아니면 '찾을 수 없음' (상태 코드 404는 페이지가 정한다).
  */
 import ChatRoom from '../islands/ChatRoom';
@@ -20,8 +20,8 @@ interface Props {
 const { loaded, userId, lang } = Astro.props;
 const ko = lang === 'ko';
 const info = loaded?.info;
-const listHref = ko ? '/partner/messages' : '/app/messages';
-const bookingHref = info ? `${ko ? '/partner' : '/app'}/bookings/${info.booking_id}` : '';
+const listHref = ko ? '/partner/messages' : '/chats';
+const bookingHref = info ? (ko ? `/partner/bookings/${info.booking_id}` : `/bookings/${info.booking_id}`) : '';
 const otherName = info?.other_name ?? (ko ? '여행자' : 'Your jigi');
 ---
 <section class:list={ko ? 'section pt-6! pb-10! md:pt-10!' : 'pt-2 pb-4 md:pt-6 md:pb-10'}>
