@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { isOnboarded } from '../../lib/profile';
-import { RateLimitedError, recommend } from '../../lib/recommend/engine';
+import { RateLimitedError, attachRouteVisuals, recommend } from '../../lib/recommend/engine';
 import { readInput, validateInput } from '../../lib/recommend/input';
 
 export const prerender = false;
@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (Object.keys(errors).length) return json({ error: 'invalid_input', fields: errors }, 400);
 
   try {
-    return json(await recommend(supabase, user.id, input));
+    return json(await attachRouteVisuals(supabase, await recommend(supabase, user.id, input)));
   } catch (e) {
     if (e instanceof RateLimitedError) return json({ error: 'rate_limited', retry_after_minutes: e.retryAfterMinutes }, 429);
     console.error('[YEONON] /api/recommend failed:', (e as Error).message);

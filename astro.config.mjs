@@ -22,11 +22,30 @@ const allowedDomains = [
   ...[...new Set(previewHosts)].map((hostname) => ({ protocol: 'https', hostname })),
 ];
 
+// 루트 사진 주소 (Supabase Storage 공개 버킷 route-photos). Vercel 이미지 최적화가 이 주소만 받는다.
+// 어댑터가 Astro image.remotePatterns 중 protocol이 있는 것을 Vercel 설정으로 넘기지 않아서 imagesConfig에도 직접 적는다.
+/** @type {{ protocol: 'https', hostname: string, pathname: string }[]} */
+const PHOTO_PATTERNS = [{ protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/v1/object/public/route-photos/**' }];
+
 export default defineConfig({
   // 공개 페이지는 정적 그대로, `export const prerender = false`인 페이지(로그인·회원 영역)만 서버에서 렌더링
   output: 'static',
   // 추천 API는 임베딩(최대 2.5초) + LLM(최대 6초)을 기다리므로 함수 시간 제한을 넉넉히 둔다
-  adapter: vercel({ maxDuration: 30 }),
+  // 루트 사진(Supabase Storage 공개 버킷)은 Vercel 이미지 최적화로 크기별 srcset을 만든다 (components/ui/RoutePhoto.astro).
+  // 허용 주소는 아래 image.remotePatterns — Supabase 프로젝트의 route-photos 버킷만.
+  adapter: vercel({
+    maxDuration: 30,
+    imageService: true,
+    imagesConfig: {
+      sizes: [480, 800, 1200, 1600, 2000],
+      formats: ['image/avif', 'image/webp'],
+      minimumCacheTTL: 2592000,
+      remotePatterns: PHOTO_PATTERNS,
+    },
+  }),
+  image: {
+    remotePatterns: PHOTO_PATTERNS,
+  },
   // 실시간 구독 화면(알림 종·예약 상태·새 요청)은 Preact 아일랜드 — src/components/islands/
   integrations: [preact()],
   // canonical·OG 이미지 주소의 기준. 도메인을 연결하면 Vercel 환경 변수 SITE_URL(예: https://yeonon.xyz)을 넣고 다시 배포한다

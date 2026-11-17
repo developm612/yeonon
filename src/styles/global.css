@@ -26,6 +26,40 @@
   --shadow-card: 0 1px 2px rgb(31 42 46 / 0.04), 0 4px 16px rgb(31 42 46 / 0.04);
 }
 
+/* static: SVG·CSS에서 var()로 직접 쓰므로 유틸리티에 안 쓰여도 항상 내보낸다 */
+@theme static {
+  /* ---------------------------------------------------------------
+     여행자 영역 디자인 토큰 "성수 라인" (yeonon-traveler-ui-plan.md 3장)
+     이름이 새것이라 공개 랜딩·지기·관리자 화면에는 영향이 없다.
+     여행자 영역(body.ui-traveler)에서는 아래 '.ui-traveler' 블록이 기존 토큰(bg·text·muted…)도 이 값으로 바꾼다.
+     --------------------------------------------------------------- */
+  --color-ink: #10213F;             /* 본문·제목 글자 */
+  --color-concrete: #F1F3F2;        /* 앱 배경 */
+  --color-paper: #FFFFFF;           /* 카드·시트·입력창 */
+  --color-on-blue: #1A5FD0;         /* 행동에만: 주 버튼·링크·선택 상태 */
+  --color-on-blue-hover: #134FB0;
+  --color-on-blue-soft: #E8EFFB;
+  --color-line2: #00A84D;           /* 루트 라인의 선·점에만 (지하철 2호선 초록) */
+  --color-line2-text: #0B7A43;      /* 초록 글자 (흰 배경 대비 AA) */
+  --color-stone: #5B6472;           /* 보조 글자 */
+  --color-hairline: #DDE1E4;        /* 구분선·입력창 테두리 */
+  /* 예약 상태 (배지 배경은 각 색의 10%: bg-status-ok/10) */
+  --color-status-ok: #0B7A43;
+  --color-status-wait: #8A5A00;
+  --color-status-off: #5B6472;
+  --color-status-error: #B42318;
+
+  --font-display: "Bricolage Grotesque", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  /* 둥글기 위계: 사진 20 · 카드 14 · 입력·버튼 12 (알약은 시간 칩만 rounded-full) */
+  --radius-media: 20px;
+  --radius-card: 14px;
+  --radius-control: 12px;
+
+  /* 그림자는 떠 있는 것에만 (하단 시트, 고정 예약 패널, 메뉴) */
+  --shadow-float: 0 -1px 0 rgb(16 33 63 / 0.04), 0 12px 32px rgb(16 33 63 / 0.14);
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
@@ -104,5 +138,68 @@
   }
   @media (min-width: 768px) {
     .lead { font-size: 1.1875rem; }
+  }
+
+  /* ---------------------------------------------------------------
+     여행자 영역 글자 단계 (모바일 → 768px 이상). 대문자 라벨·자간 벌리기는 쓰지 않는다.
+     --------------------------------------------------------------- */
+  .t-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 700;
+    font-size: 2.125rem;          /* 34 */
+    line-height: 2.375rem;        /* 38 */
+    letter-spacing: -0.02em;
+  }
+  .t-title {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 650;
+    font-size: 1.5rem;            /* 24 */
+    line-height: 1.875rem;        /* 30 */
+    letter-spacing: -0.015em;
+  }
+  .t-heading { font-weight: 700; font-size: 1.1875rem; line-height: 1.625rem; letter-spacing: -0.01em; }  /* 19/26 */
+  .t-body { font-size: 1.0625rem; line-height: 1.6875rem; }                                              /* 17/27 */
+  .t-small { font-size: 0.9375rem; line-height: 1.375rem; font-weight: 500; }                             /* 15/22 */
+  .t-caption { font-size: 0.8125rem; line-height: 1.125rem; font-weight: 600; }                           /* 13/18 */
+  @media (min-width: 768px) {
+    .t-display { font-size: 3rem; line-height: 3.25rem; }        /* 48/52 */
+    .t-title { font-size: 1.875rem; line-height: 2.25rem; }      /* 30/36 */
+    .t-heading { font-size: 1.25rem; line-height: 1.75rem; }     /* 20/28 */
+  }
+  /* 시간·가격·일치율 숫자: 제목 글꼴 + 고정폭 숫자 */
+  .t-num {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+  }
+  /* 본문 한 줄 65자 안팎 */
+  .measure { max-width: 38rem; }
+}
+
+/* -----------------------------------------------------------------
+   여행자 영역 범위 (BaseLayout이 /app·/routes·/dev/ui 에서 body에 붙인다).
+   기존 화면이 쓰는 토큰을 새 값으로 바꿔서, 화면을 고치기 전에도 색·글꼴·카드가 새 시스템을 따른다.
+   ----------------------------------------------------------------- */
+@layer components {
+  .ui-traveler {
+    --color-bg: var(--color-concrete);
+    --color-surface: var(--color-paper);
+    --color-text: var(--color-ink);
+    --color-muted: var(--color-stone);
+    --color-border: var(--color-hairline);
+    --color-traveler-strong: var(--color-on-blue);
+    --color-traveler-soft: var(--color-on-blue-soft);
+    --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    --shadow-card: none;
+    font-size: 1.0625rem;
+    line-height: 1.6875rem;
+    word-break: keep-all;
+  }
+  .ui-traveler :focus-visible { outline-color: var(--color-on-blue); }
+  .ui-traveler .card {
+    border-radius: var(--radius-card);
+    box-shadow: none;
   }
 }

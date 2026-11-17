@@ -18,6 +18,8 @@ export interface RouteRow {
   max_party_size: number;
   languages: string[];
   list_price: number;
+  /** 대표 사진 경로 (Storage route-photos, lib/routePhotos.ts) — 없으면 null */
+  cover_photo: string | null;
   status: RouteStatus;
   submitted_at: string | null;
   published_at: string | null;
@@ -34,6 +36,8 @@ export interface StopRow {
   activity: string;
   tip: string | null;
   tags: string[];
+  /** 정류장 사진 경로 — 없으면 null */
+  photo: string | null;
 }
 
 export interface SlotRow {
@@ -55,8 +59,8 @@ export interface PublicJigi {
 }
 
 export const ROUTE_COLUMNS =
-  'id, jigi_id, title, summary, tags, vibe, duration_minutes, meeting_point_note, area, max_party_size, languages, list_price, status, submitted_at, published_at, reviewed_at, created_at, updated_at';
-export const STOP_COLUMNS = 'order_no, place_name, area, stay_minutes, activity, tip, tags';
+  'id, jigi_id, title, summary, tags, vibe, duration_minutes, meeting_point_note, area, max_party_size, languages, list_price, cover_photo, status, submitted_at, published_at, reviewed_at, created_at, updated_at';
+export const STOP_COLUMNS = 'order_no, place_name, area, stay_minutes, activity, tip, tags, photo';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 

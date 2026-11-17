@@ -13,6 +13,7 @@ function rpcMessage(message: string): string {
   if (/approved jigi only/.test(message)) return '승인된 지기만 루트를 만들 수 있어요.';
   if (/longer than/.test(message)) return '코스의 머무는 시간 합이 소요 시간보다 길어요.';
   if (/not found/.test(message)) return '루트를 찾을 수 없어요.';
+  if (/invalid route photo/.test(message)) return '사진을 확인하지 못했어요. 사진을 다시 올린 뒤 저장해 주세요.';
   return '저장하지 못했어요. 입력한 내용을 확인하고 다시 시도해 주세요.';
 }
 

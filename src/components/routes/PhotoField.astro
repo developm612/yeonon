@@ -1,0 +1,43 @@
+---
+/**
+ * 루트 빌더의 사진 칸 (대표 사진 1장, 정류장마다 1장). 동작은 scripts/routeBuilder.ts → scripts/routePhotoUpload.ts.
+ * 사진을 고르면 브라우저에서 긴 변 2000px로 줄이고 위치 정보(EXIF)를 지운 뒤 Storage에 바로 올리고,
+ * 숨은 칸(name)에 경로를 넣는다. 루트에 붙는 것은 '저장'을 눌렀을 때 (DB 함수 save_route가 파일을 확인).
+ * id를 쓰지 않아 정류장 <template> 복제로도 그대로 동작한다.
+ */
+import Icon from '../Icon.astro';
+import { photoUrl } from '../../lib/routePhotos';
+
+interface Props {
+  name: 'cover_photo' | 'stop_photo';
+  value: string | null;
+  label: string;
+  hint?: string;
+  /** 정류장 칸: 작게 */
+  compact?: boolean;
+}
+const { name, value, label, hint, compact = false } = Astro.props;
+const btn = 'inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-surface px-3.5 text-sm font-semibold hover:border-text has-disabled:cursor-not-allowed has-disabled:opacity-50';
+---
+<div data-photo-field class:list={[compact ? 'sm:col-span-2' : '']}>
+  <p class:list={[compact ? 'text-sm font-semibold' : 'font-semibold']}>{label}</p>
+  {hint && <p class="mt-1 text-xs text-muted">{hint}</p>}
+  <input type="hidden" name={name} value={value ?? ''} data-photo-input />
+  <div class:list={['mt-2 flex gap-3', compact ? 'items-center' : 'flex-col sm:flex-row sm:items-end']}>
+    <div class:list={['relative shrink-0 overflow-hidden rounded-[14px] border border-border bg-bg', compact ? 'w-[120px]' : 'w-full sm:w-[280px]']} style="aspect-ratio: 4 / 3" data-photo-preview>
+      <img src={value ? photoUrl(value) : undefined} alt="" class:list={['absolute inset-0 size-full object-cover', !value && 'hidden']} data-photo-img />
+      <span class:list={['absolute inset-0 flex items-center justify-center text-muted', value && 'hidden']} data-photo-empty>
+        <Icon name="image" class={compact ? 'size-6' : 'size-8'} />
+      </span>
+      <span class="absolute inset-0 hidden items-center justify-center bg-white/75 text-sm font-semibold" data-photo-busy>올리는 중…</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <label class={btn}>
+        <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" class="sr-only" data-photo-file />
+        <Icon name="plus" class="size-4" /><span data-photo-pick>{value ? '사진 바꾸기' : '사진 올리기'}</span>
+      </label>
+      <button type="button" class:list={[btn, !value && 'hidden']} data-photo-remove>빼기</button>
+    </div>
+  </div>
+  <p class="mt-1.5 hidden text-xs font-medium" role="status" data-photo-status></p>
+</div>

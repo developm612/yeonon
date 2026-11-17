@@ -1,0 +1,84 @@
+---
+/**
+ * RouteCard — 추천 결과·루트 목록 카드 (yeonon-traveler-ui-plan.md 4-2).
+ * 사진 4:3(없으면 루트 라인 썸네일) → 제목 → AI 추천 이유(인용) → 미니 루트 라인 → 아이콘+값 두 칸 → 지기·평점 → 열린 시간 칩.
+ * `A · B · C` 메타 문자열과 가격은 카드에 두지 않는다 (가격은 상세에서).
+ */
+import Icon from '../Icon.astro';
+import RouteLine from './RouteLine.astro';
+import RoutePhoto from './RoutePhoto.astro';
+import { fmtDuration } from '../../lib/course';
+import { kstDate, kstTime } from '../../lib/routes';
+
+interface Props {
+  href: string;
+  title: string;
+  photo?: string | null;
+  /** 정류장 이름 (코스 순서) */
+  stops: string[];
+  durationMinutes: number;
+  area: string;
+  host?: { name: string; rating?: number | null; reviews?: number };
+  /** 일치율 0~100 (추천 결과에서만) */
+  match?: number;
+  /** 추천 이유 (추천 결과에서만) */
+  reason?: string;
+  /** 열린 시간 (ISO, 앞에서부터 chips개만 칩으로) */
+  slots?: string[];
+  slotCount?: number;
+  chips?: number;
+  eager?: boolean;
+  class?: string;
+}
+const {
+  href, title, photo, stops, durationMinutes, area, host, match, reason, slots = [], slotCount = slots.length, chips = 2, eager = false,
+  class: className = '',
+} = Astro.props;
+const chipLabel = (iso: string) => `${kstDate(iso, 'en-US', { weekday: 'short' })} ${kstTime(iso)}`;
+const more = slotCount - Math.min(chips, slots.length);
+---
+<article class:list={['group relative flex h-full flex-col overflow-hidden rounded-card border border-hairline bg-paper transition-colors hover:border-ink', className]}>
+  <RoutePhoto path={photo} alt="" stops={stops} ratio="4 / 3" sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw" eager={eager}>
+    {match !== undefined && (
+      <span class="absolute top-3 left-3 rounded-full bg-paper px-3 py-1.5 text-[0.9375rem] leading-none text-ink">
+        <span class="t-num">{match}%</span> match
+      </span>
+    )}
+  </RoutePhoto>
+  <div class="flex flex-1 flex-col p-4 md:p-5">
+    <h3 class="t-heading">
+      <!-- 카드 전체가 눌리도록 링크를 넓힌다 -->
+      <a href={href} class="after:absolute after:inset-0 focus-visible:outline-none group-has-[a:focus-visible]:underline">{title}</a>
+    </h3>
+    {reason && (
+      <blockquote class="t-small mt-2 border-l-[3px] border-hairline pl-3 font-normal text-ink">“{reason}”</blockquote>
+    )}
+    <div class="mt-4 flex items-start gap-3">
+      <RouteLine variant="mini" stops={stops.map((name) => ({ name }))} bare class="min-w-0 flex-1" />
+      <span class="t-small shrink-0 leading-[22px] text-stone">{stops.length} stops</span>
+    </div>
+    <dl class="t-small mt-3 grid grid-cols-2 gap-3 text-ink">
+      <div class="flex items-center gap-2"><dt><Icon name="clock" class="size-[18px] text-stone" /><span class="sr-only">Duration</span></dt><dd>{fmtDuration(durationMinutes, 'en')}</dd></div>
+      <div class="flex min-w-0 items-center gap-2"><dt><Icon name="pin" class="size-[18px] text-stone" /><span class="sr-only">Area</span></dt><dd class="truncate">{area}</dd></div>
+    </dl>
+    {host && (
+      <p class="t-small mt-3 flex items-center gap-2 text-ink">
+        <span class="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-concrete text-[0.875rem] font-bold" aria-hidden="true">{host.name.slice(0, 1)}</span>
+        <span class="min-w-0 truncate">{host.name}</span>
+        {host.rating != null && (host.reviews ?? 0) > 0 && (
+          <span class="ml-auto inline-flex shrink-0 items-center gap-1" aria-label={`Rated ${Number(host.rating).toFixed(1)} out of 5`}>
+            <Icon name="star" class="size-4" /><span class="t-num">{Number(host.rating).toFixed(1)}</span>
+          </span>
+        )}
+      </p>
+    )}
+    {slots.length > 0 && (
+      <ul class="mt-auto flex flex-wrap gap-1.5 pt-4" aria-label="Open times (KST)">
+        {slots.slice(0, chips).map((iso) => (
+          <li class="rounded-full border border-line2/40 bg-line2/[0.06] px-3 py-1 text-[0.875rem] font-semibold text-line2-text tabular-nums">{chipLabel(iso)}</li>
+        ))}
+        {more > 0 && <li class="px-1 py-1 text-[0.875rem] font-semibold text-stone">+{more}</li>}
+      </ul>
+    )}
+  </div>
+</article>

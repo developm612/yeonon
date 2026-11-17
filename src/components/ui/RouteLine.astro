@@ -1,0 +1,163 @@
+---
+/**
+ * RouteLine — 연온만의 시각 요소. 지하철 노선도처럼 정류장 점을 초록 선(2호선)으로 잇는다 (yeonon-traveler-ui-plan.md 4-1).
+ *   mini     : 가로 미니 (카드 안). 점 + 짧은 이름, 3~6곳
+ *   vertical : 세로 (루트 상세). 점 옆에 정류장 이름·머무는 시간·할 일·지기의 팁, 점 사이에 "6 min walk"
+ *   status   : 예약 진행 (요청 → 확정 → 만남 → 후기). 지나간 단계 Ink, 현재 단계만 초록으로 채움, 앞으로는 Hairline
+ * 선과 점은 SVG. animate를 주면 선이 한 번 그려진다(추천 결과 로딩에서만) — 동작 줄이기 설정이면 바로 완성된 모습.
+ */
+import Icon from '../Icon.astro';
+import RoutePhoto from './RoutePhoto.astro';
+import { STOP_KINDS, type StopKind } from '../../data/stopKinds';
+
+export interface LineStop {
+  name: string;
+  kind?: StopKind;
+  /** 머무는 시간 (분) */
+  minutes?: number;
+  activity?: string;
+  tip?: string | null;
+  /** 구역 이름 (화면용) */
+  area?: string;
+  /** 정류장 사진 경로 (Storage) */
+  photo?: string | null;
+}
+
+interface Props {
+  variant?: 'mini' | 'vertical' | 'status';
+  stops?: LineStop[];
+  /** vertical: 정류장 사이 걷는 시간 (분) */
+  walk?: number;
+  /** status: 단계 이름 */
+  steps?: string[];
+  /** status: 지금 단계 (0부터). 끝난 예약(취소·만료)은 off */
+  current?: number;
+  off?: boolean;
+  /** mini: 선이 한 번 그려지는 연출 */
+  animate?: boolean;
+  /** mini: 이름 줄 숨기기 (아주 작은 자리) */
+  bare?: boolean;
+  label?: string;
+  class?: string;
+}
+const {
+  variant = 'mini', stops = [], walk = 10, steps = ['Requested', 'Confirmed', 'Meetup', 'Review'], current = 0, off = false,
+  animate = false, bare = false, label, class: className = '',
+} = Astro.props;
+
+// 가로형: 칸 n개의 가운데에 점을 둔다 (이름이 점 바로 아래 가운데 정렬로 오도록)
+const items = variant === 'status' ? steps.map((name) => ({ name })) : stops;
+const n = Math.max(items.length, 1);
+const cx = (i: number) => `${((i + 0.5) / n) * 100}%`;
+---
+{variant === 'vertical' ? (
+  <ol class:list={['route-line-v', className]} aria-label={label ?? 'Stops'}>
+    {stops.map((s, i) => (
+      <li class="relative grid grid-cols-[28px_minmax(0,1fr)] gap-x-4">
+        <!-- 점 + 다음 정류장까지 선 -->
+        <div class="relative flex justify-center" aria-hidden="true">
+          {i < stops.length - 1 && <span class="absolute top-[22px] bottom-0 w-[5px] rounded-full bg-line2"></span>}
+          <svg class="relative mt-[5px] size-[22px]" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="8" fill="var(--color-paper)" stroke="var(--color-line2)" stroke-width="4" />
+          </svg>
+        </div>
+        <div class:list={['min-w-0', i < stops.length - 1 ? 'pb-4' : 'pb-0']}>
+          <h3 class="t-heading flex items-center gap-2">
+            {s.kind && <Icon name={STOP_KINDS[s.kind].icon} class="size-5 shrink-0 text-stone" />}
+            <span class="min-w-0">{s.name}</span>
+          </h3>
+          {(s.minutes || s.area) && (
+            <p class="t-small mt-1 flex flex-wrap gap-x-4 gap-y-1 text-stone">
+              {s.minutes && <span class="inline-flex items-center gap-1.5"><Icon name="clock" class="size-4" /><span class="tabular-nums">{s.minutes} min</span></span>}
+              {s.area && <span class="inline-flex items-center gap-1.5"><Icon name="pin" class="size-4" />{s.area}</span>}
+            </p>
+          )}
+          {s.photo && <RoutePhoto path={s.photo} alt={s.name} ratio="3 / 2" sizes="(min-width: 1024px) 560px, 90vw" class="mt-3 max-w-[560px] rounded-media" />}
+          {s.activity && <p class="t-body measure mt-2">{s.activity}</p>}
+          {s.tip && (
+            <p class="t-small measure mt-3 rounded-control border border-hairline bg-paper px-3.5 py-2.5 font-normal">
+              <span class="font-semibold">Local tip</span>
+              <span class="mt-0.5 block">{s.tip}</span>
+            </p>
+          )}
+          {i < stops.length - 1 && (
+            <p class="t-small mt-4 inline-flex items-center gap-1.5 text-line2-text">
+              <Icon name="walk" class="size-4" />{walk} min walk
+            </p>
+          )}
+        </div>
+      </li>
+    ))}
+  </ol>
+) : (
+  <div class:list={['route-line', animate && 'is-drawing', className]} role="img"
+    aria-label={label ?? (variant === 'status'
+      ? `${off ? 'Ended' : `Step ${current + 1} of ${steps.length}`}: ${steps.join(', ')}`
+      : `${stops.length} stops: ${stops.map((s) => s.name).join(', ')}`)}>
+    <svg class="block h-[22px] w-full overflow-visible" aria-hidden="true">
+      {variant === 'status' ? (
+        <>
+          {items.slice(1).map((_, i) => (
+            <line x1={cx(i)} x2={cx(i + 1)} y1="11" y2="11" stroke-width="4" stroke-linecap="round"
+              stroke={!off && i < current ? 'var(--color-ink)' : 'var(--color-hairline)'} />
+          ))}
+          {items.map((_, i) =>
+            !off && i === current ? (
+              <>
+                <circle cx={cx(i)} cy="11" r="10" fill="var(--color-line2)" opacity="0.18" />
+                <circle cx={cx(i)} cy="11" r="6.5" fill="var(--color-line2)" />
+              </>
+            ) : !off && i < current ? (
+              <circle cx={cx(i)} cy="11" r="5.5" fill="var(--color-ink)" />
+            ) : (
+              <circle cx={cx(i)} cy="11" r="5.5" fill="var(--color-paper)" stroke="var(--color-hairline)" stroke-width="3" />
+            ),
+          )}
+        </>
+      ) : (
+        <>
+          {n > 1 && (
+            <line class="rl-path" x1={cx(0)} x2={cx(n - 1)} y1="11" y2="11" pathLength="1"
+              stroke="var(--color-line2)" stroke-width="4" stroke-linecap="round" />
+          )}
+          {items.map((_, i) => (
+            <circle class="rl-dot" style={`--i:${i}`} cx={cx(i)} cy="11" r="6" fill="var(--color-paper)" stroke="var(--color-line2)" stroke-width="3.5" />
+          ))}
+        </>
+      )}
+    </svg>
+    {!bare && (
+      <ol class="mt-1.5 grid" style={`grid-template-columns: repeat(${n}, minmax(0, 1fr))`} aria-hidden="true">
+        {items.map((it, i) => (
+          <li class:list={[
+            'line-clamp-2 px-0.5 text-center [overflow-wrap:anywhere] text-[0.8125rem] leading-[1.125rem] font-semibold',
+            variant === 'status'
+              ? !off && i === current ? 'text-line2-text' : !off && i < current ? 'text-ink' : 'text-stone'
+              : 'text-ink',
+          ]}>{it.name}</li>
+        ))}
+      </ol>
+    )}
+  </div>
+)}
+
+<style>
+  /* 선이 왼쪽에서 오른쪽으로 한 번 그려지고, 점이 차례로 찍힌다 (1.2초).
+     기본 상태가 '완성된 모습'이라, 동작 줄이기(global.css가 애니메이션을 끔)면 그대로 보인다. */
+  .is-drawing .rl-path {
+    stroke-dasharray: 1;
+    animation: rl-draw 1.2s cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+  .is-drawing .rl-dot {
+    animation: rl-dot 0.3s ease-out both;
+    animation-delay: calc(var(--i) * 0.22s + 0.1s);
+  }
+  @keyframes rl-draw {
+    from { stroke-dashoffset: 1; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes rl-dot {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+</style>

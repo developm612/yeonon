@@ -24,6 +24,19 @@ export const STATUS_TONE_CLASS = {
   off: 'bg-text/5 text-muted',
 } as const;
 
+/**
+ * 새 여행자 화면(성수 라인)의 상태 이름·톤 — components/ui/StatusBadge.astro.
+ * 화면 전체에서 같은 이름을 쓴다: Requested / Confirmed / Completed / Cancelled / Expired (+ Declined)
+ */
+export const TRAVELER_STATUS: Record<BookingStatus, { label: string; tone: 'ok' | 'wait' | 'off' | 'done' }> = {
+  pending: { label: 'Requested', tone: 'wait' },
+  confirmed: { label: 'Confirmed', tone: 'ok' },
+  completed: { label: 'Completed', tone: 'done' },
+  declined: { label: 'Declined', tone: 'off' },
+  expired: { label: 'Expired', tone: 'off' },
+  cancelled: { label: 'Cancelled', tone: 'off' },
+};
+
 /** 진행 중(대기·확정)인지 */
 export const isActive = (s: BookingStatus) => s === 'pending' || s === 'confirmed';
 

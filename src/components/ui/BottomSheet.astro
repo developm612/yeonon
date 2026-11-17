@@ -1,0 +1,57 @@
+---
+/**
+ * BottomSheet — 모바일은 아래에서 올라오는 시트, 768px 이상은 가운데 창 (yeonon-traveler-ui-plan.md 4-4).
+ * 루트 상세의 시간 선택·요청, 채팅 신고 메뉴에 쓴다. 네이티브 <dialog>라 포커스 가두기·Esc 닫기가 기본으로 된다.
+ * 여는 버튼: <button data-sheet-open="시트 id">, 닫는 버튼: 시트 안의 [data-sheet-close]. 바깥(어두운 곳)을 눌러도 닫힌다.
+ */
+import Icon from '../Icon.astro';
+
+interface Props {
+  id: string;
+  title: string;
+  class?: string;
+}
+const { id, title, class: className = '' } = Astro.props;
+---
+<dialog id={id} aria-labelledby={`${id}-title`} data-sheet
+  class:list={['sheet m-0 mt-auto w-full max-w-none bg-paper p-0 text-ink shadow-float backdrop:bg-ink/45 md:m-auto md:w-[min(calc(100vw-2rem),30rem)] md:rounded-card', className]}>
+  <div class="flex max-h-[85dvh] flex-col">
+    <div class="flex items-center gap-3 border-b border-hairline px-5 pt-3 pb-3 md:pt-4">
+      <span class="absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-hairline md:hidden" aria-hidden="true"></span>
+      <h2 id={`${id}-title`} class="t-heading min-w-0 flex-1 pt-2 md:pt-0">{title}</h2>
+      <button type="button" data-sheet-close class="-mr-2 inline-flex size-11 items-center justify-center rounded-control text-stone hover:bg-ink/5 hover:text-ink" aria-label="Close">
+        <Icon name="x" class="size-5" />
+      </button>
+    </div>
+    <div class="overflow-y-auto px-5 py-5">
+      <slot />
+    </div>
+    {Astro.slots.has('footer') && <div class="border-t border-hairline px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]"><slot name="footer" /></div>}
+  </div>
+</dialog>
+
+<style>
+  /* 모바일: 위쪽 모서리만 둥글게 */
+  .sheet { border-radius: var(--radius-media) var(--radius-media) 0 0; }
+  @media (min-width: 768px) { .sheet { border-radius: var(--radius-card); } }
+  .sheet[open] { animation: sheet-up 0.22s ease-out; }
+  @keyframes sheet-up { from { transform: translateY(24px); opacity: 0.6; } }
+  @media (min-width: 768px) { .sheet[open] { animation: none; } }
+</style>
+
+<script>
+  // 페이지에 시트가 여러 개여도 한 번만 연결된다 (Astro가 스크립트를 한 번만 넣는다)
+  document.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const opener = t.closest<HTMLElement>('[data-sheet-open]');
+    if (opener) {
+      const d = document.getElementById(opener.dataset.sheetOpen!) as HTMLDialogElement | null;
+      if (d && !d.open) d.showModal();
+      return;
+    }
+    const sheet = t.closest<HTMLDialogElement>('dialog[data-sheet]');
+    if (!sheet) return;
+    // 어두운 바깥을 누르면 이벤트 대상이 dialog 자신이다
+    if (t === sheet || t.closest('[data-sheet-close]')) sheet.close();
+  });
+</script>

@@ -33,9 +33,9 @@ if (loaded) {
     route: {
       title: route.title, summary: route.summary, tags: route.tags, vibe: route.vibe, duration_minutes: route.duration_minutes,
       meeting_point_note: route.meeting_point_note, area: route.area, max_party_size: route.max_party_size,
-      languages: route.languages, list_price: route.list_price,
+      languages: route.languages, list_price: route.list_price, cover_photo: route.cover_photo ?? null,
     },
-    stops: stops.map((s) => ({ place_name: s.place_name, area: s.area, stay_minutes: s.stay_minutes, activity: s.activity, tip: s.tip ?? '', tags: s.tags })),
+    stops: stops.map((s) => ({ place_name: s.place_name, area: s.area, stay_minutes: s.stay_minutes, activity: s.activity, tip: s.tip ?? '', tags: s.tags, photo: s.photo ?? null })),
   };
   const { data: note } = await supabase.from('route_review_notes').select('memo').eq('route_id', route.id).maybeSingle();
   memo = note?.memo ?? '';
@@ -71,7 +71,7 @@ const status = loaded?.route.status;
           {status === 'in_review' && (
             <Notice class="mt-4">검수 중에는 고칠 수 없어요. 고치려면 내 루트에서 '검수 요청 취소'를 눌러 주세요.</Notice>
           )}
-          <RouteBuilder values={values} error={error} locked={status === 'in_review'} />
+          <RouteBuilder values={values} error={error} locked={status === 'in_review'} ownerId={profile.id} />
         </>
       )}
     </div>

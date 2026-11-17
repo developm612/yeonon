@@ -3,12 +3,16 @@
  * 루트 상세 본문 — 공개 /routes/[id]와 여행자 /app/routes/[id]가 같이 쓴다.
  * 코스 타임라인, 만나는 곳, 지기 공개 프로필(이름 일부만)·평점·최근 후기(여행자 이름은 첫 글자만), 앞으로 4주 가능 시간 칩(KST).
  * 요청 버튼 자리는 slot="cta"로 각 페이지가 채운다.
+ * 대표 사진(없으면 루트 라인 썸네일)과 세로 루트 라인(정류장 사진 포함)은 components/ui (성수 라인). 나머지 화면 재구성은 D4.
  * pickForm을 주면 시간 칩이 그 폼(id)의 라디오 버튼(slot_id)이 된다 — 여행자 요청 화면.
  */
 import Icon from '../Icon.astro';
+import RouteLine from '../ui/RouteLine.astro';
+import RoutePhoto from '../ui/RoutePhoto.astro';
+import { stopKind } from '../../data/stopKinds';
 import { interestNames } from '../../data/interests';
 import { WALK_MIN, areaName, languageName, vibeName } from '../../data/routeOptions';
-import { courseMinutes, courseTimeline, fmtDuration, stopEmoji } from '../../lib/course';
+import { courseMinutes, fmtDuration } from '../../lib/course';
 import { kstDate, kstDay, kstTime, won, type PublicJigi, type RouteRow, type SlotRow, type StopRow } from '../../lib/routes';
 import type { PublicReview } from '../../lib/reviews';
 
@@ -30,22 +34,22 @@ const { route, stops, host, slots, backHref, backLabel, pickForm, priceLabel, re
 const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 const monthYear = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'Asia/Seoul', month: 'short', year: 'numeric' });
 
-const course = stops.map((s) => ({ emoji: stopEmoji(s.tags), name: s.place_name, min: s.stay_minutes }));
-const timeline = courseTimeline(course, 0, WALK_MIN);
+const lineStops = stops.map((s) => ({
+  name: s.place_name, kind: stopKind(s.tags), minutes: s.stay_minutes, area: areaName(s.area, 'en'), activity: s.activity, tip: s.tip, photo: s.photo,
+}));
 const byDay = new Map<string, SlotRow[]>();
 for (const s of slots) byDay.set(kstDay(s.starts_at), [...(byDay.get(kstDay(s.starts_at)) ?? []), s]);
 const hostInitial = host?.display_name?.slice(0, 1) ?? '';
 ---
-<div class="bg-gradient-to-br from-jigi to-jigi-strong text-white">
-  <div class="container-page py-10 md:py-14">
-    <a href={backHref} class="text-sm font-semibold text-white/80 hover:text-white">← {backLabel}</a>
-    <p class="mt-4 text-[34px] tracking-[8px]" aria-hidden="true">{course.map((c) => c.emoji).join('')}</p>
-    <h1 class="mt-2 text-3xl font-extrabold md:text-4xl">{route.title}</h1>
-    <p class="mt-2 max-w-2xl text-white/90">{route.summary}</p>
-    <ul class="mt-4 flex flex-wrap gap-1.5" aria-label="Interests">
-      {interestNames(route.tags, 'en').map((name) => <li class="rounded-full bg-white/20 px-3 py-1 text-sm font-semibold">{name}</li>)}
-    </ul>
-  </div>
+<div class="container-page pt-6 md:pt-8">
+  <a href={backHref} class="t-small inline-flex min-h-11 items-center gap-1 text-stone hover:text-ink"><Icon name="chevron-left" class="size-4" />{backLabel}</a>
+  <RoutePhoto path={route.cover_photo} alt={route.title} ratio="auto" eager stops={stops.map((s) => s.place_name)}
+    sizes="(min-width: 1120px) 1056px, 100vw" class="mt-2 aspect-[4/5] rounded-media sm:aspect-video" />
+  <h1 class="t-display mt-6 md:mt-8">{route.title}</h1>
+  <p class="t-body measure mt-3 text-stone">{route.summary}</p>
+  <ul class="mt-4 flex flex-wrap gap-1.5" aria-label="Interests">
+    {interestNames(route.tags, 'en').map((name) => <li class="rounded-full border border-hairline bg-paper px-3 py-1 text-[0.875rem] font-semibold">{name}</li>)}
+  </ul>
 </div>
 
 <section class="section pt-10! md:pt-12!">
@@ -66,22 +70,8 @@ const hostInitial = host?.display_name?.slice(0, 1) ?? '';
 
       <div>
         <h2 class="text-xl font-extrabold">The route</h2>
-        <p class="mt-1 text-sm text-muted">About {fmtDuration(courseMinutes(course.map((c) => c.min), WALK_MIN), 'en')} including short walks between stops.</p>
-        <ol class="mt-5 border-l-2 border-jigi-soft pl-5" aria-label="Stops">
-          {timeline.map((item) =>
-            item.kind === 'walk' ? (
-              <li class="pb-5 text-sm text-muted">🚶 About {item.minutes} min walk</li>
-            ) : (
-              <li class="relative pb-5 last:pb-0">
-                <span class="absolute top-[6px] -left-[28px] size-[14px] rounded-full border-2 border-white bg-jigi-strong" aria-hidden="true"></span>
-                <p class="text-xs font-bold text-jigi-strong">Stop {item.index + 1} · {item.stop.min} min · {areaName(stops[item.index].area, 'en')}</p>
-                <h3 class="mt-0.5 text-lg font-bold"><span aria-hidden="true">{item.stop.emoji}</span> {item.stop.name}</h3>
-                <p class="mt-1">{stops[item.index].activity}</p>
-                {stops[item.index].tip && <p class="mt-2 rounded-xl bg-jigi-soft px-3 py-2 text-sm"><b>Jigi's tip</b> · {stops[item.index].tip}</p>}
-              </li>
-            ),
-          )}
-        </ol>
+        <p class="mt-1 text-sm text-muted">About {fmtDuration(courseMinutes(stops.map((s) => s.stay_minutes), WALK_MIN), 'en')} including short walks between stops.</p>
+        <RouteLine variant="vertical" stops={lineStops} walk={WALK_MIN} class="mt-6" />
       </div>
 
       <div>

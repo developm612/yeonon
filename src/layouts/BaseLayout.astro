@@ -18,6 +18,9 @@ const { title, description, lang = 'en', sticky = 'traveler', noindex = false } 
 const canonical = new URL(Astro.url.pathname, Astro.site);
 // 공유 미리보기 이미지 1200×630 (public/images/og-image.png). 주소는 astro.config.mjs의 site 기준
 const ogImage = new URL('/images/og-image.png', Astro.site);
+// 여행자 영역(/app, /routes)과 디자인 확인 페이지(/dev/ui)는 새 디자인 시스템 "성수 라인"을 쓴다 (global.css .ui-traveler).
+// /app-preview(랜딩의 앱 미리보기)는 여행자 영역이 아니다.
+const travelerUi = /^\/(app|routes|dev\/ui)(\/|$)/.test(Astro.url.pathname);
 ---
 
 <!doctype html>
@@ -38,7 +41,7 @@ const ogImage = new URL('/images/og-image.png', Astro.site);
     {noindex && <meta name="robots" content="noindex, nofollow" />}
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#F5F8FD" />
+    <meta name="theme-color" content={travelerUi ? '#F1F3F2' : '#F5F8FD'} />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="YEONON 연온" />
@@ -55,16 +58,23 @@ const ogImage = new URL('/images/og-image.png', Astro.site);
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-    />
+    {travelerUi ? (
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..700&display=swap"
+      />
+    ) : (
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      />
+    )}
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
     />
   </head>
-  <body class:list={['min-h-dvh', sticky !== 'none' && 'pb-[76px] md:pb-0']}>
+  <body class:list={['min-h-dvh', travelerUi && 'ui-traveler', sticky !== 'none' && 'pb-[76px] md:pb-0']}>
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-surface focus:px-4 focus:py-2 focus:shadow"

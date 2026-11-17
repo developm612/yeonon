@@ -5,9 +5,10 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
+import RoutePhoto from '../../components/ui/RoutePhoto.astro';
 import { INTERESTS, interestNames, isInterestId } from '../../data/interests';
 import { areaName } from '../../data/routeOptions';
-import { fmtDuration, stopEmoji } from '../../lib/course';
+import { fmtDuration } from '../../lib/course';
 import { dbError } from '../../lib/forms';
 import { ROUTE_COLUMNS, kstDate, won, type PublicJigi, type RouteRow } from '../../lib/routes';
 import { createSupabaseServerClient, isAuthConfigured, isMemberUiPublic } from '../../lib/supabase';
@@ -19,7 +20,8 @@ const tagParam = Astro.url.searchParams.get('tag') ?? '';
 const tag = isInterestId(tagParam) ? tagParam : null;
 
 let routes: RouteRow[] = [];
-const emojis = new Map<string, string>();
+// 사진이 없는 루트의 노선도 썸네일에 그릴 정류장 이름
+const stopNames = new Map<string, string[]>();
 const nextSlot = new Map<string, string>();
 const hosts = new Map<string, PublicJigi>();
 if (supabase) {
@@ -31,11 +33,11 @@ if (supabase) {
   const ids = routes.map((r) => r.id);
   if (ids.length) {
     const [{ data: stops }, { data: slots }, { data: jigis }] = await Promise.all([
-      supabase.from('route_stops').select('route_id, order_no, tags').in('route_id', ids).order('order_no'),
+      supabase.from('route_stops').select('route_id, order_no, place_name').in('route_id', ids).order('order_no'),
       supabase.from('slots').select('route_id, starts_at').in('route_id', ids).eq('status', 'open').gt('starts_at', new Date().toISOString()).order('starts_at').limit(1000),
       supabase.from('public_jigis').select('*').in('user_id', [...new Set(routes.map((r) => r.jigi_id))]),
     ]);
-    for (const s of stops ?? []) emojis.set(s.route_id, (emojis.get(s.route_id) ?? '') + stopEmoji(s.tags));
+    for (const s of stops ?? []) stopNames.set(s.route_id, [...(stopNames.get(s.route_id) ?? []), s.place_name]);
     for (const s of slots ?? []) if (!nextSlot.has(s.route_id)) nextSlot.set(s.route_id, s.starts_at);
     for (const j of (jigis ?? []) as PublicJigi[]) hosts.set(j.user_id, j);
   }
@@ -73,9 +75,8 @@ if (supabase) {
           {routes.map((r) => (
             <li>
               <a href={`/routes/${r.id}`} class="card group flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg">
-                <div class="flex h-[96px] items-end bg-gradient-to-br from-jigi to-jigi-strong p-4 text-white">
-                  <p class="text-[26px] tracking-[6px]" aria-hidden="true">{emojis.get(r.id)}</p>
-                </div>
+                <RoutePhoto path={r.cover_photo} alt="" stops={stopNames.get(r.id) ?? []} ratio="4 / 3"
+                  sizes="(min-width: 1024px) 352px, (min-width: 640px) 50vw, 100vw" />
                 <div class="flex flex-1 flex-col p-5">
                   <h2 class="text-lg leading-snug font-extrabold group-hover:underline">{r.title}</h2>
                   <p class="mt-1 text-sm text-muted">{r.summary}</p>

@@ -115,9 +115,11 @@ const canWiden = input.date_from !== kstToday() || input.date_to !== kstToday(DI
   <template data-card-template>
     <li>
       <a class="card group flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg" data-card-link>
-        <div class="flex items-center justify-between gap-3 bg-gradient-to-br from-jigi to-jigi-strong p-4 text-white">
-          <p class="truncate text-[24px] tracking-[6px]" aria-hidden="true" data-emojis></p>
-          <p class="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-extrabold text-jigi-strong" data-percent></p>
+        <!-- 대표 사진 (없으면 노선도 썸네일) — 카드 전체 재구성은 D4 -->
+        <div class="relative overflow-hidden bg-concrete" style="aspect-ratio: 16 / 9">
+          <img alt="" loading="lazy" decoding="async" class="absolute inset-0 hidden size-full object-cover" data-photo />
+          <div class="absolute inset-0 hidden" aria-hidden="true" data-thumb></div>
+          <p class="absolute top-3 left-3 rounded-full bg-white px-3 py-1 text-sm font-extrabold text-text" data-percent></p>
         </div>
         <div class="flex flex-1 flex-col p-5">
           <h3 class="text-lg leading-snug font-extrabold group-hover:underline" data-title></h3>
@@ -143,6 +145,8 @@ const canWiden = input.date_from !== kstToday() || input.date_to !== kstToday(DI
 
 <script>
   import type { RecommendResult, RecommendationCard } from '../../../lib/recommend/engine';
+  import { photoUrl } from '../../../lib/routePhotos';
+  import { ROUTE_THUMB_BG, routeThumbSvg } from '../../../lib/routeThumb';
 
   const root = document.querySelector<HTMLElement>('[data-results]')!;
   const tpl = document.querySelector<HTMLTemplateElement>('[data-card-template]')!;
@@ -162,7 +166,18 @@ const canWiden = input.date_from !== kstToday() || input.date_to !== kstToday(DI
     const li = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
     const a = $<HTMLAnchorElement>(li, '[data-card-link]');
     a.href = `/app/routes/${c.route_id}${recId ? `?rec=${recId}` : ''}`;
-    $(li, '[data-emojis]').textContent = c.emojis.join('');
+    if (c.cover_photo) {
+      const img = $<HTMLImageElement>(li, '[data-photo]');
+      img.src = photoUrl(c.cover_photo);
+      img.hidden = false;
+      img.classList.remove('hidden');
+    } else {
+      const thumb = $(li, '[data-thumb]');
+      thumb.setAttribute('style', ROUTE_THUMB_BG);
+      // 정류장 이름은 routeThumbSvg 안에서 이스케이프된다
+      thumb.innerHTML = routeThumbSvg(c.stop_names ?? []);
+      thumb.classList.remove('hidden');
+    }
     $(li, '[data-percent]').textContent = `${c.percent}% match`;
     $(li, '[data-title]').textContent = c.title;
     $(li, '[data-reason]').textContent = c.reason;

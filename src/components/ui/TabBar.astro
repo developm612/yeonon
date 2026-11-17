@@ -1,0 +1,39 @@
+---
+/**
+ * 모바일 하단 고정 탭 (768px 미만): Home · Discover · Bookings · Messages · Profile (yeonon-traveler-ui-plan.md 4-4).
+ * 데스크톱은 기존 상단 탭(AreaNav)을 쓴다. 이 탭을 쓰는 페이지는 본문 아래에 높이(약 64px)만큼 여백을 둔다 — D5에서 연결.
+ * static을 주면 고정하지 않고 제자리에 그린다 (/dev/ui 견본용).
+ */
+import Icon, { type IconName } from '../Icon.astro';
+
+interface Props {
+  /** 지금 주소 대신 쓸 경로 (견본용) */
+  path?: string;
+  static?: boolean;
+}
+const { path: pathProp, static: isStatic = false } = Astro.props;
+const ITEMS: { href: string; label: string; icon: IconName }[] = [
+  { href: '/app', label: 'Home', icon: 'home' },
+  { href: '/app/discover', label: 'Discover', icon: 'compass' },
+  { href: '/app/bookings', label: 'Bookings', icon: 'calendar' },
+  { href: '/app/messages', label: 'Messages', icon: 'chat' },
+  { href: '/app/profile', label: 'Profile', icon: 'user' },
+];
+const path = (pathProp ?? Astro.url.pathname).replace(/\/$/, '') || '/';
+const current = ITEMS.map((i) => i.href).filter((h) => path === h || path.startsWith(h + '/')).sort((a, b) => b.length - a.length)[0];
+---
+<nav aria-label="Traveler menu"
+  class:list={['border-t border-hairline bg-paper/95 backdrop-blur md:hidden', !isStatic && 'fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]']}>
+  <ul class="mx-auto grid max-w-lg grid-cols-5">
+    {ITEMS.map((i) => (
+      <li>
+        <a href={i.href} aria-current={i.href === current ? 'page' : undefined}
+          class:list={['flex min-h-16 flex-col items-center justify-center gap-1 text-[0.75rem] leading-none font-semibold',
+            i.href === current ? 'text-on-blue' : 'text-stone hover:text-ink']}>
+          <Icon name={i.icon} class="size-6" />
+          {i.label}
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>

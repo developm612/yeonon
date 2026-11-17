@@ -5,6 +5,7 @@
  * 앱 미리보기의 '내 코스' 항목(번호·위로·빼기 버튼) 모양을 따른다.
  */
 import Icon from '../Icon.astro';
+import PhotoField from './PhotoField.astro';
 import { INTERESTS } from '../../data/interests';
 import { LIMITS, ROUTE_AREAS, STAY_OPTIONS, STOP_TAG_MAX } from '../../data/routeOptions';
 import type { StopDraft } from '../../lib/routeValidation';
@@ -69,5 +70,6 @@ const input = 'mt-1 block h-11 w-full rounded-xl border border-border bg-surface
         ))}
       </ul>
     </div>
+    <PhotoField name="stop_photo" value={stop.photo} label="이 장소 사진 (선택)" compact />
   </div>
 </li>

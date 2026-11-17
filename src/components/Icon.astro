@@ -1,5 +1,5 @@
 ---
-// 간단한 라인 아이콘 모음 (24×24, stroke)
+// 간단한 라인 아이콘 모음 (24×24, stroke 1.75)
 const paths = {
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 13.6c2.8.3 5 2.6 5 5.4"/>',
@@ -33,6 +33,19 @@ const paths = {
   compass: '<circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
   feedback: '<path d="M4.5 5h15v10.5h-8L7 19v-3.5H4.5z"/><path d="m9.5 9.8 1.6 1.6 3.4-3.4"/>',
   chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  // 여행자 화면 정류장 종류·탭바 (성수 라인, 1.75px 선)
+  bag: '<path d="M5 8h14l-1 12.5H6z"/><path d="M9 10.5V7a3 3 0 0 1 6 0v3.5"/>',
+  utensils: '<path d="M7 3.5v17M4.5 3.5v4.5a2.5 2.5 0 0 0 5 0V3.5"/><path d="M17 20.5v-17c-2 0-3.5 2.5-3.5 6s1.5 4.5 3.5 4.5"/>',
+  walk: '<circle cx="13" cy="4.5" r="1.8"/><path d="m9.5 21 2-6.5 3 3V21M11.5 14.5l1-5.5-3.5 1.5L7.5 13M12.5 9l2.5 3 3 1"/>',
+  craft: '<circle cx="9" cy="10" r="5.5"/><path d="M5.5 6.5c2 1 3.5 3.5 3.5 7M12.5 6.5c-2 1.5-3 4-2.5 9M14 14.5l6 6"/>',
+  moon: '<path d="M19.5 14.5A8 8 0 1 1 9.5 4.5a6.5 6.5 0 0 0 10 10Z"/>',
+  leaf: '<path d="M5 19c0-8 5-13.5 14.5-14 .5 9.5-5 14.5-13 14.5"/><path d="M5 19c3-4 6-6.5 9.5-8"/>',
+  star: '<path d="m12 3.8 2.5 5.2 5.6.8-4 4 1 5.6-5.1-2.7-5 2.7 1-5.6-4.1-4 5.6-.8z"/>',
+  home: '<path d="M4 10.5 12 4l8 6.5V20h-5.5v-5.5h-5V20H4z"/>',
+  bell: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  more: '<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>',
+  route: '<circle cx="5.5" cy="17.5" r="2"/><circle cx="18.5" cy="6.5" r="2"/><path d="M7.5 17.5h7a3 3 0 0 0 0-6h-5a3 3 0 0 1 0-6h7"/>',
+  image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 3.5 3.5L15 14l5 4.5"/>',
 } as const;
 
 export type IconName = keyof typeof paths;
@@ -44,7 +57,7 @@ const { name, class: className = 'size-6' } = Astro.props;
   viewBox="0 0 24 24"
   fill="none"
   stroke="currentColor"
-  stroke-width="1.7"
+  stroke-width="1.75"
   stroke-linecap="round"
   stroke-linejoin="round"
   aria-hidden="true"

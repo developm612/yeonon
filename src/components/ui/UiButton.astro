@@ -1,0 +1,32 @@
+---
+/**
+ * 여행자 화면 버튼 3종 (yeonon-traveler-ui-plan.md 4-3). href가 있으면 링크, 없으면 button.
+ *   primary   : ON Blue 면 + 흰 글자, 12px 둥글기, 높이 52px — 화면당 1개
+ *   secondary : 흰 면 + Hairline 테두리 — 보조 행동
+ *   text      : 파란 글자, 누르면(hover) 밑줄 — 덜 중요한 링크
+ * 글자 끝에 → 를 붙이지 않는다. 나머지 속성(name, value, form, data-* …)은 그대로 넘긴다.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+type Props = {
+  variant?: 'primary' | 'secondary' | 'text';
+  href?: string;
+  type?: 'button' | 'submit';
+  /** sm은 높이 44px (목록 안의 작은 행동) */
+  size?: 'sm' | 'md';
+  full?: boolean;
+  class?: string;
+} & Omit<HTMLAttributes<'a'> & HTMLAttributes<'button'>, 'type' | 'class'>;
+
+const { variant = 'primary', href, type = 'button', size = 'md', full = false, class: className = '', ...rest } = Astro.props;
+const base = 'inline-flex items-center justify-center gap-2 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 aria-disabled:pointer-events-none aria-disabled:opacity-55';
+const box = size === 'sm' ? 'min-h-11 px-4 text-[0.9375rem]' : 'min-h-[52px] px-6 text-[1.0625rem]';
+const styles = {
+  primary: `${box} rounded-control bg-on-blue text-white hover:bg-on-blue-hover`,
+  secondary: `${box} rounded-control border border-hairline bg-paper text-ink hover:border-ink`,
+  text: 'min-h-11 px-1 text-on-blue hover:underline hover:underline-offset-4',
+};
+const cls = [base, styles[variant], full && 'w-full', className];
+const Tag = href ? 'a' : 'button';
+---
+<Tag href={href} type={href ? undefined : type} class:list={cls} {...rest}><slot /></Tag>

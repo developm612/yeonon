@@ -4,13 +4,16 @@
  * - 태그 개수 제한, 정류장별 취향 칩
  * - 입력하는 대로 여행자용 코스 카드 미리보기 갱신 (scripts/courseCard.ts)
  * - 제출 전 서버와 같은 검증(lib/routeValidation.ts)으로 안내
+ * - 대표 사진·정류장 사진: 고르면 줄이고(EXIF 삭제) 바로 Storage에 올린 뒤 숨은 칸에 경로를 넣는다 (scripts/routePhotoUpload.ts)
  * 사용자 입력은 textContent로만 화면에 넣는다.
  */
 import { INTERESTS } from '../data/interests';
 import { STOP_MAX, STOP_TAG_MAX } from '../data/routeOptions';
 import { courseMinutes, fmtDuration, stopEmoji } from '../lib/course';
+import { photoUrl } from '../lib/routePhotos';
 import { readRouteForm, validateRoute } from '../lib/routeValidation';
 import { renderCourseCard } from './courseCard';
+import { PhotoError, deletePhoto, shrinkPhoto, uploadPhoto } from './routePhotoUpload';
 
 const form = document.querySelector<HTMLFormElement>('[data-route-builder]');
 if (form) {
@@ -25,6 +28,10 @@ if (form) {
   const startBtns = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-start]'));
   let start = startBtns[0]?.dataset.start ?? '14:00';
   const TAG_KO = new Map<string, string>(INTERESTS.map((it) => [it.id, it.ko]));
+  const owner = form.dataset.photoOwner ?? '';
+  /** 이 화면에서 새로 올린 사진 (저장 전에 바꾸거나 빼면 Storage에서도 지운다) */
+  const fresh = new Set<string>();
+  let uploading = 0;
 
   const read = () => {
     const fd = new FormData(form);
@@ -68,6 +75,78 @@ if (form) {
     boxes.forEach((b) => (b.disabled = full && !b.checked));
   }
 
+  // ---- 사진 ----
+  const submitButtons = () => Array.from(form.querySelectorAll<HTMLButtonElement>('button[type="submit"]'));
+
+  function setPhoto(field: HTMLElement, path: string | null) {
+    const input = $<HTMLInputElement>('[data-photo-input]', field);
+    const prev = input.value;
+    input.value = path ?? '';
+    const img = $<HTMLImageElement>('[data-photo-img]', field);
+    if (path) img.src = photoUrl(path);
+    else img.removeAttribute('src');
+    img.classList.toggle('hidden', !path);
+    $<HTMLElement>('[data-photo-empty]', field).classList.toggle('hidden', !!path);
+    $<HTMLElement>('[data-photo-remove]', field).classList.toggle('hidden', !path);
+    $<HTMLElement>('[data-photo-pick]', field).textContent = path ? '사진 바꾸기' : '사진 올리기';
+    // 저장한 적 없는(이번에 올린) 사진만 지운다 — 이미 저장된 사진은 공개 중인 루트가 쓰고 있을 수 있다
+    if (prev && prev !== path && fresh.has(prev)) {
+      fresh.delete(prev);
+      void deletePhoto(prev);
+    }
+  }
+
+  function photoStatus(field: HTMLElement, message: string, tone: 'info' | 'warn' | 'error' = 'info') {
+    const el = $<HTMLElement>('[data-photo-status]', field);
+    el.textContent = message;
+    el.classList.toggle('hidden', !message);
+    el.classList.toggle('text-[#B42318]', tone === 'error');
+    el.classList.toggle('text-[#8A5A00]', tone === 'warn');
+    el.classList.toggle('text-muted', tone === 'info');
+  }
+
+  async function pickPhoto(field: HTMLElement, file: File) {
+    const busy = $<HTMLElement>('[data-photo-busy]', field);
+    busy.classList.replace('hidden', 'flex');
+    photoStatus(field, '');
+    uploading++;
+    submitButtons().forEach((b) => (b.disabled = true));
+    try {
+      const shrunk = await shrinkPhoto(file);
+      const path = await uploadPhoto(owner, shrunk.blob, shrunk.ext);
+      fresh.add(path);
+      setPhoto(field, path);
+      photoStatus(
+        field,
+        shrunk.small ? '올렸어요. 다만 사진이 작아서 큰 화면에서는 흐리게 보일 수 있어요. 저장해야 루트에 반영돼요.' : '올렸어요. 저장해야 루트에 반영돼요.',
+        shrunk.small ? 'warn' : 'info',
+      );
+    } catch (e) {
+      photoStatus(field, e instanceof PhotoError ? e.message : '사진을 올리지 못했어요. 다른 사진으로 다시 시도해 주세요.', 'error');
+    } finally {
+      busy.classList.replace('flex', 'hidden');
+      uploading--;
+      if (uploading === 0) submitButtons().forEach((b) => (b.disabled = false));
+    }
+  }
+
+  form.addEventListener('change', (e) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.matches('[data-photo-file]')) return;
+    const file = input.files?.[0];
+    input.value = '';
+    const field = input.closest<HTMLElement>('[data-photo-field]');
+    if (file && field) void pickPhoto(field, file);
+  });
+  form.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-photo-remove]');
+    const field = btn?.closest<HTMLElement>('[data-photo-field]');
+    if (!field) return;
+    setPhoto(field, null);
+    photoStatus(field, '사진을 뺐어요. 저장해야 루트에 반영돼요.');
+    $<HTMLElement>('[data-photo-pick]', field).closest('label')?.querySelector('input')?.focus();
+  });
+
   function addStop() {
     if (stopsEls().length >= STOP_MAX) return;
     const el = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
@@ -90,6 +169,9 @@ if (form) {
       $<HTMLButtonElement>(el.previousElementSibling ? '[data-up]' : '[data-remove]', el).focus();
     } else if (target.closest('[data-remove]')) {
       const next = (el.nextElementSibling ?? el.previousElementSibling) as HTMLElement | null;
+      // 이번에 올린 정류장 사진은 정류장과 함께 지운다
+      const photo = el.querySelector<HTMLElement>('[data-photo-field]');
+      if (photo) setPhoto(photo, null);
       el.remove();
       refresh();
       (next ? $<HTMLButtonElement>('[data-remove]', next) : addBtn).focus();
@@ -118,6 +200,12 @@ if (form) {
   );
 
   form.addEventListener('submit', (e) => {
+    if (uploading > 0) {
+      e.preventDefault();
+      errorBox.textContent = '사진을 올리는 중이에요. 끝나면 다시 눌러 주세요.';
+      errorBox.classList.remove('hidden');
+      return;
+    }
     form.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
     const error = validateRoute(read());
     if (error) {

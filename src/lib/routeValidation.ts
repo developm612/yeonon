@@ -12,6 +12,7 @@ import {
 } from '../data/routeOptions';
 import { courseMinutes, fmtDuration } from './course';
 import { clean } from '../scripts/formSafety';
+import { cleanPhotoPath } from './routePhotos';
 
 export interface RouteDraft {
   title: string;
@@ -24,6 +25,8 @@ export interface RouteDraft {
   max_party_size: number;
   languages: string[];
   list_price: number;
+  /** 대표 사진 경로 (선택) */
+  cover_photo: string | null;
 }
 
 export interface StopDraft {
@@ -33,6 +36,8 @@ export interface StopDraft {
   activity: string;
   tip: string;
   tags: string[];
+  /** 정류장 사진 경로 (선택) */
+  photo: string | null;
 }
 
 export interface RouteForm {
@@ -64,6 +69,8 @@ export function readRouteForm(get: (name: string) => string, getAll: (name: stri
     languages: uniq(getAll('languages')).filter(isRouteLanguage),
     // 쉼표·원 표시를 붙여 써도 숫자만 읽는다
     list_price: int(get('list_price').replace(/[,\s₩원]/g, '') || 'x'),
+    // 모양이 틀린 경로는 버린다. 실제 파일·주인 확인은 DB(save_route)가 한다
+    cover_photo: cleanPhotoPath(get('cover_photo')),
   };
   const places = getAll('stop_place');
   const stops = places.slice(0, STOP_MAX + 1).map((place, i) => ({
@@ -73,6 +80,7 @@ export function readRouteForm(get: (name: string) => string, getAll: (name: stri
     activity: clean(getAll('stop_activity')[i] ?? '', LIMITS.activity[1]),
     tip: clean(getAll('stop_tip')[i] ?? '', LIMITS.tip[1]),
     tags: uniq((getAll('stop_tags')[i] ?? '').split(',')).filter(isInterestId).slice(0, STOP_TAG_MAX),
+    photo: cleanPhotoPath(getAll('stop_photo')[i]),
   }));
   return { route, stops };
 }

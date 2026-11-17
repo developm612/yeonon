@@ -1,0 +1,23 @@
+---
+/**
+ * 사진이 없는 루트의 대표 이미지: 정류장 점과 이름이 그려진 노선도 썸네일 (그라디언트·이모지 대신).
+ * 바탕은 성수 골목 같은 옅은 격자, 선은 루트 라인 초록. 상자 비율은 부모가 정한다. 그림은 lib/routeThumb.ts.
+ */
+import { ROUTE_THUMB_BG, routeThumbSvg } from '../../lib/routeThumb';
+
+interface Props {
+  stops?: string[];
+  /** 화면 읽기 프로그램용 설명 (없으면 장식으로 숨김) */
+  label?: string;
+  class?: string;
+}
+const { stops = [], label = '', class: className = '' } = Astro.props;
+---
+<div
+  role={label ? 'img' : undefined}
+  aria-label={label || undefined}
+  aria-hidden={label ? undefined : 'true'}
+  class={className}
+  style={ROUTE_THUMB_BG}
+  set:html={routeThumbSvg(stops)}
+/>

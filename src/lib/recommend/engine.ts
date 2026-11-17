@@ -59,6 +59,9 @@ export interface RecommendationCard {
   matched: string[];
   slots: string[];
   slot_count: number;
+  /** 화면에 보낼 때만 붙인다 (기록 recommendation_requests.results에는 없음) — attachRouteVisuals */
+  cover_photo?: string | null;
+  stop_names?: string[];
 }
 
 export type FallbackReason = 'no_llm_key' | 'llm_timeout' | 'llm_invalid' | 'llm_refused' | 'llm_error';
@@ -69,6 +72,30 @@ export interface RecommendResult {
   ai: boolean;
   fallback: FallbackReason | null;
   results: RecommendationCard[];
+}
+
+/**
+ * 결과 카드에 대표 사진 경로와 정류장 이름(사진 없을 때 노선도 썸네일용)을 붙인다.
+ * 기록·캐시에는 넣지 않고 응답할 때마다 지금 값으로 읽는다 (사진을 바꾸면 바로 반영). 실패하면 그대로 돌려준다.
+ */
+export async function attachRouteVisuals(supabase: SupabaseClient, res: RecommendResult): Promise<RecommendResult> {
+  const ids = res.results.map((c) => c.route_id);
+  if (!ids.length) return res;
+  const [{ data: routes, error: e1 }, { data: stops, error: e2 }] = await Promise.all([
+    supabase.from('routes').select('id, cover_photo').in('id', ids),
+    supabase.from('route_stops').select('route_id, order_no, place_name').in('route_id', ids).order('order_no'),
+  ]);
+  if (e1 || e2) {
+    console.error('[YEONON] attach route visuals failed:', (e1 ?? e2)!.message);
+    return res;
+  }
+  const cover = new Map((routes ?? []).map((r) => [r.id as string, (r.cover_photo as string | null) ?? null]));
+  const names = new Map<string, string[]>();
+  for (const s of stops ?? []) names.set(s.route_id, [...(names.get(s.route_id) ?? []), s.place_name]);
+  return {
+    ...res,
+    results: res.results.map((c) => ({ ...c, cover_photo: cover.get(c.route_id) ?? null, stop_names: names.get(c.route_id) ?? [] })),
+  };
 }
 
 export class RateLimitedError extends Error {

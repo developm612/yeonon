@@ -1,0 +1,60 @@
+---
+/**
+ * 루트 사진 한 장 (대표 사진·정류장 사진). 고정 비율 상자 안에 꽉 채워 레이아웃이 흔들리지 않는다.
+ * 운영(Supabase https 주소)에서는 Astro 이미지 최적화(Vercel)로 크기별 srcset을 만들고, 그 밖(로컬 가짜 DB 등)은 원본 주소 그대로.
+ * 사진이 없으면 RouteThumb(루트 라인 일러스트)로 대신한다 — 그때는 stops 이름이 필요하다.
+ */
+import { getImage } from 'astro:assets';
+import RouteThumb from './RouteThumb.astro';
+import { photoUrl } from '../../lib/routePhotos';
+
+interface Props {
+  path: string | null | undefined;
+  alt: string;
+  /** 상자 비율 (CSS aspect-ratio). 'auto'면 class로 정한다 (예: 모바일 4:5, 데스크톱 16:9) */
+  ratio?: string;
+  /** 화면에서 차지하는 폭 (srcset 고르기용 sizes) */
+  sizes?: string;
+  eager?: boolean;
+  class?: string;
+  /** 사진이 없을 때 그릴 정류장 이름 */
+  stops?: string[];
+}
+const { path, alt, ratio = '4 / 3', sizes = '(min-width: 1024px) 33vw, 100vw', eager = false, class: className = '', stops = [] } = Astro.props;
+
+const [rw, rh] = (ratio === 'auto' ? '16 / 9' : ratio).split('/').map((n) => Number(n.trim()));
+const W = 1600;
+const H = Math.round((W * (rh || 3)) / (rw || 4));
+let img: { src: string; srcset?: string } | null = null;
+if (path) {
+  const url = photoUrl(path);
+  img = { src: url };
+  if (url.startsWith('https://')) {
+    try {
+      const out = await getImage({ src: url, width: W, height: H, widths: [480, 800, 1200, 1600, 2000], sizes, quality: 75 });
+      img = { src: out.src, srcset: out.srcSet.attribute || undefined };
+    } catch (e) {
+      console.error('[YEONON] route photo optimize failed:', (e as Error).message);
+    }
+  }
+}
+---
+<div class:list={['relative overflow-hidden bg-concrete', className]} style={ratio === 'auto' ? undefined : `aspect-ratio: ${ratio}`}>
+  {img ? (
+    <img
+      src={img.src}
+      srcset={img.srcset}
+      sizes={img.srcset ? sizes : undefined}
+      alt={alt}
+      width={W}
+      height={H}
+      loading={eager ? 'eager' : 'lazy'}
+      fetchpriority={eager ? 'high' : undefined}
+      decoding="async"
+      class="absolute inset-0 size-full object-cover"
+    />
+  ) : (
+    <RouteThumb stops={stops} label={alt} class="absolute inset-0 size-full" />
+  )}
+  <slot />
+</div>

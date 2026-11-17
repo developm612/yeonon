@@ -1,0 +1,238 @@
+---
+/**
+ * 여행자 디자인 시스템 "성수 라인" 견본 (yeonon-traveler-ui-plan.md 3~4장). 내부 확인용.
+ * 로컬(npm run dev)과 Vercel 미리보기 배포에서만 열리고, 운영(production)에서는 404. 검색 노출 제외.
+ * 375 · 768 · 1280px 폭에서 열어 확인한다.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import BottomSheet from '../../components/ui/BottomSheet.astro';
+import EmptyState from '../../components/ui/EmptyState.astro';
+import RouteCard from '../../components/ui/RouteCard.astro';
+import RouteLine from '../../components/ui/RouteLine.astro';
+import RouteThumb from '../../components/ui/RouteThumb.astro';
+import StatusBadge from '../../components/ui/StatusBadge.astro';
+import TabBar from '../../components/ui/TabBar.astro';
+import UiButton from '../../components/ui/UiButton.astro';
+import { BOOKING_STATUSES } from '../../data/bookingOptions';
+import { STOP_KINDS, type StopKind } from '../../data/stopKinds';
+
+export const prerender = false;
+
+// VERCEL_ENV: Vercel 실행 환경이 주는 값 (production | preview | development)
+const vercelEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.VERCEL_ENV;
+const allowed = import.meta.env.DEV || vercelEnv === 'preview';
+if (!allowed) return new Response('Not found', { status: 404 });
+
+const colors = [
+  ['Ink', 'ink', '#10213F', '본문·제목 글자'],
+  ['Concrete', 'concrete', '#F1F3F2', '앱 배경'],
+  ['Paper', 'paper', '#FFFFFF', '카드·시트·입력창'],
+  ['ON Blue', 'on-blue', '#1A5FD0', '행동에만 (주 버튼·링크·선택)'],
+  ['Line 2', 'line2', '#00A84D', '루트 라인의 선·점'],
+  ['Line 2 text', 'line2-text', '#0B7A43', '초록 글자 (열린 시간)'],
+  ['Stone', 'stone', '#5B6472', '보조 글자'],
+  ['Hairline', 'hairline', '#DDE1E4', '구분선·테두리'],
+];
+const statusColors = [
+  ['확정', 'status-ok', '#0B7A43'],
+  ['대기', 'status-wait', '#8A5A00'],
+  ['취소·만료', 'status-off', '#5B6472'],
+  ['오류', 'status-error', '#B42318'],
+];
+const type = [
+  ['Display', 't-display', '34/38 → 48/52 · Bricolage 700', 'Hidden cafés of Seongsu'],
+  ['Title', 't-title', '24/30 → 30/36 · Bricolage 650', 'The route'],
+  ['Heading', 't-heading', '19/26 → 20/28 · Pretendard 700', 'Onion Seongsu'],
+  ['Body', 't-body', '17/27 · Pretendard 400', 'Three quiet coffee bars locals love, a vintage warehouse, and a slow walk to Seoul Forest.'],
+  ['Small', 't-small', '15/22 · Pretendard 500', '3 hours in Seongsu 2-ga'],
+  ['Caption', 't-caption', '13/18 · Pretendard 600', 'Photo by Minji, your local friend'],
+];
+const stops = [
+  { name: 'Onion Seongsu', kind: 'cafe' as StopKind, minutes: 50, area: 'Seongsu 2-ga', activity: 'Pour-over coffee in a converted factory. Ask for the single-origin of the week.', tip: 'Sit at the back bar — you can watch the roasting.' },
+  { name: 'Vintage warehouse', kind: 'shop' as StopKind, minutes: 40, area: 'Seongsu 2-ga', activity: 'Dig through racks of 90s Korean streetwear.' },
+  { name: 'Seoul Forest', kind: 'walk' as StopKind, minutes: 40, area: 'Seoul Forest', activity: 'Slow walk under the ginkgo trees to the deer park.' },
+  { name: 'Rooftop bar', kind: 'night' as StopKind, minutes: 30, area: 'Ttukseom', activity: 'Craft beer with a view of the Han River.', tip: null },
+];
+const names = stops.map((s) => s.name);
+const soon = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+const slots = [soon(30), soon(34), soon(54), soon(58), soon(78)];
+const steps = ['Requested', 'Confirmed', 'Meetup', 'Review'];
+---
+<BaseLayout title="Design system | YEONON" description="YEONON traveler design system (internal)." sticky="none" noindex>
+  <div class="container-page space-y-16 py-10 md:py-14">
+    <header>
+      <p class="t-small text-stone">내부 확인용 · 로컬·미리보기에서만</p>
+      <h1 class="t-display mt-2">Seongsu Line</h1>
+      <p class="t-body measure mt-3 text-stone">여행자 영역(/app, /routes) 디자인 토큰과 컴포넌트. 사진과 루트 라인만 눈에 띄게, 나머지는 조용하게.</p>
+    </header>
+
+    <!-- 색 -->
+    <section aria-labelledby="s-color">
+      <h2 id="s-color" class="t-title">Color</h2>
+      <ul class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {colors.map(([name, token, hex, use]) => (
+          <li class="overflow-hidden rounded-card border border-hairline bg-paper">
+            <div class="h-16 border-b border-hairline" style={`background: var(--color-${token})`}></div>
+            <div class="p-3">
+              <p class="font-semibold">{name}</p>
+              <p class="t-caption text-stone tabular-nums">{hex} · {token}</p>
+              <p class="t-caption mt-1 font-normal text-stone">{use}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <ul class="mt-3 flex flex-wrap gap-2">
+        {statusColors.map(([name, token, hex]) => (
+          <li class="t-small inline-flex items-center gap-2 rounded-full px-3 py-1.5" style={`background: color-mix(in srgb, var(--color-${token}) 10%, transparent); color: var(--color-${token})`}>
+            <span class="size-2 rounded-full bg-current"></span>{name} {hex}
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <!-- 글자 -->
+    <section aria-labelledby="s-type">
+      <h2 id="s-type" class="t-title">Type</h2>
+      <ul class="mt-6 divide-y divide-hairline rounded-card border border-hairline bg-paper">
+        {type.map(([name, cls, spec, sample]) => (
+          <li class="grid gap-1 p-4 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-6">
+            <div><p class="font-semibold">{name}</p><p class="t-caption font-normal text-stone">{spec}</p></div>
+            <p class={cls}>{sample}</p>
+          </li>
+        ))}
+        <li class="grid gap-1 p-4 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-6">
+          <div><p class="font-semibold">Numbers</p><p class="t-caption font-normal text-stone">.t-num · tabular</p></div>
+          <p class="t-num text-[2rem] leading-none">14:00 · 92% · ₩45,000</p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 모양·깊이 -->
+    <section aria-labelledby="s-shape">
+      <h2 id="s-shape" class="t-title">Shape &amp; depth</h2>
+      <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div class="flex h-28 items-end rounded-media bg-ink p-3 text-white"><span class="t-caption">media 20px</span></div>
+        <div class="flex h-28 items-end rounded-card border border-hairline bg-paper p-3"><span class="t-caption">card 14px · 그림자 없음</span></div>
+        <div class="flex h-28 items-end rounded-control border border-hairline bg-paper p-3"><span class="t-caption">control 12px</span></div>
+        <div class="flex h-28 items-end rounded-card bg-paper p-3 shadow-float"><span class="t-caption">float (시트·고정 패널)</span></div>
+      </div>
+    </section>
+
+    <!-- 버튼 -->
+    <section aria-labelledby="s-btn">
+      <h2 id="s-btn" class="t-title">Buttons</h2>
+      <div class="mt-6 flex flex-wrap items-center gap-3">
+        <UiButton>Request this route</UiButton>
+        <UiButton variant="secondary">Change dates</UiButton>
+        <UiButton variant="text" href="#s-btn">All bookings</UiButton>
+        <UiButton disabled>Sending…</UiButton>
+        <UiButton size="sm" variant="secondary">Open chat</UiButton>
+      </div>
+      <div class="mt-4 max-w-sm"><UiButton full>Find my route</UiButton></div>
+    </section>
+
+    <!-- 상태 -->
+    <section aria-labelledby="s-status">
+      <h2 id="s-status" class="t-title">Status badge</h2>
+      <div class="mt-6 flex flex-wrap gap-2">
+        {BOOKING_STATUSES.map((s) => <StatusBadge status={s} />)}
+      </div>
+    </section>
+
+    <!-- 정류장 아이콘 -->
+    <section aria-labelledby="s-icons">
+      <h2 id="s-icons" class="t-title">Stop icons</h2>
+      <ul class="mt-6 grid grid-cols-4 gap-3 sm:grid-cols-7">
+        {Object.entries(STOP_KINDS).map(([, k]) => (
+          <li class="flex flex-col items-center gap-2 rounded-card border border-hairline bg-paper p-3">
+            <Icon name={k.icon} class="size-6" /><span class="t-caption">{k.label}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <!-- 루트 라인 -->
+    <section aria-labelledby="s-line" class="space-y-8">
+      <h2 id="s-line" class="t-title">RouteLine</h2>
+      <div class="grid gap-6 md:grid-cols-3">
+        {[3, 4, 6].map((n) => (
+          <div class="rounded-card border border-hairline bg-paper p-4">
+            <p class="t-caption text-stone">mini · {n} stops</p>
+            <RouteLine variant="mini" stops={['Onion cafe', 'Vintage warehouse', 'Seoul Forest', 'Rooftop bar', 'Shoe street', 'Han River'].slice(0, n).map((name) => ({ name }))} class="mt-3" />
+          </div>
+        ))}
+      </div>
+      <div class="rounded-card border border-hairline bg-paper p-4">
+        <div class="flex items-center justify-between gap-3">
+          <p class="t-caption text-stone">mini · 그리기 연출 (추천 결과 로딩에서만, 동작 줄이기면 생략)</p>
+          <UiButton variant="text" size="sm" data-replay>Replay</UiButton>
+        </div>
+        <div data-draw-box><RouteLine variant="mini" animate stops={stops.map((s) => ({ name: s.name }))} class="mt-3" /></div>
+      </div>
+      <div class="rounded-card border border-hairline bg-paper p-4">
+        <p class="t-caption text-stone">status · 예약 진행</p>
+        <div class="mt-3 space-y-6">
+          {[0, 1, 2, 3].map((c) => <RouteLine variant="status" steps={steps} current={c} />)}
+          <RouteLine variant="status" steps={steps} off label="Cancelled" />
+        </div>
+      </div>
+      <div class="rounded-card border border-hairline bg-paper p-4 md:p-6">
+        <p class="t-caption mb-4 text-stone">vertical · 루트 상세</p>
+        <RouteLine variant="vertical" stops={stops} walk={8} />
+      </div>
+    </section>
+
+    <!-- 사진 없는 썸네일 -->
+    <section aria-labelledby="s-thumb">
+      <h2 id="s-thumb" class="t-title">Route thumbnail (no photo)</h2>
+      <div class="mt-6 grid gap-4 sm:grid-cols-3">
+        <div class="overflow-hidden rounded-media" style="aspect-ratio: 4/3"><RouteThumb stops={names.slice(0, 3)} label="3 stops" class="size-full" /></div>
+        <div class="overflow-hidden rounded-media" style="aspect-ratio: 4/3"><RouteThumb stops={[...names, 'Shoe street', 'Han River']} label="6 stops" class="size-full" /></div>
+        <div class="overflow-hidden rounded-media" style="aspect-ratio: 16/9"><RouteThumb stops={names} label="16:9" class="size-full" /></div>
+      </div>
+    </section>
+
+    <!-- 카드 -->
+    <section aria-labelledby="s-card">
+      <h2 id="s-card" class="t-title">RouteCard</h2>
+      <ul class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <li><RouteCard href="#s-card" title="Hidden cafés of Seongsu" stops={names.slice(0, 3)} durationMinutes={180} area="Seongsu 2-ga"
+          host={{ name: 'M**', rating: 4.9, reviews: 12 }} match={92} reason="You said slow mornings and coffee — all three stops are quiet roasteries locals actually use."
+          slots={slots} /></li>
+        <li><RouteCard href="#s-card" title="Vintage, sneakers and a river sunset" stops={names} durationMinutes={210} area="Ttukseom"
+          host={{ name: 'J**', rating: null, reviews: 0 }} match={74} reason="Close to your shopping interests, with a slower finish by the Han River." slots={slots.slice(0, 1)} /></li>
+        <li><RouteCard href="#s-card" title="Workshops of Seongsu" stops={names.slice(0, 2)} durationMinutes={120} area="Seongsu 1-ga"
+          host={{ name: 'S**', rating: 4.7, reviews: 3 }} /></li>
+      </ul>
+    </section>
+
+    <!-- 시트·탭바·빈 화면 -->
+    <section aria-labelledby="s-misc" class="space-y-8">
+      <h2 id="s-misc" class="t-title">Sheet, tab bar, empty state</h2>
+      <div>
+        <UiButton variant="secondary" data-sheet-open="demo-sheet">Open bottom sheet</UiButton>
+        <BottomSheet id="demo-sheet" title="Pick a time">
+          <p class="t-small text-stone">Sat, Nov 22</p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            {['10:00', '14:00', '18:00'].map((t) => <button type="button" class="t-num min-h-11 rounded-full border border-hairline px-4 hover:border-on-blue">{t}</button>)}
+          </div>
+          <UiButton slot="footer" full data-sheet-close>Request this route</UiButton>
+        </BottomSheet>
+      </div>
+      <div class="max-w-md overflow-hidden rounded-card border border-hairline">
+        <p class="t-caption bg-paper px-4 pt-3 text-stone">TabBar (768px 미만에서만 보임)</p>
+        <TabBar path="/app/discover" static />
+      </div>
+      <EmptyState title="No meetups yet." body="Find a route for your days in Seoul." action={{ href: '#s-misc', label: 'Find my route' }} />
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  // 그리기 연출 다시 보기: 요소를 새로 끼워 넣어 애니메이션을 처음부터
+  document.querySelector('[data-replay]')?.addEventListener('click', () => {
+    const box = document.querySelector<HTMLElement>('[data-draw-box]')!;
+    box.replaceChildren(...[...box.children].map((el) => el.cloneNode(true)));
+  });
+</script>

@@ -16,6 +16,7 @@ import { embedRoute } from '../../lib/ai/routeEmbedding';
 import { fmtDuration } from '../../lib/course';
 import { dbError, field, notice } from '../../lib/forms';
 import { ROUTE_COLUMNS, STOP_COLUMNS, UUID, won, type RouteRow, type StopRow } from '../../lib/routes';
+import { photoUrl } from '../../lib/routePhotos';
 import { clean } from '../../scripts/formSafety';
 
 export const prerender = false;
@@ -123,7 +124,10 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR'
                   <details class="group" open={r.id === openId || undefined}>
                     <summary class="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_1.25rem] items-center gap-3 px-4 py-3 text-sm hover:bg-text/[0.03] md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_3.5rem_5rem_6rem_5.5rem_1.25rem] [&::-webkit-details-marker]:hidden">
                       <span class="min-w-0">
-                        <span class="block truncate font-semibold">{r.title}</span>
+                        <span class="flex min-w-0 items-center gap-1.5">
+                          <span class="truncate font-semibold">{r.title}</span>
+                          {r.cover_photo && <Icon name="image" class="size-4 shrink-0 text-muted" />}
+                        </span>
                         <span class="block truncate text-xs text-muted md:hidden">{person?.display_name} · {stopList.length}곳 · {fmtDuration(r.duration_minutes)} · {won(r.list_price)}</span>
                       </span>
                       <span class="hidden truncate text-muted md:block">{person?.display_name}</span>
@@ -139,6 +143,16 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR'
                         <a href={`/routes/${r.id}`} class="ml-auto text-sm font-semibold text-brand underline-offset-4 hover:underline">여행자 화면으로 보기</a>
                       </div>
                       <p class="mt-1">{r.summary}</p>
+                      <!-- 사진 검수: 얼굴이 보이는지, 직접 찍은 실제 장소인지 -->
+                      <div class="mt-3 flex flex-wrap items-start gap-3">
+                        {r.cover_photo ? (
+                          <a href={photoUrl(r.cover_photo)} target="_blank" rel="noopener" class="block w-48 overflow-hidden rounded-xl border border-border bg-bg" style="aspect-ratio: 4 / 3" title="대표 사진 원본 보기">
+                            <img src={photoUrl(r.cover_photo)} alt="대표 사진" loading="lazy" decoding="async" class="size-full object-cover" />
+                          </a>
+                        ) : (
+                          <p class="rounded-xl border border-dashed border-border px-3 py-2 text-sm text-muted">대표 사진 없음 (여행자에게는 노선도 그림이 보여요)</p>
+                        )}
+                      </div>
                       <dl class="mt-3 grid gap-x-6 gap-y-1 text-sm md:grid-cols-2">
                         <div><dt class="inline text-muted">태그 </dt><dd class="inline">{interestNames(r.tags, 'ko').join(', ')}</dd></div>
                         <div><dt class="inline text-muted">분위기 </dt><dd class="inline">{vibeName(r.vibe, 'ko')}</dd></div>
@@ -155,6 +169,11 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR'
                             <p class="font-semibold">{s.order_no}. {s.place_name} <span class="font-normal text-muted">· {areaName(s.area, 'ko')} · {s.stay_minutes}분{s.tags.length > 0 && ` · ${interestNames(s.tags, 'ko').join(', ')}`}</span></p>
                             <p>{s.activity}</p>
                             {s.tip && <p class="text-muted">팁: {s.tip}</p>}
+                            {s.photo && (
+                              <a href={photoUrl(s.photo)} target="_blank" rel="noopener" class="mt-1.5 block w-32 overflow-hidden rounded-lg border border-border bg-bg" style="aspect-ratio: 4 / 3" title="정류장 사진 원본 보기">
+                                <img src={photoUrl(s.photo)} alt={`${s.place_name} 사진`} loading="lazy" decoding="async" class="size-full object-cover" />
+                              </a>
+                            )}
                           </li>
                         ))}
                       </ol>
@@ -171,6 +190,9 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR'
                           <div>
                             <label for={`memo-${r.id}`} class="block text-sm font-semibold">메모 <span class="font-normal text-muted">(지기에게 보여요 · 수정 요청은 필수)</span></label>
                             <input id={`memo-${r.id}`} name="memo" type="text" maxlength="500" value={memoOf.get(r.id) ?? ''} class="mt-1 h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm" />
+                            {actions.includes('request_changes') && (r.cover_photo || stopList.some((s) => s.photo)) && (
+                              <button type="button" class="mt-1.5 text-xs font-semibold text-brand underline-offset-4 hover:underline" data-photo-request>사진 교체 요청 문구 넣기</button>
+                            )}
                           </div>
                           <button type="submit" class="h-11 rounded-xl bg-text px-5 text-sm font-semibold text-white">저장</button>
                         </form>
@@ -186,3 +208,17 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR'
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  // '사진 교체 요청': 검수 결과를 수정 요청으로 바꾸고 사유 문구를 채운다 (저장은 직접 누른다)
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-photo-request]');
+    const form = btn?.closest('form');
+    if (!form) return;
+    const select = form.querySelector<HTMLSelectElement>('select[name="action"]')!;
+    const memo = form.querySelector<HTMLInputElement>('input[name="memo"]')!;
+    select.value = 'request_changes';
+    memo.value = '사진 교체 요청: 사람 얼굴이 보이지 않는, 직접 찍은 실제 장소 사진으로 바꿔 주세요.';
+    memo.focus();
+  });
+</script>
