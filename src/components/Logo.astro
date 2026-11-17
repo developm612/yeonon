@@ -1,15 +1,15 @@
 ---
 // 로고: 흰 배경 원본에서 배경을 투명하게 바꾸고 여백을 잘라낸 logo.png (990×185, 2배 해상도)
 // 이전 로고는 logo2.png (495×96)
-interface Props { class?: string; size?: 'sm' | 'md' | 'lg'; }
-const { class: className = '', size = 'md' } = Astro.props;
+interface Props { class?: string; size?: 'sm' | 'md' | 'lg'; href?: string; }
+const { class: className = '', size = 'md', href = '/' } = Astro.props;
 const widths = {
   sm: 'max-w-[96px]',
   md: 'max-w-[96px] md:max-w-[140px]',
   lg: 'max-w-[160px]',
 };
 ---
-<a href="/" class:list={['inline-flex min-w-0 items-center no-underline', className]} aria-label="YEONON 연온 — home">
+<a href={href} class:list={['inline-flex min-w-0 items-center no-underline', className]} aria-label={href === '/' ? 'YEONON 연온 — home' : 'YEONON — my home'}>
   <img
     src="/images/logo.png"
     alt="YEONON"

@@ -3,6 +3,7 @@
  * 이모지 대신 이 종류의 아이콘(components/Icon.astro)을 쓴다 (yeonon-traveler-ui-plan.md 3-5).
  */
 import type { InterestId } from './interests';
+import type { IconName } from '../components/Icon.astro';
 
 export type StopKind = 'cafe' | 'shop' | 'food' | 'walk' | 'workshop' | 'photo' | 'night';
 
@@ -41,3 +42,20 @@ const BY_TAG: Record<InterestId, StopKind> = {
 
 /** 정류장 종류: 첫 취향 태그 기준, 없으면 산책 */
 export const stopKind = (tags: readonly string[]): StopKind => BY_TAG[tags[0] as InterestId] ?? 'walk';
+
+/** 취향 칩 아이콘 (이모지 대신) — 정류장 종류 아이콘을 기본으로, 몇 개만 더 가까운 모양으로 */
+const INTEREST_ICON_OVERRIDE: Partial<Record<InterestId, IconName>> = {
+  healing: 'leaf',
+  vegan: 'leaf',
+  river: 'leaf',
+  kpop: 'star',
+  art: 'brush',
+  design: 'brush',
+  fashion: 'shirt',
+  vintage: 'shirt',
+  'korean-food': 'bowl',
+  market: 'store',
+  tradition: 'map',
+};
+export const interestIcon = (id: string): IconName =>
+  INTEREST_ICON_OVERRIDE[id as InterestId] ?? STOP_KINDS[BY_TAG[id as InterestId] ?? 'walk'].icon;

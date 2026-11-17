@@ -1,7 +1,7 @@
 ---
 /**
  * 모바일 하단 고정 탭 (768px 미만): Home · Discover · Bookings · Messages · Profile (yeonon-traveler-ui-plan.md 4-4).
- * 데스크톱은 기존 상단 탭(AreaNav)을 쓴다. 이 탭을 쓰는 페이지는 본문 아래에 높이(약 64px)만큼 여백을 둔다 — D5에서 연결.
+ * 데스크톱 메뉴는 여행자 헤더(TravelerHeader)에 있다. BaseLayout이 로그인한 여행자의 /app·/routes 화면에 붙이고 body 아래 여백을 둔다.
  * static을 주면 고정하지 않고 제자리에 그린다 (/dev/ui 견본용).
  */
 import Icon, { type IconName } from '../Icon.astro';
@@ -20,7 +20,7 @@ const ITEMS: { href: string; label: string; icon: IconName }[] = [
   { href: '/app/profile', label: 'Profile', icon: 'user' },
 ];
 const path = (pathProp ?? Astro.url.pathname).replace(/\/$/, '') || '/';
-const current = ITEMS.map((i) => i.href).filter((h) => path === h || path.startsWith(h + '/')).sort((a, b) => b.length - a.length)[0];
+const current = ITEMS.map((i) => i.href).filter((h) => path === h || (h !== '/app' && path.startsWith(h + '/'))).sort((a, b) => b.length - a.length)[0];
 ---
 <nav aria-label="Traveler menu"
   class:list={['border-t border-hairline bg-paper/95 backdrop-blur md:hidden', !isStatic && 'fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]']}>

@@ -62,6 +62,9 @@ export interface RecommendationCard {
   /** 화면에 보낼 때만 붙인다 (기록 recommendation_requests.results에는 없음) — attachRouteVisuals */
   cover_photo?: string | null;
   stop_names?: string[];
+  /** 지기 평점 (후기가 있을 때만) */
+  host_rating?: number | null;
+  host_reviews?: number;
 }
 
 export type FallbackReason = 'no_llm_key' | 'llm_timeout' | 'llm_invalid' | 'llm_refused' | 'llm_error';
@@ -82,19 +85,35 @@ export async function attachRouteVisuals(supabase: SupabaseClient, res: Recommen
   const ids = res.results.map((c) => c.route_id);
   if (!ids.length) return res;
   const [{ data: routes, error: e1 }, { data: stops, error: e2 }] = await Promise.all([
-    supabase.from('routes').select('id, cover_photo').in('id', ids),
+    supabase.from('routes').select('id, cover_photo, jigi_id').in('id', ids),
     supabase.from('route_stops').select('route_id, order_no, place_name').in('route_id', ids).order('order_no'),
   ]);
   if (e1 || e2) {
     console.error('[YEONON] attach route visuals failed:', (e1 ?? e2)!.message);
     return res;
   }
-  const cover = new Map((routes ?? []).map((r) => [r.id as string, (r.cover_photo as string | null) ?? null]));
+  const jigiIds = [...new Set((routes ?? []).map((r) => r.jigi_id as string))];
+  const { data: jigis, error: e3 } = jigiIds.length
+    ? await supabase.from('public_jigis').select('user_id, rating_avg, rating_count').in('user_id', jigiIds)
+    : { data: [], error: null };
+  if (e3) console.error('[YEONON] attach host ratings failed:', e3.message);
+  const rating = new Map((jigis ?? []).map((j) => [j.user_id as string, j as { rating_avg: number | null; rating_count: number }]));
+  const byRoute = new Map((routes ?? []).map((r) => [r.id as string, r as { cover_photo: string | null; jigi_id: string }]));
   const names = new Map<string, string[]>();
   for (const s of stops ?? []) names.set(s.route_id, [...(names.get(s.route_id) ?? []), s.place_name]);
   return {
     ...res,
-    results: res.results.map((c) => ({ ...c, cover_photo: cover.get(c.route_id) ?? null, stop_names: names.get(c.route_id) ?? [] })),
+    results: res.results.map((c) => {
+      const r = byRoute.get(c.route_id);
+      const j = r ? rating.get(r.jigi_id) : undefined;
+      return {
+        ...c,
+        cover_photo: r?.cover_photo ?? null,
+        stop_names: names.get(c.route_id) ?? [],
+        host_rating: j && j.rating_count > 0 && j.rating_avg !== null ? Number(j.rating_avg) : null,
+        host_reviews: j?.rating_count ?? 0,
+      };
+    }),
   };
 }
 

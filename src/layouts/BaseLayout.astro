@@ -3,6 +3,9 @@ import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import StickyCTA from '../components/StickyCTA.astro';
+import TravelerHeader from '../components/ui/TravelerHeader.astro';
+import TabBar from '../components/ui/TabBar.astro';
+import { isOnboarded } from '../lib/profile';
 
 interface Props {
   title: string;
@@ -12,15 +15,23 @@ interface Props {
   sticky?: 'traveler' | 'jigi' | 'none';
   /** 로그인·회원 전용 페이지: 검색 노출 제외 */
   noindex?: boolean;
+  /** 여행자 모바일 하단 탭바 (대화·루트 상세처럼 아래에 고정 입력창·예약 바가 있는 화면은 false) */
+  tabBar?: boolean;
+  /** 모바일 하단 고정 바(루트 상세 예약 바)가 있는 화면: 그 높이만큼 아래 여백 */
+  bottomBar?: boolean;
 }
 
-const { title, description, lang = 'en', sticky = 'traveler', noindex = false } = Astro.props;
+const { title, description, lang = 'en', sticky = 'traveler', noindex = false, tabBar = true, bottomBar = false } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 // 공유 미리보기 이미지 1200×630 (public/images/og-image.png). 주소는 astro.config.mjs의 site 기준
 const ogImage = new URL('/images/og-image.png', Astro.site);
 // 여행자 영역(/app, /routes)과 디자인 확인 페이지(/dev/ui)는 새 디자인 시스템 "성수 라인"을 쓴다 (global.css .ui-traveler).
 // /app-preview(랜딩의 앱 미리보기)는 여행자 영역이 아니다.
 const travelerUi = /^\/(app|routes|dev\/ui)(\/|$)/.test(Astro.url.pathname);
+// 로그인한 여행자의 /app·/routes: 여행자 헤더(데스크톱 메뉴) + 모바일 하단 탭바 (yeonon-traveler-ui-plan.md 5-8)
+const me = Astro.locals.profile;
+const travelerMember = travelerUi && !Astro.url.pathname.startsWith('/dev/') && me?.role === 'traveler' && me.status === 'active' && isOnboarded(me);
+const showTabs = travelerMember && tabBar;
 ---
 
 <!doctype html>
@@ -74,18 +85,19 @@ const travelerUi = /^\/(app|routes|dev\/ui)(\/|$)/.test(Astro.url.pathname);
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
     />
   </head>
-  <body class:list={['min-h-dvh', travelerUi && 'ui-traveler', sticky !== 'none' && 'pb-[76px] md:pb-0']}>
+  <body class:list={['min-h-dvh', travelerUi && 'ui-traveler', sticky !== 'none' && 'pb-[76px] md:pb-0', showTabs && 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0', bottomBar && 'pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0']}>
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-surface focus:px-4 focus:py-2 focus:shadow"
     >
       {lang === 'ko' ? '본문으로 건너뛰기' : 'Skip to content'}
     </a>
-    <Header />
+    {travelerMember ? <TravelerHeader userId={me!.id} /> : <Header />}
     <main id="main">
       <slot />
     </main>
     <Footer />
     {sticky !== 'none' && <StickyCTA variant={sticky} />}
+    {showTabs && <TabBar />}
   </body>
 </html>

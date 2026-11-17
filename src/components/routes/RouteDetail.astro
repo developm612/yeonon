@@ -1,19 +1,20 @@
 ---
 /**
- * 루트 상세 본문 — 공개 /routes/[id]와 여행자 /app/routes/[id]가 같이 쓴다.
- * 코스 타임라인, 만나는 곳, 지기 공개 프로필(이름 일부만)·평점·최근 후기(여행자 이름은 첫 글자만), 앞으로 4주 가능 시간 칩(KST).
- * 요청 버튼 자리는 slot="cta"로 각 페이지가 채운다.
- * 대표 사진(없으면 루트 라인 썸네일)과 세로 루트 라인(정류장 사진 포함)은 components/ui (성수 라인). 나머지 화면 재구성은 D4.
+ * 루트 상세 본문 (yeonon-traveler-ui-plan.md 5-4) — 공개 /routes/[id]와 여행자 /app/routes/[id]가 같이 쓴다.
+ *   대표 사진(전체 폭, 모바일 4:5 / 데스크톱 16:9) → 제목·소개 → 아이콘 칸(시간·구역·인원·언어)
+ *   → The route(세로 루트 라인 + 정류장 사진) → 만나는 곳 → 지기 → 후기
+ *   예약 패널: 데스크톱은 오른쪽 고정 패널, 모바일은 하단 고정 바 → 시트. 같은 폼 하나가 두 모양으로 보인다 (BottomSheet inline).
+ *   가격(할인 적용) → 날짜별로 묶인 시간 칩 → slot="cta"(각 페이지가 채우는 요청 폼·로그인 버튼).
  * pickForm을 주면 시간 칩이 그 폼(id)의 라디오 버튼(slot_id)이 된다 — 여행자 요청 화면.
  */
 import Icon from '../Icon.astro';
+import BottomSheet from '../ui/BottomSheet.astro';
 import RouteLine from '../ui/RouteLine.astro';
 import RoutePhoto from '../ui/RoutePhoto.astro';
 import { stopKind } from '../../data/stopKinds';
-import { interestNames } from '../../data/interests';
 import { WALK_MIN, areaName, languageName, vibeName } from '../../data/routeOptions';
 import { courseMinutes, fmtDuration } from '../../lib/course';
-import { kstDate, kstDay, kstTime, won, type PublicJigi, type RouteRow, type SlotRow, type StopRow } from '../../lib/routes';
+import { kstDate, kstDay, kstTime, type PublicJigi, type RouteRow, type SlotRow, type StopRow } from '../../lib/routes';
 import type { PublicReview } from '../../lib/reviews';
 
 interface Props {
@@ -25,120 +26,137 @@ interface Props {
   backLabel: string;
   /** 시간 칩을 고를 수 있게 할 폼의 id */
   pickForm?: string;
-  /** 가격 칸 문구 (할인 적용 예: "₩45,000 → ₩0 · Early member"). 없으면 정가 */
-  priceLabel?: string;
+  /** 가격: 정가·이 여행자에게 적용될 값·할인 이름 (없으면 정가) */
+  price?: { list: number; final: number; promo: string | null };
+  /** 모바일 하단 바의 버튼 글자 */
+  barLabel?: string;
   /** 이 지기의 최근 공개 후기 (lib/reviews.ts loadPublicReviews) */
   reviews?: PublicReview[];
 }
-const { route, stops, host, slots, backHref, backLabel, pickForm, priceLabel, reviews = [] } = Astro.props;
-const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
+const { route, stops, host, slots, backHref, backLabel, pickForm, price: priceProp, barLabel = 'Pick a time', reviews = [] } = Astro.props;
+const price = priceProp ?? { list: route.list_price, final: route.list_price, promo: null };
+const discounted = price.final < price.list;
+const wonText = (n: number) => `₩${n.toLocaleString('en-US')}`;
 const monthYear = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'Asia/Seoul', month: 'short', year: 'numeric' });
+const dayLabel = (iso: string) => kstDate(iso, 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
 const lineStops = stops.map((s) => ({
   name: s.place_name, kind: stopKind(s.tags), minutes: s.stay_minutes, area: areaName(s.area, 'en'), activity: s.activity, tip: s.tip, photo: s.photo,
 }));
 const byDay = new Map<string, SlotRow[]>();
 for (const s of slots) byDay.set(kstDay(s.starts_at), [...(byDay.get(kstDay(s.starts_at)) ?? []), s]);
-const hostInitial = host?.display_name?.slice(0, 1) ?? '';
+const hostName = host?.display_name ?? 'Your jigi';
+const rated = host && host.rating_count > 0 && host.rating_avg !== null;
+const facts = [
+  { icon: 'clock', label: 'Duration', value: fmtDuration(route.duration_minutes, 'en') },
+  { icon: 'pin', label: 'Area', value: areaName(route.area, 'en') },
+  { icon: 'users', label: 'Group size', value: `Up to ${route.max_party_size} ${route.max_party_size === 1 ? 'person' : 'people'}` },
+  { icon: 'globe', label: 'Languages', value: route.languages.map((l) => languageName(l, 'en')).join(', ') },
+  { icon: 'leaf', label: 'Pace', value: vibeName(route.vibe, 'en') },
+] as const;
 ---
-<div class="container-page pt-6 md:pt-8">
-  <a href={backHref} class="t-small inline-flex min-h-11 items-center gap-1 text-stone hover:text-ink"><Icon name="chevron-left" class="size-4" />{backLabel}</a>
+<div class="container-page pt-3 md:pt-6">
+  <a href={backHref} class="t-small -ml-1 inline-flex min-h-11 items-center gap-1 px-1 text-stone hover:text-ink"><Icon name="chevron-left" class="size-4" />{backLabel}</a>
   <RoutePhoto path={route.cover_photo} alt={route.title} ratio="auto" eager stops={stops.map((s) => s.place_name)}
-    sizes="(min-width: 1120px) 1056px, 100vw" class="mt-2 aspect-[4/5] rounded-media sm:aspect-video" />
-  <h1 class="t-display mt-6 md:mt-8">{route.title}</h1>
-  <p class="t-body measure mt-3 text-stone">{route.summary}</p>
-  <ul class="mt-4 flex flex-wrap gap-1.5" aria-label="Interests">
-    {interestNames(route.tags, 'en').map((name) => <li class="rounded-full border border-hairline bg-paper px-3 py-1 text-[0.875rem] font-semibold">{name}</li>)}
-  </ul>
+    sizes="(min-width: 1120px) 1056px, 100vw" class="mt-1 aspect-[4/5] rounded-media sm:aspect-video" />
 </div>
 
-<section class="section pt-10! md:pt-12!">
-  <div class="container-page grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-    <div class="min-w-0 space-y-10">
-      <dl class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {[
-          ['Duration', fmtDuration(route.duration_minutes, 'en')],
-          ['Group size', `Up to ${route.max_party_size}`],
-          ['Vibe', vibeName(route.vibe, 'en')],
-          ['Languages', route.languages.map((l) => languageName(l, 'en')).join(', ')],
-          ['Area', areaName(route.area, 'en')],
-          ['Price', priceLabel ?? won(route.list_price)],
-        ].map(([k, v]) => (
-          <div class="rounded-xl bg-surface p-4 shadow-card"><dt class="text-xs font-semibold text-muted">{k}</dt><dd class="mt-1 font-bold">{v}</dd></div>
-        ))}
-      </dl>
+<div class="container-page grid gap-12 pt-6 pb-16 md:pt-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-16 lg:pb-24">
+  <div class="min-w-0">
+    <h1 class="t-display">{route.title}</h1>
+    <p class="t-body measure mt-3 text-stone">{route.summary}</p>
+    <dl class="mt-6 flex flex-wrap gap-x-6 gap-y-3 border-y border-hairline py-4">
+      {facts.map((f) => (
+        <div class="t-small flex items-center gap-2 text-ink">
+          <dt><Icon name={f.icon} class="size-5 text-stone" /><span class="sr-only">{f.label}</span></dt>
+          <dd>{f.value}</dd>
+        </div>
+      ))}
+    </dl>
 
-      <div>
-        <h2 class="text-xl font-extrabold">The route</h2>
-        <p class="mt-1 text-sm text-muted">About {fmtDuration(courseMinutes(stops.map((s) => s.stay_minutes), WALK_MIN), 'en')} including short walks between stops.</p>
-        <RouteLine variant="vertical" stops={lineStops} walk={WALK_MIN} class="mt-6" />
-      </div>
+    <section class="mt-12" aria-labelledby="sec-route">
+      <h2 id="sec-route" class="t-title">The route</h2>
+      <p class="t-small mt-1 font-normal text-stone">{stops.length} stops · about {fmtDuration(courseMinutes(stops.map((s) => s.stay_minutes), WALK_MIN), 'en')} including short walks.</p>
+      <RouteLine variant="vertical" stops={lineStops} walk={WALK_MIN} class="mt-6" />
+    </section>
 
-      <div>
-        <h2 class="text-xl font-extrabold">Where you'll meet</h2>
-        <p class="mt-2">{areaName(route.area, 'en')} · {route.meeting_point_note}</p>
-        <p class="mt-1 text-sm text-muted">Always a public place. Your jigi will share the exact spot once you're matched.</p>
-      </div>
+    <section class="mt-12" aria-labelledby="sec-meet">
+      <h2 id="sec-meet" class="t-title">Where you'll meet</h2>
+      <p class="t-body mt-3 flex items-start gap-2"><Icon name="pin" class="mt-[3px] size-5 shrink-0 text-stone" /><span>{areaName(route.area, 'en')}, {route.meeting_point_note}</span></p>
+      <p class="t-small measure mt-2 font-normal text-stone">Always a public place. Your jigi shares the exact spot in chat once you're matched.</p>
+    </section>
 
-      <div id="reviews">
-        <h2 class="text-xl font-extrabold">
-          Reviews
-          {host && host.rating_count > 0 && host.rating_avg !== null && (
-            <span class="ml-1 text-base font-semibold text-muted">★ {Number(host.rating_avg).toFixed(1)} · {host.rating_count} {host.rating_count === 1 ? 'review' : 'reviews'}</span>
+    <section class="mt-12" aria-labelledby="sec-host">
+      <h2 id="sec-host" class="t-title">Your local friend</h2>
+      <div class="mt-4 flex items-center gap-4">
+        <span class="t-num inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-paper text-[1.375rem] text-ink ring-1 ring-hairline" aria-hidden="true">
+          {host?.display_name?.slice(0, 1) || <Icon name="user" class="size-6" />}
+        </span>
+        <div class="min-w-0">
+          <p class="t-heading">{hostName}<span class="t-small font-normal text-stone">, your local friend (jigi)</span></p>
+          {rated && (
+            <p class="t-small mt-0.5 flex items-center gap-1.5">
+              <Icon name="star" class="size-4" /><span class="t-num">{Number(host!.rating_avg).toFixed(1)}</span>
+              <a href="#reviews" class="font-normal text-stone underline underline-offset-2 hover:text-ink">{host!.rating_count} {host!.rating_count === 1 ? 'review' : 'reviews'}</a>
+            </p>
           )}
-        </h2>
-        {reviews.length === 0 ? (
-          <p class="mt-2 text-sm text-muted">No reviews yet — this jigi is new to YEONON.</p>
-        ) : (
-          <ul class="mt-4 space-y-3">
-            {reviews.map((r) => (
-              <li class="rounded-xl bg-surface p-4 shadow-card">
-                <p class="flex flex-wrap items-center gap-x-2 text-sm">
-                  <span class="tracking-wide text-[#B7791F]" aria-label={`${r.rating} out of 5 stars`}>{stars(r.rating)}</span>
-                  <span class="font-semibold">{r.author_initial}.</span>
-                  <span class="text-muted">· {monthYear(r.created_at)}{r.route_id !== route.id && r.route_title ? ` · ${r.route_title}` : ''}</span>
-                </p>
-                {r.comment && <p class="mt-1.5">{r.comment}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-        <p class="mt-2 text-xs text-muted">Reviews come from travelers who met this jigi through YEONON. Names show the first initial only.</p>
+        </div>
       </div>
-    </div>
+      {host?.headline && <p class="t-body measure mt-4 font-semibold">{host.headline}</p>}
+      {host?.bio && <p class="t-body measure mt-1 text-stone">{host.bio}</p>}
+      {host && host.languages.length > 0 && <p class="t-small mt-3 flex items-center gap-2 font-normal text-stone"><Icon name="globe" class="size-4" />Speaks {host.languages.map((l) => languageName(l, 'en')).join(', ')}</p>}
+      <p class="t-small mt-2 flex items-center gap-2 font-normal text-stone"><Icon name="lock" class="size-4" />Contact details stay private. You'll chat in YEONON once matched.</p>
+    </section>
 
-    <aside class="space-y-5 lg:sticky lg:top-24">
-      <div class="card p-5">
-        <p class="text-xs font-semibold text-muted">Your local friend</p>
-        <p class="mt-1 flex items-center gap-2 text-lg font-bold">
-          <span class="inline-flex size-[36px] items-center justify-center rounded-full bg-jigi-soft text-base text-jigi-strong" aria-hidden="true">
-            {hostInitial || <Icon name="user" class="size-[18px]" />}
-          </span>
-          {host?.display_name ?? 'Jigi'}
-        </p>
-        {host?.headline && <p class="mt-2 font-semibold">{host.headline}</p>}
-        {host?.bio && <p class="mt-1 text-sm text-muted">{host.bio}</p>}
-        {host && host.languages.length > 0 && <p class="mt-2 text-sm text-muted">Speaks {host.languages.map((l) => languageName(l, 'en')).join(', ')}</p>}
-        {host && host.rating_count > 0 && host.rating_avg !== null && (
-          <p class="mt-1 text-sm font-semibold">★ {Number(host.rating_avg).toFixed(1)} <a href="#reviews" class="font-normal text-muted underline underline-offset-2">({host.rating_count} {host.rating_count === 1 ? 'review' : 'reviews'})</a></p>
-        )}
-        <p class="mt-3 text-xs text-muted">Contact details stay private. You'll chat in YEONON once matched.</p>
-      </div>
+    <section id="reviews" class="mt-12 scroll-mt-20" aria-labelledby="sec-reviews">
+      <h2 id="sec-reviews" class="t-title">Reviews</h2>
+      {reviews.length === 0 ? (
+        <p class="t-body mt-3 text-stone">No reviews yet. {hostName} is new to YEONON.</p>
+      ) : (
+        <ul class="mt-4 divide-y divide-hairline border-y border-hairline">
+          {reviews.map((r) => (
+            <li class="py-4">
+              <p class="t-small flex flex-wrap items-center gap-x-2">
+                <span class="inline-flex gap-0.5 text-ink" role="img" aria-label={`${r.rating} out of 5 stars`}>
+                  {[1, 2, 3, 4, 5].map((n) => <Icon name="star" class:list={['size-4', n <= r.rating ? 'fill-current' : 'text-hairline']} />)}
+                </span>
+                <span class="font-semibold">{r.author_initial}.</span>
+                <span class="font-normal text-stone">{monthYear(r.created_at)}</span>
+              </p>
+              {r.route_id !== route.id && r.route_title && <p class="t-caption mt-1 font-normal text-stone">On {r.route_title}</p>}
+              {r.comment && <p class="t-body measure mt-1.5">{r.comment}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p class="t-caption mt-3 font-normal text-stone">Reviews come from travelers who met this jigi through YEONON. Names show the first initial only.</p>
+    </section>
+  </div>
 
-      <div class="card p-5">
-        <h2 class="font-bold" id="times-heading">{pickForm ? 'Pick a time' : 'Available times'} <span class="font-normal text-muted">(KST)</span></h2>
+  <!-- 예약 패널: 데스크톱은 이 자리에 고정, 모바일은 아래 바에서 여는 시트 -->
+  <aside class="lg:sticky lg:top-20" aria-label="Book this route">
+    <BottomSheet id="book-sheet" title={pickForm ? 'Pick a time' : 'Open times'} inline>
+      <p class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span class="t-num text-[1.75rem] leading-none">{wonText(price.final)}</span>
+        {discounted && <span class="t-small font-normal text-stone line-through">{wonText(price.list)}</span>}
+        {discounted && price.promo && <span class="rounded-full bg-line2/10 px-2.5 py-1 text-[0.8125rem] leading-none font-semibold text-line2-text">{price.promo}</span>}
+        <span class="t-caption basis-full font-normal text-stone">Times are in Korea time (KST).</span>
+      </p>
+
+      <div class="mt-5">
+        <h3 class="t-small font-semibold" id="times-heading">{pickForm ? 'Choose a time' : 'Open times'}</h3>
         {byDay.size === 0 ? (
-          <p class="mt-2 text-sm text-muted">No open times in the next 4 weeks yet.</p>
+          <p class="t-small mt-2 font-normal text-stone">No open times in the next 4 weeks yet. Check back soon.</p>
         ) : pickForm ? (
-          <fieldset class="mt-3 max-h-[320px] space-y-3 overflow-y-auto pr-1" aria-labelledby="times-heading" data-slot-picker>
+          <fieldset class="mt-3 max-h-[300px] space-y-4 overflow-y-auto pr-1" aria-labelledby="times-heading" data-slot-picker>
             {[...byDay].map(([, list]) => (
               <div>
-                <p class="text-sm font-semibold">{kstDate(list[0].starts_at, 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                <p class="t-caption text-stone">{dayLabel(list[0].starts_at)}</p>
                 <div class="mt-1.5 flex flex-wrap gap-1.5">
                   {list.map((s) => (
-                    <label class="cursor-pointer rounded-full border border-border px-3 py-1.5 text-sm font-semibold tabular-nums transition-colors hover:border-traveler-strong has-checked:border-traveler-strong has-checked:bg-traveler-strong has-checked:text-white has-disabled:cursor-not-allowed has-disabled:border-border has-disabled:bg-text/5 has-disabled:text-muted has-disabled:line-through has-focus-visible:ring-2 has-focus-visible:ring-traveler-strong/40">
+                    <label class="t-num cursor-pointer rounded-full border border-hairline bg-paper px-3.5 py-2 text-[0.9375rem] leading-none transition-colors hover:border-ink has-checked:border-on-blue has-checked:bg-on-blue has-checked:text-white has-disabled:cursor-not-allowed has-disabled:border-hairline has-disabled:bg-concrete has-disabled:text-stone has-disabled:line-through has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-on-blue">
                       <input type="radio" name="slot_id" value={s.id} form={pickForm} required class="sr-only"
-                        data-label={`${kstDate(s.starts_at, 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${kstTime(s.starts_at)}`} />
+                        data-label={`${dayLabel(s.starts_at)} · ${kstTime(s.starts_at)}`} />
                       {kstTime(s.starts_at)}
                     </label>
                   ))}
@@ -147,19 +165,34 @@ const hostInitial = host?.display_name?.slice(0, 1) ?? '';
             ))}
           </fieldset>
         ) : (
-          <ul class="mt-3 max-h-[320px] space-y-3 overflow-y-auto pr-1">
+          <ul class="mt-3 max-h-[300px] space-y-4 overflow-y-auto pr-1">
             {[...byDay].map(([, list]) => (
               <li>
-                <p class="text-sm font-semibold">{kstDate(list[0].starts_at, 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                <p class="t-caption text-stone">{dayLabel(list[0].starts_at)}</p>
                 <ul class="mt-1.5 flex flex-wrap gap-1.5">
-                  {list.map((s) => <li class="rounded-full border border-border px-3 py-1 text-sm font-semibold tabular-nums">{kstTime(s.starts_at)}</li>)}
+                  {list.map((s) => <li class="t-num rounded-full border border-line2/40 bg-line2/[0.06] px-3.5 py-2 text-[0.9375rem] leading-none text-line2-text">{kstTime(s.starts_at)}</li>)}
                 </ul>
               </li>
             ))}
           </ul>
         )}
-        <slot name="cta" />
       </div>
-    </aside>
+      <slot name="cta" />
+    </BottomSheet>
+  </aside>
+</div>
+
+<!-- 모바일 하단 고정 예약 바 -->
+<div class="fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-paper pb-[env(safe-area-inset-bottom)] shadow-float lg:hidden">
+  <div class="container-page flex min-h-[5.5rem] items-center justify-between gap-4 py-3">
+    <p class="min-w-0">
+      <span class="t-num block text-[1.375rem] leading-tight">{wonText(price.final)}
+        {discounted && <span class="t-small ml-1 font-normal text-stone line-through">{wonText(price.list)}</span>}</span>
+      <span class="t-caption block truncate font-normal text-stone">{discounted && price.promo ? `${price.promo} · ` : ''}{slots.length ? `${slots.length} open ${slots.length === 1 ? 'time' : 'times'}` : 'No open times yet'}</span>
+    </p>
+    <button type="button" data-sheet-open="book-sheet"
+      class="inline-flex min-h-[52px] shrink-0 items-center justify-center rounded-control bg-on-blue px-6 text-[1.0625rem] font-semibold text-white transition-colors hover:bg-on-blue-hover">
+      {barLabel}
+    </button>
   </div>
-</section>
+</div>

@@ -1,62 +1,138 @@
 ---
-/** 여행자 홈: 다가오는 만남, 진행 중 요청, Find my route */
+/**
+ * 여행자 홈 (yeonon-traveler-ui-plan.md 5-1). 할 일 순서대로 쌓는다:
+ *   다가오는 만남(확정) → 답을 기다리는 요청 → 새 루트 찾기 → 둘러보기(Explore Seongsu)
+ * 로그아웃은 프로필 화면 맨 아래로 옮겼다.
+ */
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import AreaNav from '../../components/account/AreaNav.astro';
-import { TRAVELER_NAV } from '../../data/accountNav';
-import { BOOKING_STATUS, STATUS_TONE_CLASS, kstWhen } from '../../data/bookingOptions';
+import Icon from '../../components/Icon.astro';
+import RouteCard from '../../components/ui/RouteCard.astro';
+import RouteLine from '../../components/ui/RouteLine.astro';
+import RoutePhoto from '../../components/ui/RoutePhoto.astro';
+import StatusBadge from '../../components/ui/StatusBadge.astro';
+import UiButton from '../../components/ui/UiButton.astro';
+import { kstWhen, timeLeft } from '../../data/bookingOptions';
+import { interestNames } from '../../data/interests';
+import { interestIcon } from '../../data/stopKinds';
 import { BOOKING_COLUMNS, type BookingRow } from '../../lib/bookings';
+import { conversationIdForBooking } from '../../lib/chat';
 import { dbError } from '../../lib/forms';
+import { loadRouteCards, type RouteCardData } from '../../lib/routeCards';
 
 export const prerender = false;
 const { profile, supabase } = Astro.locals;
 
 let active: BookingRow[] = [];
+let explore: RouteCardData[] = [];
+let next: BookingRow | null = null;
+let nextPhoto: string | null = null;
+let nextStops: string[] = [];
+let nextChat: string | null = null;
 if (profile && supabase) {
   const { data, error } = await supabase.from('bookings').select(BOOKING_COLUMNS).eq('traveler_id', profile.id)
     .in('status', ['pending', 'confirmed']).gt('ends_at', new Date().toISOString()).order('starts_at').limit(10);
   dbError(error, 'load traveler home bookings');
   active = (data ?? []) as BookingRow[];
+  next = active.find((b) => b.status === 'confirmed') ?? null;
+  const [cards, route, stops, chat] = await Promise.all([
+    loadRouteCards(supabase, { limit: 5 }),
+    next ? supabase.from('routes').select('cover_photo').eq('id', next.route_id).maybeSingle() : Promise.resolve({ data: null }),
+    next ? supabase.from('route_stops').select('place_name, order_no').eq('route_id', next.route_id).order('order_no') : Promise.resolve({ data: null }),
+    next ? conversationIdForBooking(supabase, next.id) : Promise.resolve(null),
+  ]);
+  explore = cards;
+  nextPhoto = (route.data?.cover_photo as string | null | undefined) ?? null;
+  nextStops = (stops.data ?? []).map((s) => s.place_name as string);
+  nextChat = chat;
 }
+const waiting = active.filter((b) => b.status === 'pending');
+const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+const interests = profile?.interests ?? [];
+const now = Date.now();
+const people = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 ---
 <BaseLayout title="My YEONON" description="Your YEONON home." sticky="none" noindex>
-  <AreaNav items={TRAVELER_NAV} label="Traveler menu" lang="en" />
-  <section class="section pt-10! md:pt-14!">
-    <div class="container-page max-w-2xl!">
-      <p class="eyebrow">Traveler</p>
-      <h1 class="mt-3 text-3xl font-extrabold">Hi, {profile?.display_name}</h1>
+  <div class="container-page max-w-3xl! pt-8 pb-16 md:pt-12 md:pb-24">
+    <h1 class="t-display">Hi, {firstName}</h1>
 
-      {active.length > 0 && (
-        <div class="mt-8">
-          <h2 class="font-bold">Your meetups & requests</h2>
-          <ul class="mt-3 space-y-3">
-            {active.map((b) => (
+    {next && (
+      <section class="mt-8" aria-labelledby="h-next">
+        <h2 id="h-next" class="t-title">Your next meetup</h2>
+        <article class="mt-4 overflow-hidden rounded-card border border-hairline bg-paper">
+          <RoutePhoto path={nextPhoto} alt="" stops={nextStops} ratio="16 / 9" sizes="(min-width: 768px) 720px, 100vw" eager />
+          <div class="p-5 md:p-6">
+            <p class="t-num text-[1.125rem] text-ink">{kstWhen(next.starts_at, 'en')} <span class="t-small font-normal text-stone">KST</span></p>
+            <h3 class="t-heading mt-1">{next.route_title}</h3>
+            <p class="t-small mt-0.5 font-normal text-stone">with {next.jigi_name ?? 'your jigi'} · {people(next.party_size)}</p>
+            <div class="mt-5 flex items-center gap-4">
+              <RouteLine variant="status" current={1} bare class="min-w-0 flex-1" label="Step 2 of 4: Confirmed" />
+              <StatusBadge status="confirmed" />
+            </div>
+            <div class="mt-5 flex flex-wrap gap-3">
+              {nextChat && <UiButton href={`/app/messages/${nextChat}`}>Open chat</UiButton>}
+              <UiButton variant="secondary" href={`/app/bookings/${next.id}`}>Details</UiButton>
+            </div>
+          </div>
+        </article>
+      </section>
+    )}
+
+    {waiting.length > 0 && (
+      <section class="mt-10" aria-labelledby="h-wait">
+        <h2 id="h-wait" class="t-title">Waiting for a reply <span class="t-num text-stone">({waiting.length})</span></h2>
+        <ul class="mt-4 divide-y divide-hairline overflow-hidden rounded-card border border-hairline bg-paper">
+          {waiting.map((b) => {
+            const left = b.respond_by && new Date(b.respond_by).getTime() > now ? timeLeft(b.respond_by, now, 'en') : null;
+            return (
               <li>
-                <a href={`/app/bookings/${b.id}`} class="card block p-4 transition-colors hover:border-text md:p-5">
-                  <span class:list={['rounded-full px-2.5 py-0.5 text-xs font-bold', STATUS_TONE_CLASS[BOOKING_STATUS[b.status].tone]]}>{BOOKING_STATUS[b.status].en}</span>
-                  <p class="mt-2 font-bold">{b.route_title}</p>
-                  <p class="mt-0.5 text-sm text-muted tabular-nums">{kstWhen(b.starts_at, 'en')} KST · {b.party_size} {b.party_size === 1 ? 'person' : 'people'}</p>
+                <a href={`/app/bookings/${b.id}`} class="flex items-center gap-4 px-4 py-4 transition-colors hover:bg-concrete md:px-5">
+                  <span class="min-w-0 flex-1">
+                    <span class="t-heading block truncate">{b.route_title}</span>
+                    <span class="t-small block font-normal text-stone">{kstWhen(b.starts_at, 'en')} KST · {left ? `${left} left to reply` : 'Reply time is up'}</span>
+                  </span>
+                  <StatusBadge status="pending" />
+                  <Icon name="chevron-right" class="size-5 shrink-0 text-stone" />
                 </a>
               </li>
-            ))}
-          </ul>
-          <a href="/app/bookings" class="mt-3 inline-block text-sm font-semibold text-traveler-strong underline underline-offset-2">All bookings</a>
-        </div>
-      )}
+            );
+          })}
+        </ul>
+      </section>
+    )}
 
-      <div class="card mt-8 p-6 md:p-8">
-        <h2 class="text-lg font-bold">Find a route that fits you</h2>
-        <p class="mt-2 text-muted">
-          Pick what you love and when you're in Seoul. We'll recommend routes made by local friends (jigi) in Seongsu — and tell you why each one fits.
-        </p>
-        <div class="mt-6 flex flex-wrap gap-3">
-          <a href="/app/discover" class="inline-flex min-h-11 items-center rounded-full bg-traveler-strong px-5 font-semibold text-white hover:bg-[#134FB0]">Find my route</a>
-          <a href="/routes" class="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-5 font-semibold hover:border-text">Browse routes</a>
-          <a href="/app/profile" class="inline-flex min-h-11 items-center rounded-full px-5 font-semibold text-muted hover:bg-text/5">Edit my profile</a>
-        </div>
+    <section class="mt-10 rounded-card border border-hairline bg-paper p-5 md:p-7" aria-labelledby="h-find">
+      <h2 id="h-find" class="t-title">Find a route for your days in Seoul</h2>
+      <p class="t-body measure mt-2 text-stone">Pick what you love and when you're here. We'll match you with routes local friends made in Seongsu, and tell you why each one fits.</p>
+      {interests.length > 0 && (
+        <ul class="mt-5 flex flex-wrap gap-1.5" aria-label="Your interests">
+          {interestNames(interests, 'en').map((name, i) => (
+            <li class="inline-flex items-center gap-1.5 rounded-full border border-hairline px-3 py-1.5 text-[0.875rem] leading-none font-semibold">
+              <Icon name={interestIcon(interests[i])} class="size-4 text-stone" />{name}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div class="mt-6 flex flex-wrap items-center gap-3">
+        <UiButton href="/app/discover">Find my route</UiButton>
+        {interests.length === 0 && <UiButton variant="text" href="/app/profile">Add your interests</UiButton>}
       </div>
-      <form method="post" action="/auth/signout" class="mt-8">
-        <button type="submit" class="text-sm font-semibold text-muted underline underline-offset-2 hover:text-text">Sign out</button>
-      </form>
-    </div>
-  </section>
+    </section>
+
+    {explore.length > 0 && (
+      <section class="mt-12" aria-labelledby="h-explore">
+        <div class="flex items-baseline justify-between gap-4">
+          <h2 id="h-explore" class="t-title">Explore Seongsu</h2>
+          <UiButton variant="text" href="/routes">All routes</UiButton>
+        </div>
+        <ul class="-mx-4 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
+          {explore.map((c) => (
+            <li class="w-[78%] max-w-[300px] shrink-0 snap-start sm:w-[300px]">
+              <RouteCard href={`/app/routes/${c.id}`} title={c.title} photo={c.photo} stops={c.stops} durationMinutes={c.durationMinutes}
+                area={c.area} host={c.host} slots={c.slots} slotCount={c.slotCount} chips={1} />
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </div>
 </BaseLayout>

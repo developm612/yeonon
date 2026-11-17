@@ -2,6 +2,8 @@
  * 예약 상태 패널 (Preact 아일랜드) — 여행자 /app/bookings/[id](영문), 지기 /partner/bookings/[id](한글).
  * 상태 머리말·응답 기한 카운트다운·상태 타임라인·버튼(취소 / 수락·거절)을 그리고,
  * Realtime으로 이 예약 행이 바뀌면(수락·거절·만료·취소·완료) 바로 다시 그린다.
+ * 여행자 화면은 성수 라인 모양 (yeonon-traveler-ui-plan.md 5-5): 위쪽에 예약 상태 루트 라인(요청 → 확정 → 만남 → 후기),
+ *   상태 이름은 TRAVELER_STATUS(Requested / Confirmed / Completed …), 응답 기한은 남은 시간으로. 지기 화면은 그대로.
  * 버튼은 /api/bookings/respond, /api/bookings/cancel 로 보낸다 (권한·기한 확인은 DB 함수).
  */
 import { useEffect, useState } from 'preact/hooks';
@@ -13,6 +15,7 @@ import {
   REASON_DETAIL_MAX,
   STATUS_TONE_CLASS,
   TRAVELER_CANCEL_REASONS,
+  TRAVELER_STATUS,
   isActive,
   kstWhen,
   reasonLabel,
@@ -71,7 +74,7 @@ export default function BookingPanel({ booking: initial, viewer, discoverHref, l
           if (p.eventType !== 'UPDATE') return;
           setB((prev) => {
             const next = { ...prev, ...(p.new as PanelBooking) };
-            if (next.status !== prev.status) setFlash(ko ? `상태가 바뀌었어요: ${BOOKING_STATUS[next.status].ko}` : `Updated: ${BOOKING_STATUS[next.status].en}`);
+            if (next.status !== prev.status) setFlash(ko ? `상태가 바뀌었어요: ${BOOKING_STATUS[next.status].ko}` : `Updated: ${TRAVELER_STATUS[next.status].label}`);
             return next;
           });
         },
@@ -195,6 +198,124 @@ export default function BookingPanel({ booking: initial, viewer, discoverHref, l
       )}
     </fieldset>
   );
+
+  const tv = viewer === 'traveler';
+  if (tv) {
+    const st = TRAVELER_STATUS[b.status];
+    const toneCls = { ok: 'bg-status-ok/10 text-status-ok', wait: 'bg-status-wait/10 text-status-wait', off: 'bg-status-off/10 text-status-off', done: 'bg-ink/[0.07] text-ink' }[st.tone];
+    const off = !isActive(b.status) && b.status !== 'completed';
+    const cur = b.status === 'pending' ? 0 : b.status === 'confirmed' ? (startsIn <= 0 ? 2 : 1) : 3;
+    const names = ['Requested', 'Confirmed', 'Meetup', 'Review'];
+    const x = (i: number) => `${((i + 0.5) / names.length) * 100}%`;
+    const urgent = b.respond_by && new Date(b.respond_by).getTime() - now < 3600_000;
+    const tBtn = 'inline-flex min-h-[52px] items-center justify-center rounded-control px-6 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55';
+    const Who = who.charAt(0).toUpperCase() + who.slice(1);
+    return (
+      <div lang="en">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.8125rem] leading-none font-semibold ${toneCls}`}>
+            <span class="size-1.5 rounded-full bg-current" aria-hidden="true" />{st.label}
+          </span>
+          {b.status === 'pending' && left && (
+            <span class={`t-small tabular-nums ${urgent ? 'font-semibold text-status-error' : 'text-stone'}`} role="timer">{left} left to reply</span>
+          )}
+        </div>
+        <p class="t-heading mt-3">{head}</p>
+        {b.status === 'pending' && b.respond_by && pendingOpen && (
+          <p class="t-small mt-1 font-normal text-stone">{Who} replies by {kstWhen(b.respond_by, 'en')} KST.</p>
+        )}
+        {reasonText && <p class="t-body mt-1 text-stone">{reasonText}</p>}
+        <p class="sr-only" role="status" aria-live="polite">{flash ?? ''}</p>
+
+        <div class="mt-6" role="img" aria-label={off ? `Ended: ${st.label}` : `Step ${cur + 1} of 4: ${names[cur]}`}>
+          <svg class="block h-[22px] w-full overflow-visible" aria-hidden="true">
+            {names.slice(1).map((_, i) => (
+              <line key={`l${i}`} x1={x(i)} x2={x(i + 1)} y1="11" y2="11" stroke-width="4" stroke-linecap="round"
+                stroke={!off && i < cur ? 'var(--color-ink)' : 'var(--color-hairline)'} />
+            ))}
+            {names.map((_, i) =>
+              !off && i === cur ? (
+                <g key={`d${i}`}>
+                  <circle cx={x(i)} cy="11" r="10" fill="var(--color-line2)" opacity="0.18" />
+                  <circle cx={x(i)} cy="11" r="6.5" fill="var(--color-line2)" />
+                </g>
+              ) : !off && i < cur ? (
+                <circle key={`d${i}`} cx={x(i)} cy="11" r="5.5" fill="var(--color-ink)" />
+              ) : (
+                <circle key={`d${i}`} cx={x(i)} cy="11" r="5.5" fill="var(--color-paper)" stroke="var(--color-hairline)" stroke-width="3" />
+              ),
+            )}
+          </svg>
+          <ol class="mt-1.5 grid grid-cols-4" aria-hidden="true">
+            {names.map((n, i) => (
+              <li key={n} class={`text-center text-[0.8125rem] leading-[1.125rem] font-semibold ${!off && i === cur ? 'text-line2-text' : !off && i < cur ? 'text-ink' : 'text-stone'}`}>{n}</li>
+            ))}
+          </ol>
+        </div>
+
+        <ol class="mt-6 space-y-2 border-t border-hairline pt-4" aria-label="History">
+          {steps.filter((s) => s.at).map((s, i) => (
+            <li key={i} class="t-small flex flex-wrap justify-between gap-x-4">
+              <span class="font-semibold">{s.label}</span>
+              <span class="font-normal text-stone tabular-nums">{kstWhen(s.at!, 'en')} KST</span>
+            </li>
+          ))}
+        </ol>
+
+        {error && <p role="alert" class="t-small mt-5 rounded-control bg-status-error/10 px-3.5 py-2.5 text-status-error">{error}</p>}
+
+        <div class="mt-6 flex flex-wrap gap-3">
+          {showSeeOther && <a href={discoverHref} class={`${tBtn} bg-on-blue text-white hover:bg-on-blue-hover`}>See other routes</a>}
+          {canCancel && mode === 'none' && (
+            <button type="button" class="inline-flex min-h-11 items-center px-1 font-semibold text-status-error hover:underline hover:underline-offset-4" disabled={busy} onClick={() => { setMode('cancel'); setReason(''); }}>
+              {b.status === 'pending' ? 'Cancel request' : 'Cancel booking'}
+            </button>
+          )}
+        </div>
+
+        {mode === 'cancel' && (
+          <form
+            class="mt-5 rounded-card border border-hairline bg-concrete p-4 md:p-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!reason) {
+                setError('Choose a reason to cancel.');
+                return;
+              }
+              void post('/api/bookings/cancel', { accept: false, reason, detail });
+            }}
+          >
+            <p class="t-heading">Cancel this booking?</p>
+            {willBeLate && b.status === 'confirmed' && (
+              <p class="t-small mt-1 text-status-error">This meetup starts within 24 hours. Late cancellations are recorded.</p>
+            )}
+            <fieldset class="mt-4">
+              <legend class="t-small font-semibold">Reason</legend>
+              <div class="mt-2 grid gap-2">
+                {cancelReasons.map((r) => (
+                  <label key={r.id} class="flex min-h-12 cursor-pointer items-center gap-3 rounded-control border border-hairline bg-paper px-3.5 has-checked:border-on-blue">
+                    <input type="radio" name="reason-cancel" value={r.id} checked={reason === r.id} onChange={() => setReason(r.id)} class="size-[18px] accent-on-blue" />
+                    <span>{r.en}</span>
+                  </label>
+                ))}
+              </div>
+              {reason === 'other' && (
+                <label class="t-small mt-3 block font-semibold">
+                  Details (optional, not shown to your jigi)
+                  <textarea value={detail} maxLength={REASON_DETAIL_MAX} rows={2} onInput={(e) => setDetail((e.target as HTMLTextAreaElement).value)}
+                    class="mt-1.5 block w-full rounded-control border border-hairline bg-paper px-3 py-2 font-normal" />
+                </label>
+              )}
+            </fieldset>
+            <div class="mt-4 flex flex-wrap gap-3">
+              <button type="submit" class={`${tBtn} bg-status-error text-white hover:bg-[#912018]`} disabled={busy}>Yes, cancel</button>
+              <button type="button" class={`${tBtn} border border-hairline bg-paper hover:border-ink`} disabled={busy} onClick={() => { setMode('none'); setError(null); }}>Keep it</button>
+            </div>
+          </form>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div lang={lang}>

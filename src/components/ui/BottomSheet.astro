@@ -3,27 +3,30 @@
  * BottomSheet — 모바일은 아래에서 올라오는 시트, 768px 이상은 가운데 창 (yeonon-traveler-ui-plan.md 4-4).
  * 루트 상세의 시간 선택·요청, 채팅 신고 메뉴에 쓴다. 네이티브 <dialog>라 포커스 가두기·Esc 닫기가 기본으로 된다.
  * 여는 버튼: <button data-sheet-open="시트 id">, 닫는 버튼: 시트 안의 [data-sheet-close]. 바깥(어두운 곳)을 눌러도 닫힌다.
+ * inline을 주면 1024px 이상에서는 시트가 아니라 제자리 패널로 보인다 (루트 상세의 오른쪽 고정 예약 패널).
+ *   같은 폼이 한 번만 있어서, 모바일 시트와 데스크톱 패널의 입력값이 따로 놀지 않는다.
  */
 import Icon from '../Icon.astro';
 
 interface Props {
   id: string;
   title: string;
+  inline?: boolean;
   class?: string;
 }
-const { id, title, class: className = '' } = Astro.props;
+const { id, title, inline = false, class: className = '' } = Astro.props;
 ---
-<dialog id={id} aria-labelledby={`${id}-title`} data-sheet
-  class:list={['sheet m-0 mt-auto w-full max-w-none bg-paper p-0 text-ink shadow-float backdrop:bg-ink/45 md:m-auto md:w-[min(calc(100vw-2rem),30rem)] md:rounded-card', className]}>
-  <div class="flex max-h-[85dvh] flex-col">
-    <div class="flex items-center gap-3 border-b border-hairline px-5 pt-3 pb-3 md:pt-4">
+<dialog id={id} aria-labelledby={`${id}-title`} data-sheet data-sheet-inline={inline || undefined}
+  class:list={['sheet m-0 mt-auto w-full max-w-none bg-paper p-0 text-ink shadow-float backdrop:bg-ink/45 md:m-auto md:w-[min(calc(100vw-2rem),30rem)] md:rounded-card', inline && 'sheet-inline', className]}>
+  <div class="sheet-body flex max-h-[85dvh] flex-col">
+    <div class="sheet-head flex items-center gap-3 border-b border-hairline px-5 pt-3 pb-3 md:pt-4">
       <span class="absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-hairline md:hidden" aria-hidden="true"></span>
       <h2 id={`${id}-title`} class="t-heading min-w-0 flex-1 pt-2 md:pt-0">{title}</h2>
-      <button type="button" data-sheet-close class="-mr-2 inline-flex size-11 items-center justify-center rounded-control text-stone hover:bg-ink/5 hover:text-ink" aria-label="Close">
+      <button type="button" data-sheet-close class="sheet-x -mr-2 inline-flex size-11 items-center justify-center rounded-control text-stone hover:bg-ink/5 hover:text-ink" aria-label="Close">
         <Icon name="x" class="size-5" />
       </button>
     </div>
-    <div class="overflow-y-auto px-5 py-5">
+    <div class="sheet-main overflow-y-auto px-5 py-5">
       <slot />
     </div>
     {Astro.slots.has('footer') && <div class="border-t border-hairline px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]"><slot name="footer" /></div>}
@@ -37,6 +40,24 @@ const { id, title, class: className = '' } = Astro.props;
   .sheet[open] { animation: sheet-up 0.22s ease-out; }
   @keyframes sheet-up { from { transform: translateY(24px); opacity: 0.6; } }
   @media (min-width: 768px) { .sheet[open] { animation: none; } }
+
+  /* 1024px 이상: 제자리 패널 (닫힌 dialog도 보이게) */
+  @media (min-width: 1024px) {
+    .sheet-inline:not([open]) {
+      display: block;
+      position: static;
+      width: auto;
+      height: auto;
+      margin: 0;
+      border: 1px solid var(--color-hairline);
+      border-radius: var(--radius-card);
+      box-shadow: none;
+    }
+    .sheet-inline:not([open]) .sheet-body { max-height: none; }
+    .sheet-inline:not([open]) .sheet-head { border-bottom: 0; padding: 1.25rem 1.25rem 0; }
+    .sheet-inline:not([open]) .sheet-x { display: none; }
+    .sheet-inline:not([open]) .sheet-main { overflow: visible; padding: 1rem 1.25rem 1.25rem; }
+  }
 </style>
 
 <script>
@@ -50,8 +71,12 @@ const { id, title, class: className = '' } = Astro.props;
       return;
     }
     const sheet = t.closest<HTMLDialogElement>('dialog[data-sheet]');
-    if (!sheet) return;
+    if (!sheet || !sheet.open) return;
     // 어두운 바깥을 누르면 이벤트 대상이 dialog 자신이다
     if (t === sheet || t.closest('[data-sheet-close]')) sheet.close();
+  });
+  // 화면이 넓어져 제자리 패널이 되면 열린 시트를 닫는다
+  window.matchMedia('(min-width: 1024px)').addEventListener('change', (e) => {
+    if (e.matches) document.querySelectorAll<HTMLDialogElement>('dialog[data-sheet-inline][open]').forEach((d) => d.close());
   });
 </script>

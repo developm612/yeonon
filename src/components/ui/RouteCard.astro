@@ -80,5 +80,6 @@ const more = slotCount - Math.min(chips, slots.length);
         {more > 0 && <li class="px-1 py-1 text-[0.875rem] font-semibold text-stone">+{more}</li>}
       </ul>
     )}
+    {slots.length === 0 && <p class="t-small mt-auto pt-4 font-normal text-stone">No open times yet</p>}
   </div>
 </article>

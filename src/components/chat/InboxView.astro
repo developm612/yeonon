@@ -17,15 +17,23 @@ if (supabase && user) {
   items = (data ?? []) as ConversationListItem[];
 }
 ---
-<section class="section pt-10! md:pt-14!">
-  <div class="container-page max-w-2xl!">
-    <p class="eyebrow">{ko ? '지기' : 'Traveler'}</p>
-    <h1 class="mt-3 text-3xl font-extrabold">{ko ? '메시지' : 'Messages'}</h1>
-    <p class="mt-2 text-muted">
-      {ko ? '예약마다 대화방이 하나씩 열려요. 확정 전에는 질문만, 확정 후에는 자유롭게 대화할 수 있어요.' : 'Each booking has its own chat. Before confirmation it’s for questions; once matched, chat freely.'}
-    </p>
+{ko ? (
+  <section class="section pt-10! md:pt-14!">
+    <div class="container-page max-w-2xl!">
+      <p class="eyebrow">지기</p>
+      <h1 class="mt-3 text-3xl font-extrabold">메시지</h1>
+      <p class="mt-2 text-muted">예약마다 대화방이 하나씩 열려요. 확정 전에는 질문만, 확정 후에는 자유롭게 대화할 수 있어요.</p>
+      <div class="mt-8">
+        {user && <ConversationList client:load userId={user.id} lang={lang} base="/partner/messages" initial={items} />}
+      </div>
+    </div>
+  </section>
+) : (
+  <div class="container-page max-w-3xl! pt-8 pb-16 md:pt-12 md:pb-24">
+    <h1 class="t-display">Messages</h1>
+    <p class="t-body measure mt-2 text-stone">Each booking has its own chat. Before it's confirmed, ask questions. Once you're matched, chat freely.</p>
     <div class="mt-8">
-      {user && <ConversationList client:load userId={user.id} lang={lang} base={ko ? '/partner/messages' : '/app/messages'} initial={items} />}
+      {user && <ConversationList client:load userId={user.id} lang={lang} base="/app/messages" initial={items} />}
     </div>
   </div>
-</section>
+)}

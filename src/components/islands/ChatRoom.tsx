@@ -3,6 +3,8 @@
  * Realtime으로 새 메시지·읽음 표시를 바로 받고, 보이는 동안 받은 메시지를 읽음 처리한다.
  * 보내기·읽음·신고·차단·번역은 /api/chat/* 로 보낸다 (권한·차단·제한 확인은 DB 함수).
  * 모바일: 입력창이 키보드에 가려지지 않게 화면에 보이는 높이(visualViewport)에 맞춰 대화 영역 높이를 맞춘다.
+ * 여행자 화면(en)은 성수 라인 모양 (yeonon-traveler-ui-plan.md 5-6): 내 말풍선 ON Blue / 상대 Paper, 시간은 묶음(같은 사람·5분 안)의
+ *   마지막에만, 처음 들어오면 한 번 "Use ⋯ to report a problem" 안내. 지기 화면(ko)은 그대로.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -70,6 +72,19 @@ export default function ChatRoom(props: Props) {
   const [detail, setDetail] = useState('');
   const [translations, setTranslations] = useState<Record<string, string | 'loading' | null>>({});
   const [showNew, setShowNew] = useState(false);
+  const tv = lang === 'en';
+  // ⋯ 메뉴 안내: 여행자가 처음 대화를 열었을 때 한 번만 (브라우저에 기억)
+  const [menuHint, setMenuHint] = useState(false);
+  useEffect(() => {
+    if (!tv) return;
+    try {
+      if (!localStorage.getItem('yeonon-chat-menu-hint')) setMenuHint(true);
+    } catch { /* 저장소를 못 쓰면 안내를 띄우지 않는다 */ }
+  }, []);
+  const dismissHint = () => {
+    setMenuHint(false);
+    try { localStorage.setItem('yeonon-chat-menu-hint', '1'); } catch { /* 무시 */ }
+  };
   const panel = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -273,11 +288,17 @@ export default function ChatRoom(props: Props) {
 
   let lastDay = '';
   return (
-    <div ref={panel} lang={lang} class="relative flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+    <div ref={panel} lang={lang} class={`relative flex min-h-[360px] flex-col overflow-hidden border bg-surface ${tv ? 'rounded-card border-hairline' : 'rounded-2xl border-border shadow-card'}`}>
       <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-        <p class="min-w-0 truncate font-bold">{otherName}</p>
+        <p class={`min-w-0 truncate ${tv ? 't-heading' : 'font-bold'}`}>{otherName}</p>
         <div class="relative">
-          <button type="button" class="inline-flex size-10 items-center justify-center rounded-full text-xl leading-none hover:bg-text/5" aria-label={t.menu} aria-expanded={menu} onClick={() => setMenu((x) => !x)}>⋯</button>
+          <button type="button" class="inline-flex size-10 items-center justify-center rounded-full text-xl leading-none hover:bg-text/5" aria-label={t.menu} aria-expanded={menu} onClick={() => { setMenu((x) => !x); if (menuHint) dismissHint(); }}>⋯</button>
+          {menuHint && !menu && (
+            <div class="absolute top-11 right-0 z-10 w-56 rounded-control bg-ink px-3.5 py-2.5 text-[0.875rem] leading-5 text-white shadow-float" role="note">
+              Use ⋯ to report a problem or block someone.
+              <button type="button" class="mt-1.5 block font-semibold underline underline-offset-2" onClick={dismissHint}>Got it</button>
+            </div>
+          )}
           {menu && (
             <div class="absolute top-11 right-0 z-10 w-44 overflow-hidden rounded-xl border border-border bg-surface shadow-xl" role="menu">
               <button type="button" role="menuitem" class="block w-full px-4 py-3 text-left hover:bg-text/5" onClick={() => { setMenu(false); setDialog('report'); setError(null); }}>{t.report}</button>
@@ -291,10 +312,15 @@ export default function ChatRoom(props: Props) {
 
       {status === 'pending' && !closed && <p class="border-b border-border bg-[#FFF4D6] px-4 py-2 text-sm font-medium text-[#7A5200]">{PENDING_NOTICE[lang]}</p>}
 
-      <div ref={list} onScroll={onScroll} class="flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-4 md:px-5" aria-live="polite" aria-relevant="additions" data-chat-list>
+      <div ref={list} onScroll={onScroll} class={`flex-1 overflow-y-auto overscroll-contain px-3 py-4 md:px-5 ${tv ? 'space-y-1 bg-concrete' : 'space-y-2'}`} aria-live="polite" aria-relevant="additions" data-chat-list>
         {messages.length === 0 && <p class="py-10 text-center text-sm text-muted">{t.empty}</p>}
-        {messages.map((m) => {
+        {messages.map((m, idx) => {
           const mine = m.sender_id === userId;
+          // 여행자 화면: 같은 사람이 5분 안에 이어 보낸 묶음의 마지막 말풍선에만 시간
+          const nextMsg = messages[idx + 1];
+          const groupEnd = !tv || !nextMsg || nextMsg.sender_id !== m.sender_id || kstDayKey(nextMsg.created_at) !== kstDayKey(m.created_at)
+            || new Date(nextMsg.created_at).getTime() - new Date(m.created_at).getTime() > 5 * 60_000;
+          const isLastMine = mine && lastMineRead?.id === m.id;
           const day = kstDayKey(m.created_at);
           const sep = day !== lastDay;
           lastDay = day;
@@ -307,22 +333,24 @@ export default function ChatRoom(props: Props) {
                 </p>
               )}
               <div class={`flex flex-col ${mine ? 'items-end' : 'items-start'}`} data-message={mine ? 'mine' : 'theirs'}>
-                <div class={`max-w-[85%] rounded-2xl px-3.5 py-2 whitespace-pre-wrap break-words md:max-w-[70%] ${mine ? `${accent} rounded-br-md` : 'rounded-bl-md bg-bg'}`}>{m.body}</div>
+                <div class={`max-w-[85%] rounded-2xl px-3.5 py-2 whitespace-pre-wrap break-words md:max-w-[70%] ${mine ? `${accent} rounded-br-md` : tv ? 'rounded-bl-md border border-hairline bg-paper' : 'rounded-bl-md bg-bg'}`}>{m.body}</div>
                 {tr && tr !== 'loading' && (
                   <div class="mt-1 max-w-[85%] rounded-xl border border-border bg-surface px-3 py-1.5 text-sm md:max-w-[70%]" data-translation>
                     <span class="mr-1 text-xs font-semibold text-muted">{t.translationLabel}</span>{tr}
                   </div>
                 )}
-                {m.flagged && <p class="mt-1 max-w-[85%] rounded-xl bg-[#FDECEC] px-3 py-1.5 text-xs font-medium text-[#8A1C1C] md:max-w-[70%]" role="note" data-safety>⚠️ {SAFETY_NOTICE[lang]}</p>}
-                <p class="mt-0.5 flex items-center gap-2 text-[11px] text-muted tabular-nums">
-                  {timeOf(m.created_at)}
-                  {mine && lastMineRead?.id === m.id && <span data-receipt>{m.read_at ? t.read : t.sent}</span>}
+                {m.flagged && <p class="mt-1 max-w-[85%] rounded-xl bg-[#FDECEC] px-3 py-1.5 text-xs font-medium text-[#8A1C1C] md:max-w-[70%]" role="note" data-safety>{tv ? '' : '⚠️ '}{SAFETY_NOTICE[lang]}</p>}
+                {(groupEnd || isLastMine || (!mine && translateEnabled)) && (
+                <p class={`flex items-center gap-2 text-muted tabular-nums ${tv ? 'mt-1 mb-2 text-[0.75rem]' : 'mt-0.5 text-[11px]'}`}>
+                  {groupEnd && timeOf(m.created_at)}
+                  {isLastMine && <span data-receipt>{m.read_at ? t.read : t.sent}</span>}
                   {!mine && translateEnabled && (
                     <button type="button" class="font-semibold underline underline-offset-2 hover:text-text" onClick={() => translate(m)} disabled={tr === 'loading'}>
                       {tr === 'loading' ? t.translating : tr ? t.hideTranslation : t.translate}
                     </button>
                   )}
                 </p>
+                )}
               </div>
             </div>
           );
