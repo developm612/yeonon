@@ -5,6 +5,7 @@
  *   회원: 가입 수(오늘·7일), 역할별 회원 수 / 루트: 공개 루트 수, 상태별 / 예약: 기간 안 요청·확정·완료·만료·취소·거절,
  *   수락률·평균 응답 시간('수락 후 확정' 요청 기준) / AI 추천 → 요청 전환율 / 후기 / 대기자 명단 / 지기 신청
  * 기간: ?days=0(오늘, 한국 날짜) · 7 · 30
+ * 화면: 한눈에 보이게 — 맨 위 알림 한 줄, 핵심 숫자 한 줄, 그 아래 영역별 작은 패널(이름 … 숫자 줄 목록).
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
@@ -97,97 +98,118 @@ const growthTiles: Tile[] = st && rec
   : [];
 const alerts = st
   ? [
-      { label: '처리 대기 채팅 신고', value: st.open_reports, href: '/admin/reports?status=open', action: '신고 처리하기 →' },
-      { label: '안전 문제가 체크된 후기', value: st.open_safety_reviews, href: '/admin/reports?safety_status=open#safety', action: '안전 후기 확인하기 →' },
+      { label: '처리 대기 채팅 신고', value: st.open_reports, href: '/admin/reports?status=open', action: '신고 처리' },
+      { label: '안전 체크 후기', value: st.open_safety_reviews, href: '/admin/reports?safety_status=open#safety', action: '확인' },
     ]
   : [];
+// 맨 위 핵심 숫자
+const kpis: Tile[] = st && b && rec
+  ? [
+      { label: '오늘 가입', value: st.signups_today, hint: `7일 ${st.signups_7d}` },
+      { label: '전체 회원', value: st.members.total, href: '/admin/users' },
+      { label: `예약 요청 · ${period.label}`, value: b.requested, href: '/admin/bookings?status=all' },
+      { label: '지금 응답 대기', value: b.pending_now, href: '/admin/bookings?status=pending' },
+      { label: '수락률', value: pct(b.accepted_manual, decided) },
+      { label: '공개 루트', value: st.published_routes, href: '/admin/routes?status=published' },
+    ]
+  : [];
+const applicationTiles: Tile[] = APPLICATION_STATUSES.map((s, i) => ({ label: APPLICATION_STATUS[s].label, value: appCounts[i], href: `/admin/jigi-applications?status=${s}` }));
+const routeTiles: Tile[] = ROUTE_STATUSES.map((s, i) => ({ label: ROUTE_STATUS[s].label, value: routeCounts[i], href: `/admin/routes?status=${s}` }));
+// 넓은 화면 네 칸: 회원 | 예약 | 루트·추천·후기 | (지기 신청 + 루트 상태를 위아래로). 좁으면 두 칸·한 칸으로 흐른다
+const columns = [
+  [{ title: '회원', note: '', tiles: memberTiles }],
+  [{ title: '예약', note: period.label, tiles: bookingTiles }],
+  [{ title: '루트 · 추천 · 후기', note: period.label, tiles: growthTiles }],
+  [
+    { title: '지기 신청', note: '', tiles: applicationTiles },
+    { title: '루트 상태', note: '', tiles: routeTiles },
+  ],
+];
 ---
 <BaseLayout title="관리자 | YEONON" description="연온 관리자" lang="ko" sticky="none" noindex>
   <AreaNav items={ADMIN_NAV} label="관리자 메뉴" />
-  <section class="section pt-10! md:pt-14!">
+  <section class="pt-6 pb-12 md:pt-8">
     <div class="container-page">
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <h1 class="text-3xl font-extrabold">대시보드</h1>
-        <nav aria-label="기간" class="flex gap-1.5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-extrabold">대시보드</h1>
+        <nav aria-label="기간" class="flex rounded-full border border-border bg-surface p-0.5">
           {PERIODS.map((p) => (
             <a href={`?days=${p.days}`} aria-current={p.days === period.days ? 'page' : undefined}
-              class:list={['inline-flex min-h-10 items-center rounded-full px-4 text-sm font-semibold', p.days === period.days ? 'bg-text text-white' : 'bg-surface text-muted shadow-card hover:text-text']}>{p.label}</a>
+              class:list={['inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-semibold', p.days === period.days ? 'bg-text text-white' : 'text-muted hover:text-text']}>{p.label}</a>
           ))}
         </nav>
       </div>
 
       {!st ? (
-        <p class="mt-8 rounded-xl bg-[#FDECEC] px-4 py-3 text-sm text-[#8A1C1C]">지표를 읽지 못했어요. 마이그레이션 17~19번을 실행했는지 확인해 주세요.</p>
+        <p class="mt-6 rounded-xl bg-[#FDECEC] px-4 py-3 text-sm text-[#8A1C1C]">지표를 읽지 못했어요. 마이그레이션 17~19번을 실행했는지 확인해 주세요.</p>
       ) : (
         <>
-          <ul class="mt-8 grid gap-3 md:grid-cols-2">
-            {alerts.map((a) => (
+          <!-- 알림: 처리할 것이 있으면 빨간색 -->
+          <ul class="mt-4 flex flex-wrap gap-2">
+            {alerts.map((al) => (
               <li>
-                <a href={a.href} class:list={['card flex h-full items-center justify-between gap-4 p-5 transition-colors hover:border-text', a.value > 0 && 'border-[#B42318]']}>
-                  <span>
-                    <span class="block text-sm text-muted">{a.label}</span>
-                    <span class:list={['mt-1 block text-3xl font-extrabold tabular-nums', a.value > 0 && 'text-[#B42318]']}>{a.value}</span>
-                  </span>
-                  <span class="text-sm font-semibold">{a.action}</span>
+                <a href={al.href} class:list={['inline-flex min-h-10 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold transition-colors',
+                  al.value > 0 ? 'border-[#B42318] bg-[#FDECEC] text-[#8A1C1C] hover:bg-[#FBD9D9]' : 'border-border bg-surface text-muted hover:border-text']}>
+                  <span class:list={['size-2 rounded-full', al.value > 0 ? 'bg-[#B42318]' : 'bg-jigi-strong']} aria-hidden="true"></span>
+                  {al.label} <span class="tabular-nums">{al.value}</span>
+                  {al.value > 0 && <span class="underline underline-offset-2">{al.action}</span>}
                 </a>
               </li>
             ))}
           </ul>
 
-          {[
-            { title: '회원', note: '', tiles: memberTiles, cols: 'lg:grid-cols-4' },
-            { title: '예약', note: `${period.label} · 수락률·응답 시간은 '수락 후 확정' 요청 기준`, tiles: bookingTiles, cols: 'lg:grid-cols-5' },
-            { title: '루트 · 추천 · 후기', note: period.label, tiles: growthTiles, cols: 'lg:grid-cols-4' },
-          ].map((group) => (
-            <>
-              <h2 class="mt-10 font-bold">{group.title} {group.note && <span class="font-normal text-muted">· {group.note}</span>}</h2>
-              <ul class:list={['mt-3 grid grid-cols-2 gap-3 md:grid-cols-3', group.cols]}>
-                {group.tiles.map((t) => (
-                  <li>
-                    {t.href ? (
-                      <a href={t.href} class="card block h-full p-5 transition-colors hover:border-text">
-                        <p class="text-sm text-muted">{t.label}</p>
-                        <p class="mt-1 text-3xl font-extrabold tabular-nums">{t.value}</p>
-                        {t.hint && <p class="mt-1 text-xs text-muted">{t.hint}</p>}
-                      </a>
-                    ) : (
-                      <div class="card h-full p-5">
-                        <p class="text-sm text-muted">{t.label}</p>
-                        <p class="mt-1 text-3xl font-extrabold tabular-nums">{t.value}</p>
-                        {t.hint && <p class="mt-1 text-xs text-muted">{t.hint}</p>}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ))}
+          <!-- 핵심 숫자 한 줄 -->
+          <dl class="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
+            {kpis.map((k) => (
+              <div class="relative bg-surface px-4 py-3 hover:bg-[#FAFBFC]">
+                <dt class="truncate text-xs text-muted">{k.label}</dt>
+                <dd class="mt-0.5 flex items-baseline gap-2">
+                  <span class="text-2xl font-extrabold tabular-nums">{k.value}</span>
+                  {k.hint && <span class="text-xs text-muted">{k.hint}</span>}
+                </dd>
+                {k.href && <a href={k.href} class="absolute inset-0" aria-label={`${k.label} 보기`}></a>}
+              </div>
+            ))}
+          </dl>
         </>
       )}
 
-      <h2 class="mt-10 font-bold">지기 신청</h2>
-      <ul class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
-        {APPLICATION_STATUSES.map((s, i) => (
-          <li>
-            <a href={`/admin/jigi-applications?status=${s}`} class="card block p-5 transition-colors hover:border-text">
-              <p class="text-sm text-muted">{APPLICATION_STATUS[s].label}</p>
-              <p class="mt-1 text-3xl font-extrabold tabular-nums">{appCounts[i]}</p>
-            </a>
-          </li>
+      <div class="mt-4 grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {columns.map((col, ci) => (
+          <div class:list={['grid gap-4', ci === 3 && 'md:col-span-2 md:grid-cols-2 xl:col-span-1 xl:grid-cols-1']}>
+        {col.filter((g) => g.tiles.length > 0).map((g) => (
+          <section class="rounded-xl border border-border bg-surface" aria-label={g.title}>
+            <h2 class="flex items-baseline justify-between gap-2 border-b border-border px-4 py-2 text-sm font-bold">
+              {g.title}{g.note && <span class="text-xs font-normal text-muted">{g.note}</span>}
+            </h2>
+            <ul class="divide-y divide-border/70">
+              {g.tiles.map((t) => {
+                const row = (
+                  <>
+                    <span class="min-w-0">
+                      <span class="block truncate">{t.label}</span>
+                      {t.hint && <span class="block truncate text-xs text-muted">{t.hint}</span>}
+                    </span>
+                    <span class="shrink-0 text-base font-bold tabular-nums">{t.value}</span>
+                  </>
+                );
+                return (
+                  <li>
+                    {t.href ? (
+                      <a href={t.href} class="flex min-h-9 items-center justify-between gap-3 px-4 py-1 text-sm transition-colors hover:bg-text/[0.04]">{row}</a>
+                    ) : (
+                      <div class="flex min-h-9 items-center justify-between gap-3 px-4 py-1 text-sm">{row}</div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         ))}
-      </ul>
-
-      <h2 class="mt-10 font-bold">루트 상태</h2>
-      <ul class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
-        {ROUTE_STATUSES.map((s, i) => (
-          <li>
-            <a href={`/admin/routes?status=${s}`} class="card block p-5 transition-colors hover:border-text">
-              <p class="text-sm text-muted">{ROUTE_STATUS[s].label}</p>
-              <p class="mt-1 text-3xl font-extrabold tabular-nums">{routeCounts[i]}</p>
-            </a>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
+      {st && <p class="mt-3 text-xs text-muted">수락률·평균 응답 시간은 '수락 후 확정' 요청 기준이에요. 줄을 누르면 해당 목록으로 가요.</p>}
     </div>
   </section>
 </BaseLayout>
