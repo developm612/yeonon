@@ -110,6 +110,36 @@ Vercel 어댑터를 쓰므로 `npm run preview`는 지원되지 않는다. 확�
 
 첫 관리자: 관리자 계정으로 한 번 로그인한 뒤 SQL Editor에서 `update public.profiles set role = 'admin' where email = 'yeonon.official2026@gmail.com';`
 
+**관리자 지정·해제** (화면 기능 없음 — 마이그레이션 23번에서 없앴다. 필요할 때 SQL Editor에서 한다)
+- 관리자로 쓸 계정은 **관리자용으로 따로 만든 계정**을 쓴다. 지기 계정은 안 된다: 역할 칸이 하나라 지기 활동(루트·열린 시간·예약·채팅)이 모두 멈추고, 자기 루트 승인·자기 신고 처리 같은 이해충돌이 생긴다.
+- 그 사람이 먼저 Google로 한 번 로그인해야 profiles에 줄이 생긴다.
+
+1) 대상 확인 — `role`이 traveler(진행예약 0) 또는 빈 값(가입 전)이고 `status`가 active여야 한다:
+```sql
+select id, email, role, status,
+  (select count(*) from public.bookings b
+    where b.traveler_id = p.id and b.status in ('pending','confirmed')) as active_bookings
+from public.profiles p where email = '대상@이메일';
+```
+2) 지정 (+ 기록 — 관리자 활동 기록에 남는다):
+```sql
+with t as (select id, role from public.profiles where email = '대상@이메일' and status = 'active' and role is distinct from 'jigi' and role is distinct from 'admin')
+, u as (update public.profiles p set role = 'admin' from t where p.id = t.id returning p.id, t.role as from_role)
+insert into public.audit_log (actor_id, action, target_table, target_id, detail)
+select null, 'user.set_admin', 'profiles', id::text, jsonb_build_object('from', from_role, 'to', 'admin', 'reason', 'SQL로 지정')
+from u;
+```
+결과가 `INSERT 0 1`이면 됐다(`0 0`이면 조건에 안 맞음). 그 사람이 새로고침하면 `/admin`이 열린다.
+
+3) 해제 (가입 전이었다면 `role = null`):
+```sql
+with u as (update public.profiles set role = 'traveler' where email = '대상@이메일' and role = 'admin' returning id)
+insert into public.audit_log (actor_id, action, target_table, target_id, detail)
+select null, 'user.set_admin', 'profiles', id::text, jsonb_build_object('from', 'admin', 'to', 'traveler', 'reason', 'SQL로 해제')
+from u;
+```
+지금 관리자 목록: `select email, role from public.profiles where role = 'admin';`
+
 - 모든 테이블 RLS 사용. 역할·상태·동의 시각·심사 결과는 클라이언트가 직접 못 바꾸고 위 DB 함수로만 바뀐다 (함수가 권한 확인 + audit_log 기록).
 - 지기 휴대폰 번호는 본인과 관리자만 볼 수 있다. 심사 메모·회원 메모는 관리자만 볼 수 있도록 별도 테이블에 둔다.
 - 루트·정류장·가능 시간·슬롯도 DB 함수로만 쓴다. 공개·비공개 루트를 고치면 작성 중으로 돌아가 다시 검수를 받는다. 슬롯은 공개 루트마다 가능 시간 안에서 루트 소요 시간 간격으로 만들어지고(한국 시간), 요청·확정된 슬롯은 가능 시간을 바꿔도 남는다.
