@@ -40,7 +40,7 @@ Vercel Hobby·Supabase Free 그대로, 기능·보안 로직(RLS·DB 함수·로
 - 영문 본문 Inter: 굵기 400~800, 같은 글자 → 약 27KB (전: 48KB). 여행자 화면도 영문은 Inter, 한글은 Pretendard
   (Pretendard로 영문을 그리면 글자 묶음 파일을 12개 넘게 받았다).
 - 모두 `font-display: swap`. 첫 화면 글꼴만 preload: 여행자 화면은 Bricolage, 지기·관리자 화면은 Inter.
-- 한글 Pretendard는 쓰는 글자 묶음만 받는 dynamic subset 그대로, 다만 그 CSS를 첫 화면 CSS에서 빼서 그린 뒤 불러온다
+- 한글 Pretendard는 쓰는 글자 묶음만 받는 dynamic subset 그대로, 다만 그 CSS를 `media="print"` 링크로 받아 첫 화면을 막지 않게 한다
   (첫 화면 CSS 27KB → 12KB, gzip). 그동안 한글은 시스템 글꼴로 보인다.
 - 글꼴 파일 다시 만들기: `python -m pip install fonttools brotli` 후 `python scripts/build-fonts.py`
   (원본은 `@fontsource-variable/*` 패키지). 글자 범위를 바꾸면 `src/styles/fonts.css`의 `unicode-range`도 함께.
