@@ -1,0 +1,104 @@
+{
+  "label": "after",
+  "at": "2026-11-18T05:23:35.708Z",
+  "base": "https://yeonon.vercel.app",
+  "runs": 5,
+  "results": [
+    {
+      "name": "/",
+      "url": "https://yeonon.vercel.app/",
+      "samples": [
+        {
+          "perf": 99,
+          "lcp": 1634.646,
+          "tbt": 80,
+          "cls": 0,
+          "server": 247
+        },
+        {
+          "perf": 98,
+          "lcp": 2193.4139999999998,
+          "tbt": 0,
+          "cls": 0.0002166783279173089,
+          "server": 45
+        },
+        {
+          "perf": 97,
+          "lcp": 2283.54,
+          "tbt": 0,
+          "cls": 0.0001308564794206576,
+          "server": 91
+        },
+        {
+          "perf": 98,
+          "lcp": 2202.529,
+          "tbt": 0,
+          "cls": 0.000428567803385104,
+          "server": 42
+        },
+        {
+          "perf": 100,
+          "lcp": 1532.132,
+          "tbt": 0,
+          "cls": 0,
+          "server": 40
+        }
+      ],
+      "median": {
+        "perf": 98,
+        "lcp": 2193.4139999999998,
+        "tbt": 0,
+        "cls": 0.0001308564794206576,
+        "server": 45
+      }
+    },
+    {
+      "name": "/routes/[id]",
+      "url": "https://yeonon.vercel.app/routes/dd8532e3-9f18-46ad-bdaa-ca7d624d7698",
+      "samples": [
+        {
+          "perf": 97,
+          "lcp": 2225.691,
+          "tbt": 0,
+          "cls": 0,
+          "server": 975
+        },
+        {
+          "perf": 90,
+          "lcp": 3029.867,
+          "tbt": 0,
+          "cls": 0,
+          "server": 54
+        },
+        {
+          "perf": 90,
+          "lcp": 3026.7780000000002,
+          "tbt": 0,
+          "cls": 0,
+          "server": 46
+        },
+        {
+          "perf": 90,
+          "lcp": 3035.203,
+          "tbt": 0,
+          "cls": 0,
+          "server": 58
+        },
+        {
+          "perf": 89,
+          "lcp": 3183.419,
+          "tbt": 0,
+          "cls": 0.0002076617711715064,
+          "server": 37
+        }
+      ],
+      "median": {
+        "perf": 90,
+        "lcp": 3029.867,
+        "tbt": 0,
+        "cls": 0,
+        "server": 54
+      }
+    }
+  ]
+}

@@ -5,6 +5,8 @@
  * 변경은 DB 함수(admin_set_user_status, admin_set_user_memo, admin_set_admin)로만 하고, 함수가 audit_log에 기록한다.
  * 관리자 권한 주기: 활성 여행자·온보딩 전 회원에게만 (지기·진행 중 예약이 있는 회원은 DB 함수가 막는다).
  * 관리자 권한 거두기: 이 화면에서 권한을 준 관리자만 (SQL로 지정한 처음 관리자와 본인은 거둘 수 없다). — 마이그레이션 21번
+ * 역할 바꾸기(여행자 ↔ 지기): 가입 때 잘못 고른 회원이 메일로 문의하면 관리자가 바꿔 준다 (admin_set_role, 사유 필수).
+ *   진행 중 예약이 있거나 30일 안에 바꾼 적이 있으면 DB 함수가 막는다. 지기 → 여행자면 공개 루트·열린 시간이 내려간다. — 마이그레이션 22번
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AreaNav from '../../components/account/AreaNav.astro';
@@ -34,12 +36,14 @@ if (Astro.request.method === 'POST') {
   const action = field(fd, 'action');
   if (!UUID.test(user)) error = '잘못된 요청이에요.';
   else {
-    const isAdminAction = action === 'grant_admin' || action === 'revoke_admin';
+    const isAdminAction = action === 'grant_admin' || action === 'revoke_admin' || action === 'set_role';
     const confirmed = field(fd, 'confirm') === 'yes';
     const { error: rpcError } = isAdminAction && !confirmed
       ? { error: { message: 'not confirmed' } }
       : action === 'memo'
         ? await supabase.rpc('admin_set_user_memo', { p_user: user, p_memo: clean(field(fd, 'memo'), 1000) })
+        : action === 'set_role'
+          ? await supabase.rpc('admin_set_role', { p_user: user, p_role: field(fd, 'role'), p_reason: clean(field(fd, 'role_reason'), 300) })
         : isAdminAction
           ? await supabase.rpc('admin_set_admin', { p_user: user, p_grant: action === 'grant_admin', p_reason: clean(field(fd, 'admin_reason'), 300) })
           : await supabase.rpc('admin_set_user_status', {
@@ -50,12 +54,19 @@ if (Astro.request.method === 'POST') {
     if (!rpcError || (rpcError.message !== 'not confirmed' && !dbError(rpcError, `admin users ${action}`))) {
       // 같은 검색 조건으로 돌아간다
       const back = new URL(Astro.url);
-      back.searchParams.set('notice', action === 'memo' ? 'memo' : action === 'grant_admin' ? 'granted' : action === 'revoke_admin' ? 'revoked' : 'status');
+      back.searchParams.set('notice', action === 'memo' ? 'memo' : action === 'grant_admin' ? 'granted' : action === 'revoke_admin' ? 'revoked' : action === 'set_role' ? 'role' : 'status');
       back.searchParams.set('open', user);
       return Astro.redirect(back.pathname + back.search);
     }
     const m = rpcError!.message;
+    const soon = m.match(/changed recently: (\d{4}-\d{2}-\d{2})/);
     error = m === 'not confirmed' ? '확인 칸에 체크해 주세요.'
+      : soon ? `역할은 30일에 한 번만 바꿀 수 있어요. ${soon[1]}부터 다시 바꿀 수 있어요.`
+      : /reason required/.test(m) ? '바꾸는 사유를 적어 주세요 (예: 메일 문의 — 가입 때 잘못 선택).'
+      : /same role/.test(m) ? '이미 그 역할이에요.'
+      : /not onboarded/.test(m) ? '가입(온보딩)을 마치지 않은 회원이에요. 가입할 때 역할을 고르면 돼요.'
+      : /cannot change an admin/.test(m) ? '관리자 계정의 역할은 여기서 바꿀 수 없어요.'
+      : /has active bookings/.test(m) && action === 'set_role' ? '진행 중(대기·확정)인 예약이 있어 바꿀 수 없어요. 예약이 끝나거나 취소된 뒤에 다시 해 주세요.'
       : /own status|own role/.test(m) ? '본인의 상태·권한은 바꿀 수 없어요.'
       : /another admin/.test(m) ? '다른 관리자의 상태는 바꿀 수 없어요. 먼저 관리자 권한을 거둬 주세요.'
       : /jigi cannot be admin/.test(m) ? '지기 계정은 관리자로 바꿀 수 없어요. 지기 활동(루트·예약)이 끊기기 때문이에요. 관리자용 계정을 따로 만들어 주세요.'
@@ -65,6 +76,7 @@ if (Astro.request.method === 'POST') {
       : /original admin/.test(m) ? '처음부터 지정된 관리자(운영 계정)는 화면에서 권한을 거둘 수 없어요.'
       : /not admin/.test(m) ? '관리자가 아닌 회원이에요.'
       : /admin_set_admin/.test(m) ? '관리자 권한 기능을 쓰려면 Supabase에서 SQL 21번을 먼저 실행해 주세요.'
+      : /admin_set_role/.test(m) ? '역할 바꾸기 기능을 쓰려면 Supabase에서 SQL 22번을 먼저 실행해 주세요.'
       : '저장하지 못했어요. 다시 시도해 주세요.';
   }
 }
@@ -105,6 +117,20 @@ if (adminIds.length) {
     if ((l.detail as { to?: string })?.to === 'admin') grantedAdmins.add(l.target_id);
   }
 }
+// 마지막 역할 변경 (30일에 한 번 — 다음에 바꿀 수 있는 날을 보여 준다)
+const roleChanged = new Map<string, string>();
+const memberIds = users.filter((u) => u.role === 'traveler' || u.role === 'jigi').map((u) => u.id);
+if (memberIds.length) {
+  const { data: logs } = await supabase.from('audit_log').select('target_id, created_at')
+    .eq('action', 'user.set_role').in('target_id', memberIds).order('created_at', { ascending: false });
+  for (const l of logs ?? []) if (!roleChanged.has(l.target_id)) roleChanged.set(l.target_id, l.created_at);
+}
+const nextChange = (id: string) => {
+  const last = roleChanged.get(id);
+  if (!last) return null;
+  const next = new Date(new Date(last).getTime() + 30 * 86400_000);
+  return next > new Date() ? next : null;
+};
 const pages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 const pageHref = (p: number) => {
   const u = new URL(Astro.url);
@@ -118,6 +144,7 @@ const saved = notice(Astro.url, {
   status: '회원 상태를 바꿨어요.',
   granted: '관리자 권한을 줬어요. 그 회원이 다시 로그인하거나 새로고침하면 관리자 화면(/admin)이 열려요.',
   revoked: '관리자 권한을 거뒀어요. 권한을 받기 전 역할로 돌아갔어요.',
+  role: '역할을 바꿨어요. 회원에게 알림이 갔고, 다시 로그인하거나 새로고침하면 바뀐 화면이 열려요.',
 });
 const openId = Astro.url.searchParams.get('open');
 const date = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -201,6 +228,38 @@ const input = 'h-11 rounded-xl border border-border bg-surface px-3 text-sm';
                         </form>
                       )}
                     </div>
+                    {u.id !== me.id && (u.role === 'traveler' || u.role === 'jigi') && u.terms_agreed_at && (() => {
+                      const to = u.role === 'traveler' ? 'jigi' : 'traveler';
+                      const wait = nextChange(u.id);
+                      return (
+                        <form method="post" class="mt-4 space-y-2 rounded-xl border border-border bg-surface p-3.5">
+                          <input type="hidden" name="user" value={u.id} />
+                          <input type="hidden" name="action" value="set_role" />
+                          <input type="hidden" name="role" value={to} />
+                          <p class="text-sm font-semibold">역할 바꾸기: {ROLE_LABEL[u.role!]} → {ROLE_LABEL[to]}</p>
+                          <p class="text-xs text-muted">
+                            가입 때 역할을 잘못 고른 회원이 메일로 문의했을 때 써요. 30일에 한 번만 바꿀 수 있고, 진행 중(대기·확정) 예약이 있으면 바꿀 수 없어요.
+                            {to === 'traveler'
+                              ? ' 지기 공개 프로필이 숨겨지고, 공개·검수 중 루트는 비공개로, 앞으로의 열린 시간은 사라져요 (루트·신청서 내용은 남아요).'
+                              : ' 처음 지기가 되는 회원은 지기 신청서부터 내요. 예전에 승인된 지기였다면 공개 프로필이 다시 켜져요 (루트는 다시 검수 요청).'}
+                            {roleChanged.get(u.id) && ` 마지막 변경: ${date(roleChanged.get(u.id)!)}.`}
+                          </p>
+                          {wait ? (
+                            <p class="text-sm font-semibold text-[#8A1C1C]">{date(wait.toISOString())}부터 다시 바꿀 수 있어요.</p>
+                          ) : (
+                            <>
+                              <label class="sr-only" for={`rreason-${u.id}`}>사유</label>
+                              <input id={`rreason-${u.id}`} name="role_reason" type="text" maxlength="300" required placeholder="사유 (예: 메일 문의 11/18 — 가입 때 잘못 선택)" class={`${input} block w-full`} />
+                              <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" name="confirm" value="yes" required class="size-4" />
+                                {`${u.display_name || '이 회원'}님을 ${ROLE_LABEL[to]}(으)로 바꿀게요.`}
+                              </label>
+                              <button type="submit" class="h-10 rounded-xl bg-text px-4 text-sm font-semibold text-white">{ROLE_LABEL[to]}(으)로 바꾸기</button>
+                            </>
+                          )}
+                        </form>
+                      );
+                    })()}
                     {u.id !== me.id && (u.role !== 'admin' || grantedAdmins.has(u.id)) && (
                       <form method="post" class="mt-4 space-y-2 rounded-xl border border-border bg-surface p-3.5">
                         <input type="hidden" name="user" value={u.id} />

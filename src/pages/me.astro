@@ -15,6 +15,7 @@ import { interestIcon } from '../data/stopKinds';
 import { INTERESTS, INTEREST_MAX, isInterestId } from '../data/interests';
 import { dbError, field, fields, notice } from '../lib/forms';
 import { clean } from '../scripts/formSafety';
+import { ROLE_CHANGE_DAYS, roleChangeMailto } from '../lib/roleChange';
 
 export const prerender = false;
 
@@ -122,6 +123,16 @@ const check = 'size-[18px] shrink-0 cursor-pointer accent-on-blue';
           Bookings <Icon name="chevron-right" class="size-5 text-stone" />
         </a>
       </li>
+      {profile.role === 'traveler' && <li>
+        <!-- 역할 바꾸기: 메일로 문의 → 관리자가 바꿔 준다 (lib/roleChange.ts) -->
+        <a href={roleChangeMailto('traveler', profile.email)} class="flex min-h-14 items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-concrete">
+          <span class="min-w-0">
+            <span class="block font-semibold">Want to be a local host (jigi) instead?</span>
+            <span class="t-small block font-normal text-stone">Email us and we'll switch your account. Once every {ROLE_CHANGE_DAYS} days, with no active bookings.</span>
+          </span>
+          <Icon name="chevron-right" class="size-5 shrink-0 text-stone" />
+        </a>
+      </li>}
     </ul>
 
     <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2">
