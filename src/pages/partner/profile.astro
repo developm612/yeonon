@@ -1,0 +1,163 @@
+---
+/**
+ * 지기 공개 프로필: 루트 상세 'Your local friend'에 보이는 한 줄 소개·소개글·대화 가능 언어 (내 정보 → 공개 프로필).
+ * 저장은 DB 함수 save_jigi_profile로만 한다 — 연락처·SNS·외부 링크·외부 결제 안내가 있으면 DB가 막는다 (마이그레이션 25번).
+ * 지기 신청서의 자기소개(심사용)와는 다른 글이다. 신청서 글은 공개하지 않는다.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AreaNav from '../../components/account/AreaNav.astro';
+import JigiOnly from '../../components/account/JigiOnly.astro';
+import Notice from '../../components/account/Notice.astro';
+import { PARTNER_NAV } from '../../data/accountNav';
+import { ROUTE_LANGUAGES } from '../../data/routeOptions';
+import { dbError, field, fields, notice } from '../../lib/forms';
+import { loadApprovedJigi } from '../../lib/routes';
+import { clean } from '../../scripts/formSafety';
+
+export const prerender = false;
+
+const HEADLINE_MAX = 60;
+const BIO_MAX = 500;
+
+const { profile, supabase } = Astro.locals;
+if (!profile || !supabase) return Astro.redirect('/login?next=/partner/profile');
+const jigi = await loadApprovedJigi(supabase, profile);
+
+let error: string | null = null;
+let posted: { headline: string; bio: string; languages: string[] } | null = null;
+if (Astro.request.method === 'POST' && jigi) {
+  const fd = await Astro.request.formData();
+  posted = {
+    headline: clean(field(fd, 'headline'), HEADLINE_MAX),
+    // 줄바꿈은 띄어쓰기로 (clean은 줄바꿈 문자를 지워 문장이 붙는다). 루트 화면도 한 문단으로 보여 준다
+    bio: clean(field(fd, 'bio').replace(/\s+/g, ' '), BIO_MAX),
+    languages: fields(fd, 'languages').filter((l) => ROUTE_LANGUAGES.some((x) => x.id === l)),
+  };
+  if (posted.languages.length === 0) error = '대화할 수 있는 언어를 하나 이상 골라 주세요.';
+  else {
+    const { error: rpcError } = await supabase.rpc('save_jigi_profile', { p_headline: posted.headline, p_bio: posted.bio, p_languages: posted.languages });
+    if (!dbError(rpcError, 'save jigi profile')) return Astro.redirect('/partner/profile?notice=saved');
+    const m = rpcError!.message;
+    error = /contact or payment/.test(m) ? '연락처(전화번호·이메일), SNS·메신저 아이디, 외부 링크, 외부 결제 안내는 넣을 수 없어요. 여행자와는 연온 채팅으로 이야기해요.'
+      : /too long/.test(m) ? `한 줄 소개는 ${HEADLINE_MAX}자, 소개글은 ${BIO_MAX}자까지 쓸 수 있어요.`
+      : /language required/.test(m) ? '대화할 수 있는 언어를 하나 이상 골라 주세요.'
+      : /save_jigi_profile|Could not find the function/.test(m) ? '이 기능을 쓰려면 Supabase에서 SQL 25번을 먼저 실행해 주세요.'
+      : '저장하지 못했어요. 다시 시도해 주세요.';
+  }
+}
+
+let current = { headline: '', bio: '', languages: [] as string[] };
+let previewRoute: string | null = null;
+if (jigi) {
+  const [{ data: jp }, { data: route }] = await Promise.all([
+    supabase.from('jigi_profiles').select('headline, bio, languages').eq('user_id', profile.id).maybeSingle(),
+    supabase.from('routes').select('id').eq('jigi_id', profile.id).eq('status', 'published').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  current = { headline: jp?.headline ?? '', bio: jp?.bio ?? '', languages: (jp?.languages as string[] | null) ?? [] };
+  previewRoute = route?.id ?? null;
+}
+const v = posted ?? current;
+const done = notice(Astro.url, { saved: '저장했어요. 루트 화면에 바로 반영돼요 (공개 화면은 몇 분 걸릴 수 있어요).' });
+
+// 루트 화면과 같은 이름 가리기 (DB mask_name과 같은 규칙)
+const name = (profile.display_name ?? '').trim();
+const masked = name.length <= 1 ? `${name}*` : name.slice(0, 1) + '*'.repeat(Math.min(name.length - 1, 2));
+const input = 'block w-full rounded-xl border border-border bg-surface px-3 text-base';
+---
+<BaseLayout title="공개 프로필 | YEONON" description="연온 지기 공개 프로필" lang="ko" noindex>
+  <AreaNav items={PARTNER_NAV} label="지기 메뉴" desktopOnly />
+  <section class="pt-8 pb-12 md:pt-12">
+    <div class="container-page max-w-xl!">
+      <a href="/partner/me" class="text-sm font-semibold text-muted underline-offset-4 hover:underline">← 내 정보</a>
+      <h1 class="mt-3 text-2xl font-extrabold">공개 프로필</h1>
+      <p class="mt-2 text-muted">여행자가 루트를 볼 때 'Your local friend'에 나오는 소개예요. 지기 신청서의 자기소개(심사용)는 공개되지 않아요.</p>
+
+      {done && <Notice class="mt-6">{done}</Notice>}
+      {error && <Notice tone="error" class="mt-6">{error}</Notice>}
+
+      {!jigi ? (
+        <JigiOnly isAdmin={profile.role === 'admin'} />
+      ) : (
+        <>
+          <form method="post" class="mt-6 space-y-6" id="jp-form">
+            <div>
+              <label for="jp-headline" class="font-semibold">한 줄 소개 <span class="font-normal text-muted">(선택, {HEADLINE_MAX}자)</span></label>
+              <input id="jp-headline" name="headline" type="text" maxlength={HEADLINE_MAX} value={v.headline} placeholder="예: Seongsu local who knows every hidden café" class={`${input} mt-2 h-12`} data-count="jp-headline-count" />
+              <p class="mt-1 text-right text-xs text-muted tabular-nums"><span id="jp-headline-count">{v.headline.length}</span>/{HEADLINE_MAX}</p>
+            </div>
+            <div>
+              <label for="jp-bio" class="font-semibold">소개글 <span class="font-normal text-muted">(선택, {BIO_MAX}자)</span></label>
+              <textarea id="jp-bio" name="bio" rows="6" maxlength={BIO_MAX} placeholder="예: I've lived in Seongsu for 8 years and love showing friends the bakeries and design shops locals actually go to." class={`${input} mt-2 py-3`} data-count="jp-bio-count">{v.bio}</textarea>
+              <p class="mt-1 text-right text-xs text-muted tabular-nums"><span id="jp-bio-count">{v.bio.length}</span>/{BIO_MAX}</p>
+            </div>
+            <fieldset>
+              <legend class="font-semibold">대화할 수 있는 언어 <span class="font-normal text-muted">(1개 이상)</span></legend>
+              <div class="mt-2 flex flex-wrap gap-2">
+                {ROUTE_LANGUAGES.map((l) => (
+                  <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-border bg-surface px-4 has-[:checked]:border-jigi-strong has-[:checked]:bg-jigi-soft">
+                    <input type="checkbox" name="languages" value={l.id} checked={v.languages.includes(l.id) || undefined} class="size-4 accent-[#0A6E8C]" />
+                    <span class="text-sm font-semibold">{l.ko}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <ul class="space-y-1 rounded-xl bg-bg px-4 py-3 text-sm text-muted">
+              <li>· 여행자 대부분이 외국인이라 <b class="text-text">영어로 쓰기를 권해요.</b></li>
+              <li>· 전화번호·이메일·SNS·메신저 아이디·외부 링크·외부 결제 안내는 넣을 수 없어요 (저장되지 않아요).</li>
+              <li>· 나이·사는 곳처럼 알리고 싶지 않은 개인 정보는 쓰지 않아도 돼요.</li>
+            </ul>
+
+            <button type="submit" class="inline-flex min-h-12 items-center rounded-full bg-jigi-strong px-6 font-semibold text-white hover:bg-[#08566F]">저장</button>
+          </form>
+
+          <!-- 미리보기: 루트 상세(RouteDetail.astro) 'Your local friend'와 같은 모양 -->
+          <section class="mt-10" aria-labelledby="jp-preview-title">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="jp-preview-title" class="text-lg font-bold">여행자에게 이렇게 보여요</h2>
+              {previewRoute && <a href={`/routes/${previewRoute}?preview=1`} class="text-sm font-semibold text-jigi-strong underline underline-offset-4">내 루트 화면에서 보기 (저장 후)</a>}
+            </div>
+            <div class="mt-3 rounded-2xl border border-border bg-surface p-5" lang="en">
+              <p class="text-lg font-bold">Your local friend</p>
+              <div class="mt-3 flex items-center gap-3">
+                <span class="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-bg text-lg font-bold ring-1 ring-border" aria-hidden="true">{masked.slice(0, 1)}</span>
+                <p class="font-semibold">{masked}<span class="text-sm font-normal text-muted">, your local friend (jigi)</span></p>
+              </div>
+              <p id="jp-p-headline" class="mt-3 font-semibold" hidden={!v.headline || undefined}>{v.headline}</p>
+              <p id="jp-p-bio" class="mt-1 text-muted" hidden={!v.bio || undefined}>{v.bio}</p>
+              <p id="jp-p-langs" class="mt-3 text-sm text-muted" hidden={v.languages.length === 0 || undefined}>Speaks <span>{v.languages.join(', ')}</span></p>
+              <p id="jp-p-empty" class="mt-3 text-sm text-muted" hidden={Boolean(v.headline || v.bio) || undefined} lang="ko">소개가 비어 있으면 이름·평점·언어만 보여요.</p>
+            </div>
+          </section>
+        </>
+      )}
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // 글자 수 + 미리보기를 입력하는 대로 바꾼다 (서버 저장과는 상관없음)
+  const form = document.getElementById('jp-form') as HTMLFormElement | null;
+  if (form) {
+    const $ = (id: string) => document.getElementById(id);
+    const sync = () => {
+      const headline = (form.elements.namedItem('headline') as HTMLInputElement).value.trim();
+      const bio = (form.elements.namedItem('bio') as HTMLTextAreaElement).value.trim();
+      const langs = [...form.querySelectorAll<HTMLInputElement>('input[name=languages]:checked')].map((c) => c.value);
+      form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-count]').forEach((el) => {
+        const c = $(el.dataset.count!);
+        if (c) c.textContent = String(el.value.length);
+      });
+      const h = $('jp-p-headline')!, b = $('jp-p-bio')!, l = $('jp-p-langs')!, e = $('jp-p-empty')!;
+      h.textContent = headline;
+      h.hidden = !headline;
+      b.textContent = bio;
+      b.hidden = !bio;
+      l.querySelector('span')!.textContent = langs.join(', ');
+      l.hidden = langs.length === 0;
+      e.hidden = Boolean(headline || bio);
+    };
+    form.addEventListener('input', sync);
+    form.addEventListener('change', sync);
+  }
+</script>
