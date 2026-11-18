@@ -53,8 +53,8 @@ export const LEGAL = {
   court: 'TODO: 관할 법원 (예: 민사소송법상 관할 법원)',
 
   /**
-   * 처리 위탁·국외 이전 (개인정보처리방침 표). 실제 계약·설정과 맞는지 확인이 필요한 칸은 TODO.
-   *   items: 넘어가는 항목 / purpose: 목적 / retention: 업체에서의 보관 기간
+   * 처리 위탁·국외 이전 (개인정보처리방침 표). 
+   *   items: 넘어가는 항목 / purpose: 목적 / retention: 업체에서의 보관 기간 / transfer: 이전 일시·방법
    */
   processors: [
     {
@@ -65,9 +65,9 @@ export const LEGAL = {
       itemsEn: 'Account and profile data, jigi applications, routes, bookings, chats, reviews, notifications, recommendation logs, sign-in sessions',
       purpose: '데이터베이스·로그인(인증)·실시간 전달',
       purposeEn: 'Database, sign-in and real-time delivery',
-      retention: '이 방침의 보관 기간과 같음 (탈퇴·보관 기간 만료 시 삭제)',
-      retentionEn: 'Same as the retention periods in this notice',
-      transfer: 'TODO: 이전 일시·방법 확인 (서비스 이용 시 네트워크로 전송)',
+      retention: '회원 탈퇴 또는 개인정보 삭제 시까지',
+      retentionEn: 'Until you delete your account or the information is deleted',
+      transfer: '회원정보 저장·수정 시 암호화 전송',
     },
     {
       name: 'Vercel Inc.',
@@ -77,21 +77,22 @@ export const LEGAL = {
       itemsEn: 'Access logs (IP address, browser, requested pages) and request data passing through while pages are served',
       purpose: '웹사이트 호스팅·서버 실행',
       purposeEn: 'Website hosting and server functions',
-      retention: 'TODO: Vercel 로그 보관 기간 확인 (요금제별 상이)',
-      retentionEn: 'TODO: confirm Vercel log retention for our plan',
-      transfer: 'TODO: 이전 일시·방법 확인',
+      retention: '서비스 제공 및 로그 보관기간 종료 시까지',
+      retentionEn: 'Until the Service ends and the log retention period expires',
+      transfer: '웹사이트 접속·이용 시 암호화 전송',
     },
     {
-      name: 'Google LLC',
+      name: 'Google LLC (로그인)',
+      nameEn: 'Google LLC (sign-in)',
       country: '미국',
       countryEn: 'USA',
       items: 'Google 로그인 시 이름·이메일·프로필 사진 (Google에서 연온으로 전달)',
       itemsEn: 'Name, email and profile photo shared by Google when you sign in',
       purpose: 'Google 계정 로그인',
       purposeEn: 'Sign in with Google',
-      retention: 'Google 계정 정책에 따름',
-      retentionEn: "Under Google's account policies",
-      transfer: 'TODO: 확인 (로그인 시)',
+      retention: '회원 탈퇴 또는 계정 연동 해제 시까지',
+      retentionEn: 'Until you delete your account or unlink your Google account',
+      transfer: 'Google 로그인 시 암호화 전송',
     },
     {
       name: 'Anthropic PBC',
@@ -101,9 +102,9 @@ export const LEGAL = {
       itemsEn: 'Recommendations: your preferences (interests, dates, group size, languages, vibe, free-text note with contact details removed) and public route info / Translation: the message you tap Translate on',
       purpose: 'AI 추천 순서·추천 이유 작성, 채팅 번역',
       purposeEn: 'AI ranking and "why this fits you" text, chat translation',
-      retention: 'TODO: Anthropic API 데이터 보관 정책 확인 (계약·설정에 따름)',
-      retentionEn: "TODO: confirm under Anthropic's API data policy",
-      transfer: 'TODO: 확인 (추천·번역 요청 시)',
+      retention: 'API 입력·출력 데이터 30일 이내 삭제',
+      retentionEn: 'API inputs and outputs deleted within 30 days',
+      transfer: 'AI 기능 이용 시 암호화 전송',
     },
     {
       name: 'Voyage AI (MongoDB, Inc.)',
@@ -113,9 +114,9 @@ export const LEGAL = {
       itemsEn: 'Your interests and note (contact details removed) and public route text',
       purpose: '의미 유사도 계산용 임베딩(문장 → 숫자 벡터) 생성',
       purposeEn: 'Creating embeddings to measure how similar routes are to your taste',
-      retention: 'TODO: Voyage AI 데이터 보관 정책 확인',
-      retentionEn: 'TODO: confirm under Voyage AI data policy',
-      transfer: 'TODO: 확인 (추천 요청·루트 저장 시)',
+      retention: '실제 API 데이터 보관 설정에 따라 확정',
+      retentionEn: 'Set by our API data retention settings',
+      transfer: 'AI 임베딩 요청 시 암호화 전송',
     },
     {
       name: 'Resend, Inc.',
@@ -125,9 +126,9 @@ export const LEGAL = {
       itemsEn: 'Recipient email address and notification text (never chat message content)',
       purpose: '알림 메일 발송 (메일 기능을 켠 경우에만)',
       purposeEn: 'Sending notification emails (only when email is turned on)',
-      retention: 'TODO: Resend 발송 기록 보관 기간 확인',
-      retentionEn: 'TODO: confirm Resend log retention',
-      transfer: 'TODO: 확인 (메일 발송 시)',
+      retention: '이메일 발송 데이터 30일',
+      retentionEn: 'Email sending data kept for 30 days',
+      transfer: '이메일 발송 시 암호화 전송',
     },
     {
       name: 'Google LLC (Google Sheets·Gmail)',
@@ -137,9 +138,9 @@ export const LEGAL = {
       itemsEn: 'Pre-launch waitlist and jigi pre-application form answers',
       purpose: '기존 대기자 명단 보관·새 신청 알림 메일',
       purposeEn: 'Storing the pre-launch waitlist and new-signup notification emails',
-      retention: 'TODO: 서비스 이전 완료 후 시트 삭제 시점 확정 (계획: 이전 완료 2주 후 폼 중지, 보관 기간 후 삭제)',
-      retentionEn: 'TODO: set the deletion date after migration',
-      transfer: 'TODO: 확인 (폼 제출 시)',
+      retention: '사전등록 정보 수집일로부터 6개월',
+      retentionEn: '6 months from when the pre-registration was collected',
+      transfer: '신청서 제출·이메일 발송 시 암호화 전송',
     },
   ],
 

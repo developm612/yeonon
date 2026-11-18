@@ -239,7 +239,7 @@ const officerName = legalValue(o.name);
       <table>
         <thead><tr><th>Provider</th><th>Country</th><th>Information</th><th>Purpose</th><th>Retention</th></tr></thead>
         <tbody>
-          {LEGAL.processors.map((p) => <tr><td class="font-semibold">{p.name}</td><td>{p.countryEn}</td><td>{p.itemsEn}</td><td>{p.purposeEn}</td><td>{legalValue(p.retentionEn, 'en')}</td></tr>)}
+          {LEGAL.processors.map((p) => <tr><td class="font-semibold">{'nameEn' in p ? p.nameEn : p.name}</td><td>{p.countryEn}</td><td>{p.itemsEn}</td><td>{p.purposeEn}</td><td>{legalValue(p.retentionEn, 'en')}</td></tr>)}
         </tbody>
       </table>
     </div>
