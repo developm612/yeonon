@@ -1,4 +1,10 @@
 ---
+// 글꼴은 사이트 안에서 직접 내려준다 (외부 CSS가 첫 화면 그리기를 막지 않게 — Lighthouse 성능).
+//   여행자 제목 Bricolage Grotesque, 지기·관리자 Inter, 한글 Pretendard(쓰는 글자 묶음만 내려받는 dynamic subset)
+import '@fontsource-variable/bricolage-grotesque/opsz.css';
+import '@fontsource-variable/inter/wght.css';
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+import bricolageLatin from '@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-opsz-normal.woff2?url';
 import '../styles/global.css';
 import AppTopBar from '../components/ui/AppTopBar.astro';
 import TabBar from '../components/ui/TabBar.astro';
@@ -61,24 +67,7 @@ const showTabs = Boolean(tabVariant) && tabBar;
     <meta property="og:locale" content={lang === 'ko' ? 'ko_KR' : 'en_US'} />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    {travelerUi ? (
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..700&display=swap"
-      />
-    ) : (
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      />
-    )}
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
-    />
+    {travelerUi && <link rel="preload" href={bricolageLatin} as="font" type="font/woff2" crossorigin />}
   </head>
   <body class:list={['min-h-dvh', travelerUi && 'ui-traveler', showTabs && (tabVariant === 'jigi' ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0' : 'pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0'), bottomBar && 'pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0']}>
     <a

@@ -20,7 +20,7 @@
   --color-jigi-strong: #0B6E91;     /* 버튼 배경·텍스트 (AA 대비) */
   --color-jigi-soft: #E3F5FC;
 
-  --font-sans: "Inter", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-sans: "Inter Variable", "Inter", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   --font-ko: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
 
   --shadow-card: 0 1px 2px rgb(31 42 46 / 0.04), 0 4px 16px rgb(31 42 46 / 0.04);
@@ -49,7 +49,7 @@
   --color-status-off: #5B6472;
   --color-status-error: #B42318;
 
-  --font-display: "Bricolage Grotesque", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Bricolage Grotesque", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
   /* 둥글기 위계: 사진 20 · 카드 14 · 입력·버튼 12 (알약은 시간 칩만 rounded-full) */
   --radius-media: 20px;

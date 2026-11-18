@@ -1,5 +1,5 @@
 ---
-// 로고: 흰 배경 원본에서 배경을 투명하게 바꾸고 여백을 잘라낸 logo.png (990×185, 2배 해상도)
+// 로고: logo.webp (320×60, 표시 최대 160px의 2배) — 원본은 logo.png (990×185, 흰 배경을 투명하게 바꾸고 여백을 잘라낸 것)
 // 이전 로고는 logo2.png (495×96)
 interface Props { class?: string; size?: 'sm' | 'md' | 'lg'; href?: string; }
 const { class: className = '', size = 'md', href = '/' } = Astro.props;
@@ -11,7 +11,7 @@ const widths = {
 ---
 <a href={href} class:list={['inline-flex min-w-0 items-center no-underline', className]} aria-label={href === '/' ? 'YEONON 연온 — home' : 'YEONON — my home'}>
   <img
-    src="/images/logo.png"
+    src="/images/logo.webp"
     alt="YEONON"
     width="495"
     height="93"
