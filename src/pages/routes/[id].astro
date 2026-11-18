@@ -27,7 +27,10 @@ import { isAppOpen } from '../../lib/supabase';
 export const prerender = false;
 
 const { supabase, user, profile } = Astro.locals;
-const loaded = supabase ? await loadRoute(supabase, Astro.params.id ?? '') : null;
+// 루트와 예약 설정은 서로 기다릴 필요가 없어 한 번에 불러온다 (DB 왕복을 줄여 첫 화면을 빨리)
+const [loaded, settings] = supabase
+  ? await Promise.all([loadRoute(supabase, Astro.params.id ?? ''), loadBookingSettings(supabase)])
+  : [null, null];
 if (!loaded) Astro.response.status = 404;
 const route = loaded?.route;
 const isPreview = Boolean(route && route.status !== 'published');
@@ -43,7 +46,6 @@ let backLabel = 'All routes';
 interface Quote { list_price: number; discount_rate: number; final_price: number; promotion_name: string | null }
 let quote: Quote | null = null as Quote | null;
 let pendingCount = 0;
-const settings = supabase ? await loadBookingSettings(supabase) : null;
 if (route && supabase && settings) {
   // 시작 N분(설정값) 전까지만 요청할 수 있으므로 그보다 이른 시간은 보여 주지 않는다
   const earliest = new Date(Date.now() + settings.min_lead_minutes * 60_000).toISOString();
