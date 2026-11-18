@@ -1,7 +1,9 @@
 ---
 /**
  * AI 추천 결과 (여행자, yeonon-traveler-ui-plan.md 5-3). 주소의 조건을 검증한 뒤, 화면에서 /api/recommend를 불러 카드로 보여 준다.
- *   로딩: 루트 라인이 한 번 그려지는 연출 (서비스의 유일한 연출, 동작 줄이기 설정이면 바로 완성된 모습)
+ *   로딩(3~5초): 기다리는 게 지루하지 않고 진행 중인 게 보이도록 — 루트 라인이 계속 다시 그려지고, 지금 하는 일 문구가
+ *   1.6초마다 바뀌며(…점이 깜빡임), 아래에 결과 카드 자리가 은은하게 반짝인다. 오래 걸리면 안내 문구를 바꾼다.
+ *   동작 줄이기 설정이면 움직임 없이 문구만 바뀐다. 화면 읽기 프로그램에는 '찾는 중' 한 번만 알린다.
  *   → Perfect match / Closest matches 그룹 + RouteCard (브라우저에서 그리는 lib/routeCardHtml.ts)
  *   결과가 적으면 카드 아래 한 줄 제안 + 버튼 1개 (Try other dates). AI 안내는 목록 끝에 한 번만.
  * 카드를 누르면 /routes/[id]?rec=… 로 가고, 그 페이지가 클릭을 기록한다.
@@ -33,6 +35,16 @@ const summary = [
 const editHref = `/for-you?${toQuery(input)}`;
 const widenHref = `/for-you/results?${toQuery({ ...input, date_from: kstToday(), date_to: kstToday(DISCOVER.maxDaysAhead), time_of_day: 'any' })}`;
 const canWiden = input.date_from !== kstToday() || input.date_to !== kstToday(DISCOVER.maxDaysAhead) || input.time_of_day !== 'any';
+// 로딩 중 차례로 보여 줄 문구 (마지막 문구에서 멈춘다)
+const picked = interestNames(input.interests, 'en').slice(0, 2).join(', ');
+const loadSteps = [
+  'Reading your interests',
+  `Finding routes for ${picked}`,
+  'Checking open times on your dates',
+  'Comparing routes made by local friends',
+  'Writing why each route fits you',
+  'Almost there',
+];
 const more = canWiden ? { href: widenHref, label: 'Try other dates' } : { href: editHref, label: 'Change my choices' };
 ---
 <BaseLayout title="Your route matches | YEONON" description="Routes in Seongsu recommended for you." noindex>
@@ -47,12 +59,31 @@ const more = canWiden ? { href: widenHref, label: 'Try other dates' } : { href: 
       </div>
       {input.note && <p class="t-small measure mt-2 font-normal text-stone">“{input.note}”</p>}
 
-      <div class="mt-10" data-results data-input={JSON.stringify(input)} data-final={RECOMMEND.finalCount} data-chips={RECOMMEND.slotChips}>
-        <div data-view="loading" aria-live="polite" class="mx-auto max-w-md py-10 text-center md:py-16">
-          <RouteLine variant="mini" animate label="Loading your matches"
-            stops={[{ name: 'Your interests' }, { name: 'Your dates' }, { name: 'Local routes' }, { name: 'Your matches' }]} />
-          <p class="t-body mt-8 font-semibold">Matching your interests with routes in Seongsu</p>
-          <p class="t-small mt-1 font-normal text-stone">This takes a few seconds.</p>
+      <div class="mt-10" data-results data-load-steps={JSON.stringify(loadSteps)} data-input={JSON.stringify(input)} data-final={RECOMMEND.finalCount} data-chips={RECOMMEND.slotChips}>
+        <div data-view="loading" aria-busy="true">
+          <p class="sr-only" role="status">Finding routes that fit you. This takes a few seconds.</p>
+          <div class="mx-auto max-w-md py-8 text-center md:py-12" aria-hidden="true">
+            <RouteLine variant="mini" loop label="Finding your routes"
+              stops={[{ name: 'Your interests' }, { name: 'Your dates' }, { name: 'Local routes' }, { name: 'Your matches' }]} />
+            <p class="t-body mt-8 min-h-[1.6em] font-semibold">
+              <span class="load-msg" data-load-msg><span data-load-text>{loadSteps[0]}</span><span class="load-dots"><span>.</span><span>.</span><span>.</span></span></span>
+            </p>
+            <p class="t-small mt-1 font-normal text-stone" data-load-hint>This takes a few seconds.</p>
+          </div>
+          <!-- 결과 카드가 들어올 자리 (은은하게 반짝임) -->
+          <ul class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <li class:list={['skel-card overflow-hidden rounded-card border border-hairline bg-paper', i > 0 && 'hidden sm:block', i > 1 && 'sm:hidden lg:block']} style={`--d:${i * 0.15}s`}>
+                <div class="skel aspect-[4/3]"></div>
+                <div class="space-y-3 p-4">
+                  <div class="skel h-5 w-3/4 rounded-full"></div>
+                  <div class="skel h-3.5 w-1/2 rounded-full"></div>
+                  <div class="skel mt-5 h-3 w-full rounded-full"></div>
+                  <div class="flex gap-2 pt-1"><div class="skel h-8 w-20 rounded-full"></div><div class="skel h-8 w-20 rounded-full"></div></div>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div data-view="error" hidden>
@@ -94,6 +125,33 @@ const more = canWiden ? { href: widenHref, label: 'Try other dates' } : { href: 
     </div>
   </section>
 </BaseLayout>
+
+<style>
+  /* 지금 하는 일 문구: 바뀔 때 아래에서 살짝 올라오며 나타남 + 끝의 점 세 개가 차례로 깜빡임 */
+  .load-msg.is-in { display: inline-block; animation: msg-in 0.35s ease-out both; }
+  .load-dots span { animation: dot-blink 1.2s infinite both; }
+  .load-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .load-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes msg-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes dot-blink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+  /* 카드 자리: 왼쪽에서 오른쪽으로 빛이 지나감 */
+  .skel {
+    background: linear-gradient(90deg, var(--color-hairline) 0%, color-mix(in srgb, var(--color-hairline) 35%, white) 50%, var(--color-hairline) 100%);
+    background-size: 200% 100%;
+    animation: skel 1.4s ease-in-out infinite;
+    animation-delay: var(--d, 0s);
+  }
+  @keyframes skel {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+  }
+</style>
 
 <script>
   import type { RecommendResult, RecommendationCard } from '../../lib/recommend/engine';
@@ -140,18 +198,31 @@ const more = canWiden ? { href: widenHref, label: 'Try other dates' } : { href: 
     view('done');
   }
 
-  // 로딩 연출: 다시 시도할 때도 한 번 더 그린다
-  const replayLine = () => {
-    const line = root.querySelector<HTMLElement>('.route-line');
-    if (!line) return;
-    line.classList.remove('is-drawing');
-    void line.offsetWidth;
-    line.classList.add('is-drawing');
+  // 로딩 연출: 지금 하는 일 문구를 차례로 바꾸고(마지막에서 멈춤), 오래 걸리면 안내를 바꾼다
+  const loadSteps: string[] = JSON.parse(root.dataset.loadSteps ?? '[]');
+  const msg = $(root, '[data-load-msg]');
+  const msgText = $(root, '[data-load-text]');
+  const hint = $(root, '[data-load-hint]');
+  let timers: number[] = [];
+  const stopLoading = () => { timers.forEach(clearTimeout); timers = []; };
+  const setMsg = (text: string) => {
+    msgText.textContent = text;
+    msg.classList.remove('is-in');
+    void msg.offsetWidth;
+    msg.classList.add('is-in');
+  };
+  const startLoading = () => {
+    stopLoading();
+    setMsg(loadSteps[0]);
+    hint.textContent = 'This takes a few seconds.';
+    loadSteps.slice(1).forEach((t, i) => timers.push(window.setTimeout(() => setMsg(t), (i + 1) * 1600)));
+    timers.push(window.setTimeout(() => (hint.textContent = 'Still working on it. Thanks for waiting.'), 10000));
+    timers.push(window.setTimeout(() => (hint.textContent = 'This is taking longer than usual. Hang tight.'), 20000));
   };
 
   async function load() {
     view('loading');
-    replayLine();
+    startLoading();
     try {
       const resp = await fetch('/api/recommend', {
         method: 'POST',
@@ -170,11 +241,14 @@ const more = canWiden ? { href: widenHref, label: 'Try other dates' } : { href: 
           : resp.status === 403 ? 'Route recommendations are for traveler accounts.'
           : 'We couldn’t load your matches. Try again in a moment.';
         $<HTMLButtonElement>(root, '[data-retry]').hidden = resp.status !== 500 && resp.status < 502;
+        stopLoading();
         view('error');
         return;
       }
+      stopLoading();
       render(data as RecommendResult);
     } catch {
+      stopLoading();
       $(root, '[data-error-text]').textContent = 'We couldn’t reach YEONON. Check your connection and try again.';
       $<HTMLButtonElement>(root, '[data-retry]').hidden = false;
       view('error');

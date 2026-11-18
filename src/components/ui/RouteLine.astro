@@ -4,7 +4,8 @@
  *   mini     : 가로 미니 (카드 안). 점 + 짧은 이름, 3~6곳
  *   vertical : 세로 (루트 상세). 점 옆에 정류장 이름·머무는 시간·할 일·지기의 팁, 점 사이에 "6 min walk"
  *   status   : 예약 진행 (요청 → 확정 → 만남 → 후기). 지나간 단계 Ink, 현재 단계만 초록으로 채움, 앞으로는 Hairline
- * 선과 점은 SVG. animate를 주면 선이 한 번 그려진다(추천 결과 로딩에서만) — 동작 줄이기 설정이면 바로 완성된 모습.
+ * 선과 점은 SVG. animate를 주면 선이 한 번 그려진다. loop를 주면 기다리는 동안 선이 계속 그려지고 점이 차례로 켜진다
+ * (추천 결과 로딩에서만) — 동작 줄이기 설정이면 바로 완성된 모습.
  */
 import Icon from '../Icon.astro';
 import RoutePhoto from './RoutePhoto.astro';
@@ -35,6 +36,8 @@ interface Props {
   off?: boolean;
   /** mini: 선이 한 번 그려지는 연출 */
   animate?: boolean;
+  /** mini: 선이 계속 다시 그려지고 점이 차례로 켜지는 연출 (기다리는 동안) */
+  loop?: boolean;
   /** mini: 이름 줄 숨기기 (아주 작은 자리) */
   bare?: boolean;
   label?: string;
@@ -42,7 +45,7 @@ interface Props {
 }
 const {
   variant = 'mini', stops = [], walk = 10, steps = ['Requested', 'Confirmed', 'Meetup', 'Review'], current = 0, off = false,
-  animate = false, bare = false, label, class: className = '',
+  animate = false, loop = false, bare = false, label, class: className = '',
 } = Astro.props;
 
 // 가로형: 칸 n개의 가운데에 점을 둔다 (이름이 점 바로 아래 가운데 정렬로 오도록)
@@ -90,7 +93,7 @@ const cx = (i: number) => `${((i + 0.5) / n) * 100}%`;
     ))}
   </ol>
 ) : (
-  <div class:list={['route-line', animate && 'is-drawing', className]} role="img"
+  <div class:list={['route-line', animate && 'is-drawing', loop && 'is-looping', className]} role="img"
     aria-label={label ?? (variant === 'status'
       ? `${off ? 'Ended' : `Step ${current + 1} of ${steps.length}`}: ${steps.join(', ')}`
       : `${stops.length} stops: ${stops.map((s) => s.name).join(', ')}`)}>
@@ -159,5 +162,28 @@ const cx = (i: number) => `${((i + 0.5) / n) * 100}%`;
   @keyframes rl-dot {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+
+  /* 기다리는 동안 (2.8초마다 반복): 선이 그려지고 → 점이 왼쪽부터 초록으로 켜지며 살짝 커졌다 → 잠깐 머문 뒤 흐려지고 다시 */
+  .is-looping .rl-path {
+    stroke-dasharray: 1;
+    animation: rl-loop 2.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+  .is-looping .rl-dot {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rl-dot-loop 2.8s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.3s);
+  }
+  @keyframes rl-loop {
+    0% { stroke-dashoffset: 1; opacity: 1; }
+    45% { stroke-dashoffset: 0; opacity: 1; }
+    82% { stroke-dashoffset: 0; opacity: 1; }
+    100% { stroke-dashoffset: 0; opacity: 0.15; }
+  }
+  @keyframes rl-dot-loop {
+    0%, 100% { fill: var(--color-paper); transform: scale(1); }
+    14% { fill: var(--color-line2); transform: scale(1.35); }
+    28%, 70% { fill: var(--color-line2); transform: scale(1); }
   }
 </style>

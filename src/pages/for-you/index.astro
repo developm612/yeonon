@@ -157,7 +157,7 @@ const legend = 't-title';
 
         <div class="border-t border-hairline pt-6">
           <div class="flex flex-wrap gap-3">
-            <UiButton type="submit" class="w-full sm:w-auto">Show my routes</UiButton>
+            <UiButton type="submit" class="w-full sm:w-auto" data-submit><span data-submit-label>Show my routes</span></UiButton>
             <UiButton variant="secondary" class="step-nav hidden w-full sm:w-auto" data-go="1">Back</UiButton>
           </div>
           <p class="t-caption mt-3 font-normal text-stone">We use AI to rank routes and explain why they fit. We only send your preferences, never your name or contact details.</p>
@@ -184,6 +184,18 @@ const legend = 't-title';
   :global(.is-stepped .step-nav) { display: flex; }
   :global(.is-stepped .discover-step) { margin-top: 0; }
   :global(.is-stepped .discover-step:not(.is-current)) { display: none; }
+
+  /* 제출 후 버튼: 작은 원이 돌며 '찾는 중' */
+  :global(.is-busy)::before {
+    content: '';
+    width: 1em;
+    height: 1em;
+    border-radius: 9999px;
+    border: 2.5px solid currentColor;
+    border-right-color: transparent;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 
 <script>
@@ -284,6 +296,7 @@ const legend = 't-title';
   );
 
   form.addEventListener('submit', (e) => {
+    if (form.dataset.busy) return e.preventDefault();
     clearError();
     for (const i of [0, 1, 2]) {
       const bad = checkStep(i);
@@ -300,8 +313,19 @@ const legend = 't-title';
     joined.disabled = false;
     langs.forEach((b) => (b.disabled = true));
     if (!note.value.trim()) note.disabled = true;
+    // 결과 화면이 열릴 때까지 버튼에 '찾는 중'을 보여 준다 (두 번 누르기 방지)
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+    const submitLabel = submit.querySelector<HTMLElement>('[data-submit-label]')!;
+    submitLabel.textContent = 'Finding your routes…';
+    submit.setAttribute('aria-busy', 'true');
+    form.dataset.busy = '1';
+    submit.classList.add('is-busy');
     // 뒤로 가기로 돌아왔을 때 다시 쓸 수 있게
     window.addEventListener('pageshow', () => {
+      submitLabel.textContent = 'Show my routes';
+      submit.removeAttribute('aria-busy');
+      delete form.dataset.busy;
+      submit.classList.remove('is-busy');
       langs.forEach((b) => (b.disabled = false));
       syncLangs();
       joined.disabled = true;
