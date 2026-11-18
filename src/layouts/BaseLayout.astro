@@ -1,10 +1,9 @@
 ---
-// 글꼴은 사이트 안에서 직접 내려준다 (외부 CSS가 첫 화면 그리기를 막지 않게 — Lighthouse 성능).
-//   여행자 제목 Bricolage Grotesque, 지기·관리자 Inter, 한글 Pretendard(쓰는 글자 묶음만 내려받는 dynamic subset)
-import '@fontsource-variable/bricolage-grotesque/opsz.css';
-import '@fontsource-variable/inter/wght.css';
-import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
-import bricolageLatin from '@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-opsz-normal.woff2?url';
+// 글꼴 (docs/performance.md): 영문 제목 Bricolage·영문 본문 Inter는 쓰는 굵기·글자만 남긴 파일(styles/fonts.css),
+//   한글 Pretendard(쓰는 글자 묶음만 받는 dynamic subset)는 아래 스크립트가 첫 화면을 그린 뒤 불러온다 — 그동안 한글은 시스템 글꼴.
+import '../styles/fonts.css';
+import bricolageLatin from '../assets/fonts/bricolage-latin-600-700.woff2?url';
+import interLatin from '../assets/fonts/inter-latin-400-800.woff2?url';
 import '../styles/global.css';
 import AppTopBar from '../components/ui/AppTopBar.astro';
 import TabBar from '../components/ui/TabBar.astro';
@@ -67,7 +66,12 @@ const showTabs = Boolean(tabVariant) && tabBar;
     <meta property="og:locale" content={lang === 'ko' ? 'ko_KR' : 'en_US'} />
     <meta name="twitter:card" content="summary_large_image" />
 
-    {travelerUi && <link rel="preload" href={bricolageLatin} as="font" type="font/woff2" crossorigin />}
+    <!-- 첫 화면 글꼴만 미리 받는다: 여행자 화면은 제목(Bricolage), 지기·관리자 화면은 본문(Inter) -->
+    <link rel="preload" href={travelerUi ? bricolageLatin : interLatin} as="font" type="font/woff2" crossorigin />
+    <script>
+      // 한글 글꼴 Pretendard: 첫 화면 CSS에서 빼서 그린 뒤에 불러온다 (Vite가 만든 CSS 조각, 글자 묶음별 woff2는 쓰는 것만 받는다)
+      import('pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css');
+    </script>
   </head>
   <body class:list={['min-h-dvh', travelerUi && 'ui-traveler', showTabs && (tabVariant === 'jigi' ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0' : 'pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0'), bottomBar && 'pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0']}>
     <a

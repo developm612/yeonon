@@ -185,6 +185,10 @@ src/
 - 여행자 화면(`/`, `/routes/*`, `/for-you`, `/bookings`, `/chats`, `/me`)은 "성수 라인" 토큰(`.ui-traveler`): 제목 Bricolage Grotesque, 본문 Pretendard 17px, 배경 Concrete, 행동은 ON Blue, 루트 라인은 2호선 초록.
 - 지기·관리자 화면은 기존 토큰 (`brand` 네이비, `jigi` 시안). 한글 블록은 `word-break: keep-all`.
 
+## 성능
+공개 화면 캐시(피드·루트 상세는 비로그인 기준 HTML을 CDN에 60초, 로그인 상태는 브라우저가 `/api/session`·`/fragments/*`로),
+서울 리전, 글꼴·이미지·스크립트 정리, Lighthouse 전·후 측정(`npm run lh`) — `docs/performance.md`.
+
 ## 배포 전 체크
 
 - [x] 375 / 768 / 1280px 가로 스크롤 없음 (헤드리스 브라우저로 확인)

@@ -1,5 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
-import { createSupabaseServerClient, isAppOpen, isAuthConfigured } from './lib/supabase';
+import { createSupabasePublicClient, createSupabaseServerClient, isAppOpen, isAuthConfigured } from './lib/supabase';
+import { PUBLIC_CACHE_CONTROL, isPublicShell } from './lib/publicCache';
 import { AREAS, PROFILE_COLUMNS, homeFor, inArea, isOnboarded, type Profile } from './lib/profile';
 import { needsLegalConsent } from './config/legal';
 import { legacyRedirect } from './data/paths';
@@ -32,7 +33,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   context.locals.user = null;
   context.locals.profile = null;
-  if (isAuthConfigured) {
+  // 공개 화면 캐시(lib/publicCache.ts): 루트 피드·루트 상세는 세션을 읽지 않고 비로그인 기준으로 그린다.
+  // 같은 HTML을 CDN이 누구에게나 주므로, 로그인 상태에 따른 부분은 브라우저가 /api/session·/fragments/*로 따로 가져온다.
+  const shell = isPublicShell(context.request.method, context.url);
+  context.locals.shell = shell;
+  if (isAuthConfigured && shell) {
+    context.locals.supabase = createSupabasePublicClient();
+  } else if (isAuthConfigured) {
     const supabase = createSupabaseServerClient(context.request, context.cookies);
     context.locals.supabase = supabase;
     // getUser()는 토큰을 Supabase에서 검증하고, 만료가 가까우면 갱신해 쿠키에 다시 쓴다
@@ -52,7 +59,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // 여행자 계정의 첫 화면은 언제나 Travelers (지기 탭을 둘러본 뒤에도 — 다른 역할 영역에서 홈으로 보낼 때 맴돌지 않게)
   // (상단 Travelers 탭은 /switch?to=travelers 를 거쳐 쿠키를 바꾸므로 여기서 다시 지기 탭으로 튕기지 않는다)
   const tab = context.cookies.get(TAB_COOKIE)?.value;
-  if (path === '/' && context.request.method === 'GET' && !context.url.search) {
+  // (캐시하는 공개 화면에서는 세션을 모르므로 브라우저가 /api/session 결과로 대신한다 — scripts/session.ts)
+  if (!shell && path === '/' && context.request.method === 'GET' && !context.url.search) {
     if (profile?.role !== 'traveler' && (tab === 'jigi' || (!tab && profile?.role === 'jigi'))) return context.redirect('/partner');
   }
 
@@ -79,6 +87,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   const response = await next();
+  if (shell) {
+    // 공개 화면: CDN에 잠깐 담아 둔다 (쿠키를 쓰지 않으므로 Set-Cookie도 없다 — 있으면 Vercel이 캐시하지 않는다)
+    if (!response.headers.has('Cache-Control') && (response.status === 200 || response.status === 404)) {
+      response.headers.set('Cache-Control', PUBLIC_CACHE_CONTROL);
+    }
+  }
   // 로그인 상태에 따라 내용이 달라지는 페이지는 캐시하지 않는다
   if (!response.headers.has('Cache-Control')) response.headers.set('Cache-Control', 'private, no-store');
   // 검색 노출: 앱 오픈(PUBLIC_APP_OPEN=true) 후 루트 피드(/)와 루트 상세만 허용
@@ -86,7 +100,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (!indexable) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
 
   // 마지막으로 본 탭 기억 (화면을 성공적으로 보여 줄 때만)
-  if (context.request.method === 'GET' && response.status === 200) {
+  // (공개 화면 캐시에서는 /api/session이 대신 기억한다 — 응답에 쿠키가 있으면 캐시되지 않으므로)
+  if (!shell && context.request.method === 'GET' && response.status === 200) {
     const seen = inArea(path, '/partner') ? 'jigi' : path === '/' || inArea(path, '/routes') || AREAS.slice(0, 4).some((a) => inArea(path, a.base)) ? 'travelers' : null;
     if (seen && seen !== tab) {
       response.headers.append('Set-Cookie', `${TAB_COOKIE}=${seen}; Path=/; Max-Age=${TAB_MAX_AGE}; SameSite=Lax${context.url.protocol === 'https:' ? '; Secure' : ''}`);

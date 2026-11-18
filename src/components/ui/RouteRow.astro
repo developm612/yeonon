@@ -16,13 +16,15 @@ interface Props {
   route: RouteCardData;
   href: string;
   eager?: boolean;
+  /** 첫 줄 사진: 높은 우선순위 */
+  priority?: boolean;
 }
-const { route: r, href, eager = false } = Astro.props;
+const { route: r, href, eager = false, priority = false } = Astro.props;
 const next = r.slots[0];
 const more = r.slotCount - 1;
 ---
 <article class="group relative flex gap-4 py-4">
-  <RoutePhoto path={r.photo} alt="" stops={r.stops} ratio="1 / 1" sizes="(min-width: 768px) 128px, 104px" eager={eager}
+  <RoutePhoto path={r.photo} alt="" stops={r.stops} ratio="1 / 1" sizes="(min-width: 768px) 128px, 104px" widths={[256, 384]} eager={eager} priority={priority}
     class="w-[104px] shrink-0 rounded-control md:w-32" />
   <div class="min-w-0 flex-1 self-center">
     <h3 class="t-heading line-clamp-2">

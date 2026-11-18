@@ -1,0 +1,41 @@
+---
+/**
+ * 루트 피드 맨 위, 로그인한 여행자에게만: 다가오는 만남(확정) 1건 / 답을 기다리는 요청 수.
+ * 피드(/)가 캐시된 공개 화면이면 브라우저가 /fragments/my-rows 로 이 조각만 따로 가져온다 (lib/publicCache.ts).
+ */
+import Icon from '../Icon.astro';
+import StatusBadge from '../ui/StatusBadge.astro';
+import { kstWhen } from '../../data/bookingOptions';
+import { BOOKING_COLUMNS, type BookingRow } from '../../lib/bookings';
+import { dbError } from '../../lib/forms';
+
+const { supabase, profile } = Astro.locals;
+let next: BookingRow | null = null;
+let waiting = 0;
+if (supabase && profile?.role === 'traveler') {
+  const { data, error } = await supabase.from('bookings').select(BOOKING_COLUMNS).eq('traveler_id', profile.id)
+    .in('status', ['pending', 'confirmed']).gt('ends_at', new Date().toISOString()).order('starts_at').limit(10);
+  dbError(error, 'load feed bookings');
+  const active = (data ?? []) as BookingRow[];
+  next = active.find((b) => b.status === 'confirmed') ?? null;
+  waiting = active.filter((b) => b.status === 'pending').length;
+}
+---
+{next && (
+  <a href={`/bookings/${next.id}`} class="mb-4 flex items-center gap-3 rounded-card border border-hairline bg-paper px-4 py-3 transition-colors hover:border-ink">
+    <span class="min-w-0 flex-1">
+      <span class="t-caption block font-normal text-stone">Your next meetup</span>
+      <span class="t-small block truncate font-semibold">{next.route_title}</span>
+      <span class="t-num block text-[0.9375rem]">{kstWhen(next.starts_at, 'en')} <span class="t-caption font-normal text-stone">KST</span></span>
+    </span>
+    <StatusBadge status="confirmed" />
+    <Icon name="chevron-right" class="size-5 shrink-0 text-stone" />
+  </a>
+)}
+{waiting > 0 && (
+  <a href="/bookings" class="mb-4 flex items-center gap-3 rounded-card border border-hairline bg-paper px-4 py-3 transition-colors hover:border-ink">
+    <span class="t-small min-w-0 flex-1 font-semibold">{waiting} {waiting === 1 ? 'request is' : 'requests are'} waiting for a reply</span>
+    <StatusBadge status="pending" />
+    <Icon name="chevron-right" class="size-5 shrink-0 text-stone" />
+  </a>
+)}

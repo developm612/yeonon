@@ -17,5 +17,7 @@ declare namespace App {
     /** 로그인한 사용자의 profiles 행 (없으면 null — 마이그레이션 전이거나 트리거 실패) */
     profile: import('./lib/profile').Profile | null;
     supabase?: import('@supabase/supabase-js').SupabaseClient;
+    /** 공개 화면 캐시 요청 (lib/publicCache.ts): 비로그인 기준으로 그리고, 사람마다 다른 부분은 브라우저가 가져온다 */
+    shell?: boolean;
   }
 }

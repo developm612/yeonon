@@ -191,7 +191,8 @@
     --color-border: var(--color-hairline);
     --color-traveler-strong: var(--color-on-blue);
     --color-traveler-soft: var(--color-on-blue-soft);
-    --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    /* 영문은 Inter(Pretendard의 영문 원본, 파일 1개), 한글은 Pretendard — Pretendard로 영문을 그리면 글자 묶음 파일을 12개 넘게 받는다 */
+    --font-sans: "Inter Variable", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
     --shadow-card: none;
     font-size: 1.0625rem;
     line-height: 1.6875rem;

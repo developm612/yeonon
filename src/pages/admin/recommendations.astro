@@ -226,7 +226,7 @@ const llm = llmModel();
                     <ol class="mt-2 list-decimal space-y-1.5 pl-5 text-sm">
                       {l.results.map((r) => (
                         <li>
-                          <a href={`/routes/${r.route_id}`} class="font-semibold underline-offset-2 hover:underline">{r.title}</a>
+                          <a href={`/routes/${r.route_id}?preview=1`} class="font-semibold underline-offset-2 hover:underline">{r.title}</a>
                           <span class="text-muted"> · {r.percent}% · {r.kind === 'perfect' ? 'Perfect' : 'Close'} · {r.reason_source === 'ai' ? 'AI 이유' : '템플릿'}</span>
                           <p class="text-muted" lang="en">{r.reason}</p>
                         </li>

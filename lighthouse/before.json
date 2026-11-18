@@ -1,0 +1,76 @@
+{
+  "label": "before",
+  "at": "2026-11-18T04:52:00.989Z",
+  "base": "https://yeonon.vercel.app",
+  "runs": 3,
+  "results": [
+    {
+      "name": "/",
+      "url": "https://yeonon.vercel.app/",
+      "samples": [
+        {
+          "perf": 97,
+          "lcp": 2259.076,
+          "tbt": 0,
+          "cls": 0,
+          "server": 597
+        },
+        {
+          "perf": 97,
+          "lcp": 2192.173,
+          "tbt": 0,
+          "cls": 0,
+          "server": 625
+        },
+        {
+          "perf": 97,
+          "lcp": 2264.612,
+          "tbt": 0,
+          "cls": 0,
+          "server": 584
+        }
+      ],
+      "median": {
+        "perf": 97,
+        "lcp": 2259.076,
+        "tbt": 0,
+        "cls": 0,
+        "server": 597
+      }
+    },
+    {
+      "name": "/routes/[id]",
+      "url": "https://yeonon.vercel.app/routes/dd8532e3-9f18-46ad-bdaa-ca7d624d7698",
+      "samples": [
+        {
+          "perf": 88,
+          "lcp": 3170.39,
+          "tbt": 0,
+          "cls": 0,
+          "server": 941
+        },
+        {
+          "perf": 88,
+          "lcp": 3250.5245,
+          "tbt": 0,
+          "cls": 0,
+          "server": 583
+        },
+        {
+          "perf": 88,
+          "lcp": 3251.6695,
+          "tbt": 0,
+          "cls": 0,
+          "server": 569
+        }
+      ],
+      "median": {
+        "perf": 88,
+        "lcp": 3250.5245,
+        "tbt": 0,
+        "cls": 0,
+        "server": 583
+      }
+    }
+  ]
+}

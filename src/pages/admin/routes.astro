@@ -140,7 +140,7 @@ const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ko-KR'
                     <div class="border-t border-border bg-bg/60 px-4 py-4 md:px-5">
                       <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                         <p class="text-sm text-muted">{person?.display_name} · {person?.email}</p>
-                        <a href={`/routes/${r.id}`} class="ml-auto text-sm font-semibold text-brand underline-offset-4 hover:underline">여행자 화면으로 보기</a>
+                        <a href={`/routes/${r.id}?preview=1`} class="ml-auto text-sm font-semibold text-brand underline-offset-4 hover:underline">여행자 화면으로 보기</a>
                       </div>
                       <p class="mt-1">{r.summary}</p>
                       <!-- 사진 검수: 얼굴이 보이는지, 직접 찍은 실제 장소인지 -->

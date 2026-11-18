@@ -4,6 +4,9 @@
  *   로고 | Travelers · 지기 탭 | (여행자, 데스크톱) 메뉴 | 채팅·알림 | 내 정보(또는 로그인)
  * Travelers · 지기 탭은 어느 쪽 화면을 볼지 고르는 스위치일 뿐 계정 역할은 바꾸지 않는다 (/switch가 쿠키에 기억).
  * 스크롤하면 흰 면 + 얇은 선. 관리자는 오른쪽에 '관리자' 링크.
+ * 캐시하는 공개 화면(Astro.locals.shell — 루트 피드·루트 상세)에서는 오른쪽을 비로그인 모습으로 그리고,
+ * 브라우저가 로그인 상태를 받아 아래 <template>으로 바꾼다 (scripts/headerAccount.ts). 그 밖의 화면은 서버에서 바로 그린다.
+ * 채팅·알림 아일랜드는 첫 화면을 그린 뒤 브라우저가 한가할 때 붙인다 (client:idle).
  */
 import Logo from '../Logo.astro';
 import Icon from '../Icon.astro';
@@ -22,6 +25,10 @@ const travelerMenu = area === 'travelers' && !['/login', '/onboarding'].includes
 const current = path.startsWith('/routes/') ? '/' : TRAVELER_NAV.map((i) => i.href).filter((h) => path === h || (h !== '/' && path.startsWith(h + '/'))).sort((a, b) => b.length - a.length)[0];
 const seg = 'inline-flex h-9 items-center rounded-full px-3.5 text-[0.8125rem] font-semibold whitespace-nowrap transition-colors md:px-4 md:text-sm';
 const meHref = member?.role === 'jigi' ? '/partner/me' : '/me';
+const shell = Boolean(Astro.locals.shell);
+const signinCls = 'mr-2 inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-3 text-sm font-semibold whitespace-nowrap hover:border-text md:px-4';
+const avatarCls = 'hidden size-11 items-center justify-center rounded-full text-text hover:bg-text/5 md:inline-flex';
+const adminCls = 'ml-1 inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-3.5 text-sm font-semibold hover:border-text';
 ---
 <header class="app-top sticky top-0 z-40 border-b border-transparent bg-bg/90 backdrop-blur-md transition-colors" data-app-top>
   <div class="container-page flex h-14 items-center gap-2 md:h-16 md:gap-4">
@@ -56,17 +63,38 @@ const meHref = member?.role === 'jigi' ? '/partner/me' : '/me';
       </nav>
     )}
 
+    {shell ? (
+      <div class="ml-auto -mr-2 flex shrink-0 items-center" data-account>
+        {isAuthConfigured && path !== '/login' && (
+          <a href={`/login?next=${encodeURIComponent(here)}`} lang="en" class={signinCls} data-signin>Sign in</a>
+        )}
+        <template data-tpl="member">
+          <span class="hidden md:contents" data-chat-mount></span>
+          <span class="contents" data-bell-mount></span>
+          <a href="/me" class={avatarCls} aria-label="My account" data-avatar>
+            <span class="inline-flex size-8 items-center justify-center rounded-full bg-text/[0.06] text-sm font-bold" aria-hidden="true" data-initial><Icon name="user" class="size-4" /></span>
+          </a>
+        </template>
+        <template data-tpl="admin">
+          <span class="contents" data-bell-mount></span>
+          <a href="/admin" lang="ko" class={adminCls}>관리자</a>
+        </template>
+        <template data-tpl="signup">
+          <a href="/onboarding" class="mr-2 inline-flex min-h-10 items-center rounded-full bg-text px-3 text-sm font-semibold whitespace-nowrap text-white">Sign up</a>
+        </template>
+      </div>
+    ) : (
     <div class="ml-auto -mr-2 flex shrink-0 items-center">
       {member ? (
         <>
           {(member.role === 'traveler' || member.role === 'jigi') && (
-            <span class="hidden md:contents"><ChatBadge client:load userId={member.id} lang={member.role === 'traveler' ? 'en' : 'ko'} href={member.role === 'traveler' ? '/chats' : '/partner/messages'} /></span>
+            <span class="hidden md:contents"><ChatBadge client:idle userId={member.id} lang={member.role === 'traveler' ? 'en' : 'ko'} href={member.role === 'traveler' ? '/chats' : '/partner/messages'} /></span>
           )}
-          <NotificationBell client:load userId={member.id} lang={member.role === 'traveler' ? 'en' : 'ko'} />
+          <NotificationBell client:idle userId={member.id} lang={member.role === 'traveler' ? 'en' : 'ko'} />
           {member.role === 'admin' ? (
-            <a href="/admin" lang="ko" class="ml-1 inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-3.5 text-sm font-semibold hover:border-text">관리자</a>
+            <a href="/admin" lang="ko" class={adminCls}>관리자</a>
           ) : (
-            <a href={meHref} class="hidden size-11 items-center justify-center rounded-full text-text hover:bg-text/5 md:inline-flex" aria-label={member.role === 'jigi' ? '내 정보' : 'My account'}>
+            <a href={meHref} class={avatarCls} aria-label={member.role === 'jigi' ? '내 정보' : 'My account'}>
               <span class="inline-flex size-8 items-center justify-center rounded-full bg-text/[0.06] text-sm font-bold" aria-hidden="true">{member.display_name?.slice(0, 1) || <Icon name="user" class="size-4" />}</span>
             </a>
           )}
@@ -74,16 +102,17 @@ const meHref = member?.role === 'jigi' ? '/partner/me' : '/me';
       ) : user && me?.status === 'active' ? (
         <a href="/onboarding" class="mr-2 inline-flex min-h-10 items-center rounded-full bg-text px-3 text-sm font-semibold whitespace-nowrap text-white">Sign up</a>
       ) : isAuthConfigured && path !== '/login' ? (
-        <a href={`/login?next=${encodeURIComponent(here)}`} lang={area === 'jigi' ? 'ko' : 'en'}
-          class="mr-2 inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-3 text-sm font-semibold whitespace-nowrap hover:border-text md:px-4">
+        <a href={`/login?next=${encodeURIComponent(here)}`} lang={area === 'jigi' ? 'ko' : 'en'} class={signinCls}>
           {area === 'jigi' ? '로그인' : 'Sign in'}
         </a>
       ) : null}
     </div>
+    )}
   </div>
 </header>
 
 <script>
+  import '../../scripts/headerAccount';
   // 스크롤하면 흰 면 + 얇은 선
   const h = document.querySelector<HTMLElement>('[data-app-top]');
   if (h) {

@@ -37,7 +37,8 @@ export default defineConfig({
     maxDuration: 30,
     imageService: true,
     imagesConfig: {
-      sizes: [480, 800, 1200, 1600, 2000],
+      // 256·384: 피드 썸네일(104~128px의 2~3배). 그 위는 대표·정류장 사진
+      sizes: [256, 384, 480, 800, 1200, 1600, 2000],
       formats: ['image/avif', 'image/webp'],
       minimumCacheTTL: 2592000,
       remotePatterns: PHOTO_PATTERNS,

@@ -17,6 +17,16 @@ export const isAuthConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
  */
 export const isAppOpen = import.meta.env.PUBLIC_APP_OPEN === 'true';
 
+/**
+ * 쿠키를 보지 않는 비로그인 클라이언트 — 공개 화면 캐시(lib/publicCache.ts)용.
+ * 누가 요청했든 비로그인 방문자가 보는 것(RLS 기준 공개 데이터)만 읽으므로, 그 결과를 CDN에 담아 모두에게 줘도 된다.
+ */
+export function createSupabasePublicClient() {
+  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: { getAll: () => [], setAll() {} },
+  });
+}
+
 export function createSupabaseServerClient(request: Request, cookies: AstroCookies) {
   return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {

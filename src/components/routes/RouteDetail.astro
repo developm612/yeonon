@@ -11,6 +11,7 @@ import Icon from '../Icon.astro';
 import BottomSheet from '../ui/BottomSheet.astro';
 import RouteLine from '../ui/RouteLine.astro';
 import RoutePhoto from '../ui/RoutePhoto.astro';
+import RoutePrice from './RoutePrice.astro';
 import { stopKind } from '../../data/stopKinds';
 import { WALK_MIN, areaName, languageName, vibeName } from '../../data/routeOptions';
 import { courseMinutes, fmtDuration } from '../../lib/course';
@@ -37,8 +38,6 @@ interface Props {
 }
 const { route, stops, host, slots, backHref, backLabel, pickForm, picked, price: priceProp, barLabel = 'Pick a time', reviews = [] } = Astro.props;
 const price = priceProp ?? { list: route.list_price, final: route.list_price, promo: null };
-const discounted = price.final < price.list;
-const wonText = (n: number) => `₩${n.toLocaleString('en-US')}`;
 const monthYear = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'Asia/Seoul', month: 'short', year: 'numeric' });
 const dayLabel = (iso: string) => kstDate(iso, 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -59,7 +58,7 @@ const facts = [
 ---
 <div class="container-page pt-3 md:pt-6">
   <a href={backHref} class="t-small -ml-1 inline-flex min-h-11 items-center gap-1 px-1 text-stone hover:text-ink"><Icon name="chevron-left" class="size-4" />{backLabel}</a>
-  <RoutePhoto path={route.cover_photo} alt={route.title} ratio="auto" eager stops={stops.map((s) => s.place_name)}
+  <RoutePhoto path={route.cover_photo} alt={route.title} ratio="auto" priority stops={stops.map((s) => s.place_name)}
     sizes="(min-width: 1120px) 1056px, 100vw" class="mt-1 aspect-[4/5] rounded-media sm:aspect-video" />
 </div>
 
@@ -139,9 +138,7 @@ const facts = [
   <aside class="lg:sticky lg:top-20" aria-label="Book this route">
     <BottomSheet id="book-sheet" title={pickForm ? 'Pick a time' : 'Open times'} inline>
       <p class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span class="t-num text-[1.75rem] leading-none">{wonText(price.final)}</span>
-        {discounted && <span class="t-small font-normal text-stone line-through">{wonText(price.list)}</span>}
-        {discounted && price.promo && <span class="rounded-full bg-line2/10 px-2.5 py-1 text-[0.8125rem] leading-none font-semibold text-line2-text">{price.promo}</span>}
+        <span class="contents" data-price-slot="panel"><RoutePrice variant="panel" price={price} /></span>
         <span class="t-caption basis-full font-normal text-stone">Times are in Korea time (KST).</span>
       </p>
 
@@ -188,9 +185,7 @@ const facts = [
 <div class="fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-paper pb-[env(safe-area-inset-bottom)] shadow-float lg:hidden">
   <div class="container-page flex min-h-[5.5rem] items-center justify-between gap-4 py-3">
     <p class="min-w-0">
-      <span class="t-num block text-[1.375rem] leading-tight">{wonText(price.final)}
-        {discounted && <span class="t-small ml-1 font-normal text-stone line-through">{wonText(price.list)}</span>}</span>
-      <span class="t-caption block truncate font-normal text-stone">{discounted && price.promo ? `${price.promo} · ` : ''}{slots.length ? `${slots.length} open ${slots.length === 1 ? 'time' : 'times'}` : 'No open times yet'}</span>
+      <span class="contents" data-price-slot="bar"><RoutePrice variant="bar" price={price} slotCount={slots.length} /></span>
     </p>
     <button type="button" data-sheet-open="book-sheet"
       class="inline-flex min-h-[52px] shrink-0 items-center justify-center rounded-control bg-on-blue px-6 text-[1.0625rem] font-semibold text-white transition-colors hover:bg-on-blue-hover">

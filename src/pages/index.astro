@@ -2,7 +2,8 @@
 /**
  * 첫 화면 = Travelers 탭 루트 피드 (yeonon-app-first-plan.md 1-1). 설명 문단·히어로 없이 바로 루트 목록.
  *   검색(?q=) · 관심사 칩(?tag=) · For you 입구 한 줄 · 루트 목록(가장 가까운 열린 시간 순) · Load more(?page=)
- *   로그인한 여행자에게는 맨 위에 다가오는 만남 / 답을 기다리는 요청 한 줄.
+ *   로그인한 여행자에게는 맨 위에 다가오는 만남 / 답을 기다리는 요청 한 줄 (components/feed/MyBookingRows.astro).
+ * 공개 화면 캐시(lib/publicCache.ts): 비로그인 기준으로 그려 CDN에 잠깐 담고, 내 예약 줄은 브라우저가 /fragments/my-rows에서 가져온다.
  * 로그인 없이 보인다. For you·예약·채팅처럼 로그인이 필요한 곳은 누르면 로그인 → 이 화면으로 돌아온다.
  * 루트는 공개(published)만 — 읽기 권한은 DB RLS가 다시 거른다. 옛 /routes 목록 주소는 여기로 301.
  */
@@ -11,19 +12,16 @@ import Icon from '../components/Icon.astro';
 import AppFootnote from '../components/ui/AppFootnote.astro';
 import EmptyState from '../components/ui/EmptyState.astro';
 import RouteRow from '../components/ui/RouteRow.astro';
-import StatusBadge from '../components/ui/StatusBadge.astro';
+import MyBookingRows from '../components/feed/MyBookingRows.astro';
 import { landingUrl } from '../config/site';
-import { kstWhen } from '../data/bookingOptions';
 import { INTERESTS, isInterestId } from '../data/interests';
 import { interestIcon } from '../data/stopKinds';
-import { BOOKING_COLUMNS, type BookingRow } from '../lib/bookings';
-import { dbError } from '../lib/forms';
 import { loadFeed, type RouteCardData } from '../lib/routeCards';
 import { isAppOpen } from '../lib/supabase';
 
 export const prerender = false;
 
-const { supabase, profile } = Astro.locals;
+const { supabase, shell } = Astro.locals;
 const params = Astro.url.searchParams;
 const tagParam = params.get('tag') ?? '';
 const tag = isInterestId(tagParam) ? tagParam : null;
@@ -32,18 +30,6 @@ const page = Math.min(20, Math.max(1, Number(params.get('page')) || 1));
 const PER_PAGE = 20;
 
 const feed: { items: RouteCardData[]; total: number } = supabase ? await loadFeed(supabase, { tag, q, page, perPage: PER_PAGE }) : { items: [], total: 0 };
-
-// 로그인한 여행자: 다가오는 만남(확정) 1건, 답을 기다리는 요청 수
-let next: BookingRow | null = null;
-let waiting = 0;
-if (supabase && profile?.role === 'traveler') {
-  const { data, error } = await supabase.from('bookings').select(BOOKING_COLUMNS).eq('traveler_id', profile.id)
-    .in('status', ['pending', 'confirmed']).gt('ends_at', new Date().toISOString()).order('starts_at').limit(10);
-  dbError(error, 'load feed bookings');
-  const active = (data ?? []) as BookingRow[];
-  next = active.find((b) => b.status === 'confirmed') ?? null;
-  waiting = active.filter((b) => b.status === 'pending').length;
-}
 
 const qs = (over: Record<string, string | null>) => {
   const u = new URLSearchParams();
@@ -60,24 +46,8 @@ const news = landingUrl('empty_feed');
   <div class="container-page max-w-[720px]! pt-4 pb-10 md:pt-6">
     <h1 class="sr-only">Routes in Seongsu</h1>
 
-    {next && (
-      <a href={`/bookings/${next.id}`} class="mb-4 flex items-center gap-3 rounded-card border border-hairline bg-paper px-4 py-3 transition-colors hover:border-ink">
-        <span class="min-w-0 flex-1">
-          <span class="t-caption block font-normal text-stone">Your next meetup</span>
-          <span class="t-small block truncate font-semibold">{next.route_title}</span>
-          <span class="t-num block text-[0.9375rem]">{kstWhen(next.starts_at, 'en')} <span class="t-caption font-normal text-stone">KST</span></span>
-        </span>
-        <StatusBadge status="confirmed" />
-        <Icon name="chevron-right" class="size-5 shrink-0 text-stone" />
-      </a>
-    )}
-    {waiting > 0 && (
-      <a href="/bookings" class="mb-4 flex items-center gap-3 rounded-card border border-hairline bg-paper px-4 py-3 transition-colors hover:border-ink">
-        <span class="t-small min-w-0 flex-1 font-semibold">{waiting} {waiting === 1 ? 'request is' : 'requests are'} waiting for a reply</span>
-        <StatusBadge status="pending" />
-        <Icon name="chevron-right" class="size-5 shrink-0 text-stone" />
-      </a>
-    )}
+    <!-- 로그인한 여행자: 다가오는 만남·답을 기다리는 요청. 캐시된 공개 화면이면 브라우저가 따로 가져와 이 자리에 넣는다 -->
+    {shell ? <div data-my-rows></div> : <MyBookingRows />}
 
     <!-- 검색 -->
     <form method="get" action="/" role="search" class="relative">
@@ -130,7 +100,7 @@ const news = landingUrl('empty_feed');
         <ul class="divide-y divide-hairline">
           {feed.items.map((r, i) => (
             <li id={i === (page - 1) * PER_PAGE ? 'more' : undefined} class="scroll-mt-20">
-              <RouteRow route={r} href={`/routes/${r.id}`} eager={i < 4} />
+              <RouteRow route={r} href={`/routes/${r.id}`} eager={i < 4} priority={i === 0} />
             </li>
           ))}
         </ul>
@@ -148,3 +118,17 @@ const news = landingUrl('empty_feed');
     <AppFootnote class="mt-12 border-t border-hairline pt-6" />
   </div>
 </BaseLayout>
+
+<script>
+  // 캐시된 공개 화면: 로그인한 여행자면 내 예약 줄을 가져와 넣는다
+  import { getFragment, getSession } from '../scripts/session';
+
+  const slot = document.querySelector<HTMLElement>('[data-my-rows]');
+  if (slot) {
+    getSession().then(async (s) => {
+      if (s?.member?.role !== 'traveler') return;
+      const frag = await getFragment('/fragments/my-rows');
+      if (frag) slot.replaceWith(frag);
+    });
+  }
+</script>

@@ -1,0 +1,8 @@
+---
+/** 루트 피드 위 '내 예약' 줄 조각 (캐시된 피드에서 브라우저가 가져간다 — components/feed/MyBookingRows.astro). 캐시하지 않는다 */
+import MyBookingRows from '../../components/feed/MyBookingRows.astro';
+
+export const prerender = false;
+export const partial = true;
+---
+<MyBookingRows />

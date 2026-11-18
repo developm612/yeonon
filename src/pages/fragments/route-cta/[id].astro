@@ -1,0 +1,33 @@
+---
+/**
+ * 루트 상세의 '보는 사람에 따라 다른 부분' 조각 (캐시된 공개 화면에서 브라우저가 가져간다 — pages/routes/[id].astro 스크립트).
+ *   [data-cta]            : 요청 영역 (components/routes/RequestCta.astro — 여행자 폼 / 가입 마치기 / 여행자 계정 안내)
+ *   template[data-price]  : 이 여행자에게 적용될 가격 (예약 패널·모바일 하단 바)
+ * 세션 기준으로 그리고 캐시하지 않는다 (middleware: private, no-store). 공개 전 루트나 비로그인이면 빈 응답.
+ */
+import RequestCta from '../../../components/routes/RequestCta.astro';
+import RoutePrice from '../../../components/routes/RoutePrice.astro';
+import { ctaViewer, loadRouteView } from '../../../lib/routeView';
+
+export const prerender = false;
+export const partial = true;
+
+const { supabase, user, profile } = Astro.locals;
+const view = supabase && user ? await loadRouteView(supabase, Astro.params.id ?? '', { profile, reviews: false }) : null;
+const show = Boolean(view && !view.isPreview);
+const v = view!;
+const atLimit = show && v.canRequest ? v.pendingCount >= v.settings.max_pending_per_traveler : false;
+const price = show && v.quote ? { list: v.quote.list_price, final: v.quote.final_price, promo: v.quote.promotion_name } : null;
+---
+{show && (
+  <>
+    <div data-cta>
+      <RequestCta viewer={ctaViewer(user, profile, v.canRequest)} routeId={v.route.id} slotCount={v.slots.length}
+        pickable={v.slots.length > 0} here={`/routes/${v.route.id}`} hostName={v.host?.display_name ?? 'Your jigi'}
+        partyMax={v.route.max_party_size ?? 1} settings={v.settings} freeQuote={v.quote?.final_price === 0}
+        pendingCount={v.pendingCount} atLimit={atLimit} />
+    </div>
+    {price && <template data-price="panel"><RoutePrice variant="panel" price={price} /></template>}
+    {price && <template data-price="bar"><RoutePrice variant="bar" price={price} slotCount={v.slots.length} /></template>}
+  </>
+)}

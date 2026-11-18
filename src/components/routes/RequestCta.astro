@@ -1,0 +1,81 @@
+---
+/**
+ * 루트 상세 예약 패널 아래 버튼·폼 — 보는 사람에 따라 다르다 (pages/routes/[id].astro 맨 위 설명).
+ *   traveler : 인원·메모 → Request this route (스크립트가 없어도 폼 전송으로 동작)
+ *   anon     : 시간을 고르고 Sign in to request → 로그인 → 같은 화면(?slot=)
+ *   signup   : Finish signing up
+ *   other    : 지기·관리자 — 여행자 계정으로 요청한다는 안내
+ * 캐시된 공개 화면은 anon으로 그리고, 로그인한 사람이면 브라우저가 /fragments/route-cta/[id]에서 이 조각을 다시 받아 바꾼다.
+ */
+import Notice from '../account/Notice.astro';
+import UiButton from '../ui/UiButton.astro';
+import { BOOKING_NOTE_MAX, fmtMinutes, type BookingSettings } from '../../lib/bookings';
+import { UUID } from '../../lib/routes';
+
+interface Props {
+  viewer: 'traveler' | 'anon' | 'signup' | 'other';
+  routeId: string;
+  slotCount: number;
+  pickable: boolean;
+  /** 추천 결과에서 왔으면 추천 id (여행자만) */
+  rec?: string;
+  /** 요청 후 오류로 돌아올 주소 */
+  here: string;
+  hostName: string;
+  partyMax: number;
+  settings: BookingSettings | null;
+  freeQuote?: boolean;
+  pendingCount?: number;
+  atLimit?: boolean;
+  formError?: string | null;
+}
+const { viewer, routeId, slotCount, pickable, rec = '', here, hostName, partyMax, settings, freeQuote = false, pendingCount = 0, atLimit = false, formError = null } = Astro.props;
+const path = `/routes/${routeId}`;
+---
+{viewer === 'traveler' ? (
+  slotCount > 0 && settings && (
+    <form id="request-form" method="post" action="/api/bookings/request" class="mt-5 space-y-4 border-t border-hairline pt-5" novalidate data-request-form>
+      <input type="hidden" name="route_id" value={routeId} />
+      <input type="hidden" name="next" value={here} />
+      {UUID.test(rec) && <input type="hidden" name="recommendation_id" value={rec} />}
+
+      <p class="t-small rounded-control bg-concrete px-3.5 py-2.5" data-picked aria-live="polite">Pick a time above.</p>
+
+      <label class="t-small block font-semibold">Group size
+        <select name="party_size" class="mt-1.5 block h-12 w-full rounded-control border border-hairline bg-paper px-3 text-[1rem] font-normal">
+          {Array.from({ length: partyMax }, (_, i) => i + 1).map((n) => <option value={n} selected={n === Math.min(2, partyMax) || undefined}>{n} {n === 1 ? 'person' : 'people'}</option>)}
+        </select>
+      </label>
+
+      <label class="t-small block font-semibold">Note to {hostName} <span class="font-normal text-stone">(optional)</span>
+        <textarea name="note" rows="3" maxlength={BOOKING_NOTE_MAX} placeholder="What are you most excited about? Any dietary needs or mobility notes?"
+          class="mt-1.5 block w-full rounded-control border border-hairline bg-paper px-3 py-2.5 text-[1rem] font-normal" data-note></textarea>
+        <span class="t-caption mt-1 block font-normal text-stone">Contact details (email, phone, social handles, links) are removed. You'll chat in YEONON once matched.</span>
+      </label>
+
+      {atLimit && <Notice>You already have {pendingCount} requests waiting for a reply, the most you can have at once. Wait for an answer, or cancel one in Bookings.</Notice>}
+      <p role="alert" class:list={['t-small rounded-control bg-status-error/10 px-3.5 py-2.5 text-status-error', !formError && 'hidden']} data-error>{formError}</p>
+      <div class="hidden rounded-control border border-hairline p-3" data-alternatives>
+        <p class="t-small font-semibold">Other open times</p>
+        <div class="mt-2 flex flex-wrap gap-1.5" data-alt-list></div>
+      </div>
+
+      <UiButton type="submit" full data-submit>Request this route</UiButton>
+      <p class="t-caption text-center font-normal text-stone">
+        {hostName} replies within {fmtMinutes(settings.respond_minutes, 'en')} ({fmtMinutes(settings.urgent_respond_minutes, 'en')} for meetups in the next {fmtMinutes(settings.urgent_window_minutes, 'en')}).
+        {freeQuote ? ' No payment needed.' : ' No payment in the app yet.'}
+      </p>
+    </form>
+  )
+) : viewer === 'anon' ? (
+  <form id="request-form" method="get" action="/login" class="mt-5 space-y-3 border-t border-hairline pt-5" data-signin-form data-route={routeId}>
+    <input type="hidden" name="next" value={path} />
+    {pickable && <p class="t-small rounded-control bg-concrete px-3.5 py-2.5" data-picked aria-live="polite">Pick a time above.</p>}
+    <UiButton type="submit" full>Sign in to request</UiButton>
+    <p class="t-caption text-center font-normal text-stone">Sign in with Google. You'll come back here with your time still picked.</p>
+  </form>
+) : viewer === 'signup' ? (
+  <UiButton href={`/onboarding?next=${encodeURIComponent(path)}`} full class="mt-5">Finish signing up</UiButton>
+) : (
+  <p class="t-small mt-5 border-t border-hairline pt-5 font-normal text-stone">Routes are requested from traveler accounts.</p>
+)}
