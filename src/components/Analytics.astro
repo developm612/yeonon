@@ -1,0 +1,46 @@
+---
+/**
+ * Google Analytics 4 공식 태그(gtag.js). BaseLayout <head>에 한 번만 들어간다.
+ * - 운영 주소(GA_HOSTNAME)에서만 불러온다. localhost·Vercel 미리보기 주소에서는 태그도 이벤트도 없다.
+ * - 이 사이트는 페이지를 옮길 때마다 새로 불러오는 방식(MPA, ClientRouter 없음)이라 page_view는 config가 페이지마다 한 번 보낸다.
+ *   그래서 page_view를 따로 보내지 않는다 (중복 방지).
+ * - 서버가 예약한 완료 이벤트(lib/analytics.ts 쿠키)를 꺼내 한 번 보내고 쿠키를 지운다.
+ */
+import { GA_EVENT_COOKIE, GA_HOSTNAME, GA_MEASUREMENT_ID } from '../config/analytics';
+---
+
+<script is:inline define:vars={{ gaId: GA_MEASUREMENT_ID, gaHost: GA_HOSTNAME, gaCookie: GA_EVENT_COOKIE }}>
+  (function () {
+    // 로그인 code가 붙은 주소는 head의 안전장치가 곧바로 /auth/callback으로 옮긴다 — 그 사이에는 보내지 않는다
+    if (new URLSearchParams(location.search).has('code') && location.pathname !== '/auth/callback') return;
+
+    var pending = [];
+    var match = document.cookie.match(new RegExp('(?:^|; )' + gaCookie + '=([^;]*)'));
+    if (match) {
+      document.cookie = gaCookie + '=; Max-Age=0; Path=/; SameSite=Lax';
+      try {
+        var parsed = JSON.parse(decodeURIComponent(match[1]));
+        if (Array.isArray(parsed)) pending = parsed;
+      } catch (e) {
+        pending = [];
+      }
+    }
+
+    if (location.hostname !== gaHost) return;
+
+    var tag = document.createElement('script');
+    tag.async = true;
+    tag.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
+    document.head.appendChild(tag);
+
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () {
+      window.dataLayer.push(arguments);
+    };
+    window.gtag('js', new Date());
+    window.gtag('config', gaId);
+    pending.forEach(function (e) {
+      if (e && typeof e.n === 'string') window.gtag('event', e.n, e.p || {});
+    });
+  })();
+</script>

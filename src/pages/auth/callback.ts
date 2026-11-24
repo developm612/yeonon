@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createSupabaseServerClient, isAuthConfigured, safeNext } from '../../lib/supabase';
 import { NEXT_COOKIE } from '../../lib/authNext';
+import { queueAnalyticsEvent } from '../../lib/analytics';
 
 export const prerender = false;
 
@@ -15,5 +16,7 @@ export const GET: APIRoute = async ({ request, cookies, url, redirect }) => {
   const supabase = createSupabaseServerClient(request, cookies);
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) return redirect('/login?error=auth&next=' + encodeURIComponent(next));
+  // GA4: 세션이 실제로 만들어졌을 때만 login (다음 화면에서 보낸다)
+  queueAnalyticsEvent(cookies, url, 'login', { method: 'Google' });
   return redirect(next);
 };

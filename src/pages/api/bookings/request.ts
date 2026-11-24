@@ -4,6 +4,7 @@ import { BOOKING_NOTE_MAX, bookingErrorCode, loadBookingSettings } from '../../.
 import { mailBookingNotifications } from '../../../lib/mail';
 import { redactContacts } from '../../../lib/recommend/input';
 import { UUID } from '../../../lib/routes';
+import { queueAnalyticsEvent } from '../../../lib/analytics';
 
 export const prerender = false;
 
@@ -65,5 +66,7 @@ export const POST: APIRoute = async (ctx) => {
 
   const result = data as { id: string; status: string; respond_by: string | null };
   await mailBookingNotifications(result.id, started, ctx.url.origin);
+  // GA4: 요청이 DB에 저장됐을 때만 match_request (버튼 클릭·실패는 세지 않는다. 다음 화면에서 보낸다)
+  queueAnalyticsEvent(ctx.cookies, ctx.url, 'match_request', { party_size: party, from_recommendation: UUID.test(recId) });
   return bookingOk(req, result, `/bookings/${result.id}`, 'requested');
 };

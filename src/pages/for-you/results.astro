@@ -156,8 +156,26 @@ const more = canWiden ? { href: widenHref, label: 'Try other dates' } : { href: 
 <script>
   import type { RecommendResult, RecommendationCard } from '../../lib/recommend/engine';
   import { routeCardHtml } from '../../lib/routeCardHtml';
+  import { track } from '../../scripts/analytics';
 
   const root = document.querySelector<HTMLElement>('[data-results]')!;
+
+  // GA4 preference_select: /for-you에서 취향을 골라 제출하고(서버 검증 통과) 막 들어왔을 때 한 번.
+  // 새로고침·뒤로 가기·로그인 후 돌아온 경우는 세지 않는다
+  {
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    let fromForm = false;
+    try {
+      const ref = new URL(document.referrer);
+      fromForm = ref.origin === location.origin && ref.pathname.replace(/\/$/, '') === '/for-you';
+    } catch {
+      fromForm = false;
+    }
+    if (fromForm && (!nav || nav.type === 'navigate')) {
+      const interests: string[] = (JSON.parse(root.dataset.input ?? '{}') as { interests?: string[] }).interests ?? [];
+      track('preference_select', { interest_count: interests.length, interests: interests.join(',').slice(0, 100) });
+    }
+  }
   const chipCount = Number(root.dataset.chips);
   const finalCount = Number(root.dataset.final);
   const view = (name: string) => root.querySelectorAll<HTMLElement>('[data-view]').forEach((v) => (v.hidden = v.dataset.view !== name));
@@ -196,6 +214,8 @@ const more = canWiden ? { href: widenHref, label: 'Try other dates' } : { href: 
       ? 'Recommended by YEONON AI. The reasons are written by AI from each route’s details.'
       : 'Ranked by YEONON match score (shared interests and route quality).';
     view('done');
+    // GA4: 추천 결과를 실제로 받아 화면에 보여 줬을 때 (오류·로딩 중에는 보내지 않는다)
+    track('match_view', { result_count: res.results.length, ai: Boolean(res.ai) });
   }
 
   // 로딩 연출: 지금 하는 일 문구를 차례로 바꾸고(마지막에서 멈춤), 오래 걸리면 안내를 바꾼다

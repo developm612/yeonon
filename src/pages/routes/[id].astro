@@ -102,6 +102,21 @@ const barLabel = !pickable ? (slots.length ? 'Open times' : 'Details') : 'Pick a
 <script>
   import { kstWhen } from '../../data/bookingOptions';
   import { getFragment, getSession } from '../../scripts/session';
+  import { track } from '../../scripts/analytics';
+
+  // GA4 mate_profile_view: 'Your local friend'(지기 프로필) 영역이 화면에 실제로 보였을 때 페이지마다 한 번
+  const hostSection = document.getElementById('sec-host')?.closest('section');
+  if (hostSection && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        track('mate_profile_view');
+      },
+      { rootMargin: '0px 0px -30% 0px' },
+    );
+    io.observe(hostSection);
+  }
 
   const sheet = document.getElementById('book-sheet') as HTMLDialogElement | null;
   const isSheet = () => !window.matchMedia('(min-width: 1024px)').matches;

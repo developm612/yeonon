@@ -13,6 +13,7 @@ import { clean } from '../scripts/formSafety';
 import { LEGAL } from '../config/legal';
 import { SITE } from '../config/site';
 import { ROLE_CHANGE_DAYS } from '../lib/roleChange';
+import { queueAnalyticsEvent } from '../lib/analytics';
 
 export const prerender = false;
 
@@ -57,7 +58,11 @@ if (Astro.request.method === 'POST' && profile && supabase) {
       p_terms_version: LEGAL.termsVersion,
       p_privacy_version: LEGAL.privacyVersion,
     });
-    if (!dbError(rpcError, 'complete_onboarding')) return Astro.redirect(destination(role));
+    if (!dbError(rpcError, 'complete_onboarding')) {
+      // GA4: 가입(온보딩)이 DB에 저장됐을 때만 sign_up (다음 화면에서 보낸다)
+      queueAnalyticsEvent(Astro.cookies, Astro.url, 'sign_up', { method: 'Google', user_role: role });
+      return Astro.redirect(destination(role));
+    }
     error = /already/.test(rpcError!.message) ? 'You have already completed this step. · 이미 완료했어요.' : 'Something went wrong. Please try again. · 저장하지 못했어요. 다시 시도해 주세요.';
   }
 }

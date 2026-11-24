@@ -8,6 +8,7 @@ import pretendardCss from 'pretendard/dist/web/variable/pretendardvariable-dynam
 import '../styles/global.css';
 import AppTopBar from '../components/ui/AppTopBar.astro';
 import TabBar from '../components/ui/TabBar.astro';
+import Analytics from '../components/Analytics.astro';
 import { inArea } from '../lib/profile';
 
 interface Props {
@@ -72,6 +73,8 @@ const showTabs = Boolean(tabVariant) && tabBar;
     <!-- 한글 글꼴 Pretendard: 첫 화면을 막지 않게 print로 받아 두었다가 다 받으면 적용 (글자 묶음별 woff2는 쓰는 것만 받는다) -->
     <link rel="stylesheet" href={pretendardCss} media="print" onload="this.media='all'" />
     <noscript><link rel="stylesheet" href={pretendardCss} /></noscript>
+    <!-- Google Analytics 4: 운영 주소(yeonon.vercel.app)에서만 동작 (components/Analytics.astro) -->
+    <Analytics />
   </head>
   <body class:list={['min-h-dvh', travelerUi && 'ui-traveler', showTabs && (tabVariant === 'jigi' ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0' : 'pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0'), bottomBar && 'pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0']}>
     <a
